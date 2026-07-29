@@ -17,13 +17,6 @@ import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
 
-enum class DateFilter(val label: String) {
-    ALL("All time"),
-    TODAY("Today"),
-    THIS_WEEK("This week"),
-    THIS_MONTH("This month"),
-}
-
 enum class SortOrder(val label: String) {
     NEWEST("Newest"),
     OLDEST("Oldest"),
@@ -32,7 +25,8 @@ enum class SortOrder(val label: String) {
 
 data class RecordingsFilter(
     val query: String = "",
-    val dateFilter: DateFilter = DateFilter.ALL,
+    val dateStart: LocalDate? = null,
+    val dateEnd: LocalDate? = null,
     val selectedLabels: Set<String> = emptySet(),
     val sortOrder: SortOrder = SortOrder.NEWEST,
 )
@@ -98,10 +92,10 @@ class RecordingsViewModel(private val repository: CameraRepository) : ViewModel(
         }
     }
 
-    fun setDateFilter(dateFilter: DateFilter) {
+    fun setDateRange(start: LocalDate?, end: LocalDate?) {
         _state.update { current ->
             if (current is RecordingsUiState.Ready) {
-                val filter = current.data.filter.copy(dateFilter = dateFilter)
+                val filter = current.data.filter.copy(dateStart = start, dateEnd = end)
                 RecordingsUiState.Ready(current.data.copy(filter = filter, filtered = applyFilters(filter)))
             } else current
         }
@@ -150,24 +144,16 @@ class RecordingsViewModel(private val repository: CameraRepository) : ViewModel(
         }
 
         // Date range filter
-        if (filter.dateFilter != DateFilter.ALL) {
-            val now = LocalDate.now(ZoneId.systemDefault())
-            val threshold = when (filter.dateFilter) {
-                DateFilter.ALL -> null
-                DateFilter.TODAY -> now.atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime()
-                DateFilter.THIS_WEEK -> now.minusDays(6).atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime()
-                DateFilter.THIS_MONTH -> now.withDayOfMonth(1).atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime()
-            }
-            if (threshold != null) {
-                result = result.filter { r ->
-                    r.startedAt?.let {
-                        try {
-                            OffsetDateTime.parse(it).isAfter(threshold)
-                        } catch (_: Exception) {
-                            true // keep if unparseable
-                        }
-                    } ?: true // keep if no timestamp
-                }
+        if (filter.dateStart != null || filter.dateEnd != null) {
+            val start = filter.dateStart?.atStartOfDay(ZoneId.systemDefault())?.toOffsetDateTime()
+            val end = filter.dateEnd?.plusDays(1)?.atStartOfDay(ZoneId.systemDefault())?.toOffsetDateTime()
+            result = result.filter { r ->
+                val ts = r.startedAt?.let {
+                    try { OffsetDateTime.parse(it) } catch (_: Exception) { null }
+                } ?: return@filter true // keep if no timestamp
+                if (start != null && ts.isBefore(start)) return@filter false
+                if (end != null && !ts.isBefore(end)) return@filter false
+                true
             }
         }
 
