@@ -23,3 +23,7 @@ Thumbs.db
 
 # Gemini Artifacts
 .artifacts/
+
+# Local backup artifacts (history-rewrite bundles etc.)
+.git-backups/
+.venv-filter-repo/
