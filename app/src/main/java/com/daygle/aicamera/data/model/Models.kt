@@ -83,6 +83,21 @@ data class Event(
     val topLabel: String? get() = detections.maxByOrNull { it.confidence }?.label
 }
 
+/**
+ * The server's ntfy push configuration (`GET /api/settings/alert-push`). For a
+ * non-admin (viewer) session the server redacts `password`, so the app also
+ * lets the user supply ntfy credentials manually.
+ */
+@Serializable
+data class PushSettings(
+    val enabled: Boolean = false,
+    @SerialName("server_url") val serverUrl: String? = null,
+    val topic: String? = null,
+    val username: String? = null,
+    val password: String? = null,
+    val priority: String? = null,
+)
+
 @Serializable
 data class Recording(
     val id: Int = 0,

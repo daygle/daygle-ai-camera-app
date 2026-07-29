@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Videocam
@@ -41,10 +42,17 @@ private enum class HomeTab(val label: String, val icon: ImageVector) {
 fun HomeScreen(
     onOpenCamera: (String) -> Unit,
     onOpenRecording: (Int) -> Unit,
+    onOpenNotifications: () -> Unit,
     onDisconnect: () -> Unit,
 ) {
     var selectedTab by remember { mutableStateOf(HomeTab.Cameras) }
     var refreshTrigger by remember { mutableIntStateOf(0) }
+
+    // Resume the alert listener whenever the user is signed in and on this screen.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        com.daygle.aicamera.push.PushController.sync(context)
+    }
 
     Scaffold(
         topBar = {
@@ -53,6 +61,9 @@ fun HomeScreen(
                 actions = {
                     IconButton(onClick = { refreshTrigger++ }) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
+                    }
+                    IconButton(onClick = onOpenNotifications) {
+                        Icon(Icons.Filled.NotificationsNone, contentDescription = "Alert notifications")
                     }
                     IconButton(onClick = onDisconnect) {
                         Icon(Icons.Filled.Logout, contentDescription = "Disconnect")

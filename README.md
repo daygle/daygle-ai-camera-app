@@ -21,6 +21,8 @@ setup stays in the server's web dashboard. This client focuses on watching.
 - **Events** — the detection/alert log, filterable to alerts only.
 - **Recordings** — browse saved clips and play them back in-app with a full
   video scrubber.
+- **Push alerts** — real notifications when your cameras detect an object or
+  sound, delivered while the app is backgrounded (see below).
 
 ## How it connects
 
@@ -52,6 +54,36 @@ silent re-login and one retry).
 | `GET /api/events` | Detection / alert log |
 | `GET /api/recordings` | Saved recordings |
 | `GET /api/recordings/{id}/stream` | Range-request MP4 playback |
+| `GET /api/settings/alert-push` | Discover the server's ntfy push config |
+
+## Push alerts
+
+The Daygle server sends detection alerts via **ntfy** — it POSTs to
+`{server_url}/{topic}`. This app receives those alerts by **subscribing to the
+same ntfy topic's live stream** (`GET {server_url}/{topic}/json`), the same
+"instant delivery" model the official ntfy app uses for self-hosted servers.
+
+To turn it on: tap the **bell** icon on the home screen → **Auto-fill from
+server** (reads the ntfy server/topic from your server's push settings) →
+enable the switch and grant the notification permission.
+
+A lightweight **foreground service** holds the streaming connection open and
+raises a notification for each alert, with automatic reconnect and restart on
+boot.
+
+**What this requires / its limits:**
+
+- Push must be **configured and enabled on the server** (its Settings →
+  notifications → ntfy). The app only listens; the server does the sending.
+- Delivery works while the app is backgrounded via an ongoing "watching for
+  alerts" status notification. It is **not** Firebase/FCM — there's no cloud
+  push project — so if Android kills the service under heavy memory pressure
+  it resumes the next time you open the app (or on reboot).
+- If your ntfy topic is access-protected and you sign in as a **viewer**, the
+  server redacts the ntfy password; enter the ntfy username/password manually
+  on the notifications screen. Public/unprotected topics need no credentials.
+- On Android 13+ the app requests the notification permission the first time
+  you enable alerts.
 
 ## Requirements
 
@@ -95,6 +127,10 @@ app/src/main/java/com/daygle/aicamera/
 │   ├── DaygleApi.kt          # Retrofit endpoints
 │   ├── CameraRepository.kt   # Domain layer
 │   └── model/Models.kt       # Serializable API models
+├── push/
+│   ├── NtfyService.kt        # Foreground ntfy stream → notifications
+│   ├── PushController.kt     # Start/stop the listener from the saved config
+│   └── BootReceiver.kt       # Resume the listener after reboot
 └── ui/
     ├── DaygleNavHost.kt      # Navigation graph
     ├── HomeScreen.kt         # Bottom-nav shell
@@ -103,5 +139,6 @@ app/src/main/java/com/daygle/aicamera/
     ├── live/                 # Live snapshot view
     ├── events/               # Detection log
     ├── recordings/           # Clip list
-    └── player/               # ExoPlayer playback
+    ├── player/               # ExoPlayer playback
+    └── notifications/        # Push-alert settings
 ```
