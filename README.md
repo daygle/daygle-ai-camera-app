@@ -99,46 +99,75 @@ boot.
 
 This is a standard Gradle/Android Studio project (Kotlin + Jetpack Compose).
 
+**Prerequisites:** JDK 17+, Android SDK with API 37 platform installed.
+
 ```bash
 # Android Studio: open the project root and Run 'app'.
-# Command line (with the Android SDK installed and ANDROID_HOME set):
-./gradlew assembleDebug
-# The APK is written to app/build/outputs/apk/debug/.
+# Command line:
+./gradlew assembleDebug        # debug APK -> app/build/outputs/apk/debug/
+./gradlew assembleRelease      # release APK (signing not configured by default)
 ```
+
+CI runs on every push to `main` via GitHub Actions (`.github/workflows/android-build.yml`).
 
 ### Tech stack
 
-- Kotlin, Jetpack Compose, Material 3
-- Navigation Compose
-- OkHttp + Retrofit + kotlinx.serialization
-- Coil (image loading for snapshots)
-- Media3 / ExoPlayer (recording playback)
-- DataStore (connection settings)
+| Layer | Libraries |
+| --- | --- |
+| Language | Kotlin 2.4.10 |
+| UI | Jetpack Compose (BOM 2026.06), Material 3 |
+| Build | AGP 9.3.1, Gradle 9.5.0, JDK 17 |
+| Navigation | Navigation Compose 2.9 |
+| Networking | OkHttp 5.4, Retrofit 3.0, kotlinx.serialization 1.11 |
+| Images | Coil 2.7 |
+| Video | Media3 / ExoPlayer 1.10 |
+| Storage | DataStore 1.2 |
+| Architecture | MVVM, manual DI (no Hilt/Koin) |
 
 ## Project layout
 
 ```
 app/src/main/java/com/daygle/aicamera/
-├── DaygleApp.kt              # Application + service locator + Coil wiring
+├── DaygleApp.kt                 # Application + service locator + Coil wiring
 ├── MainActivity.kt
 ├── data/
-│   ├── SettingsStore.kt      # Persisted server URL + credentials (DataStore)
-│   ├── SessionManager.kt     # Cookie/CSRF login, OkHttp/Retrofit stack
-│   ├── DaygleApi.kt          # Retrofit endpoints
-│   ├── CameraRepository.kt   # Domain layer
-│   └── model/Models.kt       # Serializable API models
+│   ├── CameraRepository.kt      # Domain layer
+│   ├── DaygleApi.kt             # Retrofit endpoints
+│   ├── NotificationSettingsStore.kt  # Persisted ntfy push config (DataStore)
+│   ├── SessionManager.kt        # Cookie/CSRF login, OkHttp/Retrofit stack
+│   ├── SettingsStore.kt         # Persisted server URL + credentials (DataStore)
+│   └── model/Models.kt          # Serializable API models
 ├── push/
-│   ├── NtfyService.kt        # Foreground ntfy stream → notifications
-│   ├── PushController.kt     # Start/stop the listener from the saved config
-│   └── BootReceiver.kt       # Resume the listener after reboot
+│   ├── BootReceiver.kt          # Resume the listener after reboot
+│   ├── NtfyService.kt           # Foreground ntfy stream -> notifications
+│   └── PushController.kt        # Start/stop the listener from the saved config
 └── ui/
-    ├── DaygleNavHost.kt      # Navigation graph
-    ├── HomeScreen.kt         # Bottom-nav shell
-    ├── connect/              # Sign-in
-    ├── dashboard/            # Cameras grid
-    ├── live/                 # Live snapshot view
-    ├── events/               # Detection log
-    ├── recordings/           # Clip list
-    ├── player/               # ExoPlayer playback
-    └── notifications/        # Push-alert settings
+    ├── DaygleNavHost.kt         # Navigation graph + auth gating
+    ├── Format.kt                # Timestamp/duration/uptime formatters
+    ├── HomeScreen.kt            # Bottom-nav shell (cameras, events, recordings)
+    ├── LifecycleEffects.kt      # Lifecycle-aware pause/resume helper
+    ├── RootViewModel.kt         # Session restore -> start destination
+    ├── VmFactory.kt             # Shared ViewModel factory helper
+    ├── components/Common.kt     # LoadingState, ErrorState, EmptyState
+    ├── connect/
+    │   ├── ConnectScreen.kt     # Server URL + credentials form
+    │   └── ConnectViewModel.kt
+    ├── dashboard/
+    │   ├── DashboardScreen.kt   # Camera grid + system summary
+    │   └── DashboardViewModel.kt
+    ├── events/
+    │   ├── EventsScreen.kt      # Detection / alert log
+    │   └── EventsViewModel.kt
+    ├── live/
+    │   ├── LiveScreen.kt        # Near-live snapshot view
+    │   └── LiveViewModel.kt
+    ├── notifications/
+    │   ├── NotificationsScreen.kt  # Push-alert settings
+    │   └── NotificationsViewModel.kt
+    ├── player/
+    │   └── PlayerScreen.kt      # ExoPlayer playback with scrubber
+    ├── recordings/
+    │   ├── RecordingsScreen.kt  # Saved clip list
+    │   └── RecordingsViewModel.kt
+    └── theme/Theme.kt           # Material 3 color scheme + status bar
 ```
