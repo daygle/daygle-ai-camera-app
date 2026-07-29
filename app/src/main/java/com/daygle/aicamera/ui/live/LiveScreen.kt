@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,7 +41,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.compose.SubcomposeAsyncImage
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.foundation.Image
 import coil.request.ImageRequest
 import com.daygle.aicamera.ui.LifecycleResumeEffect
 
@@ -96,7 +100,11 @@ fun LiveScreen(
                 Box(contentAlignment = Alignment.Center) {
                     val context = androidx.compose.ui.platform.LocalContext.current
                     if (state.frameUrl != null) {
-                        AsyncImage(
+                        var lastSuccessPainter by androidx.compose.runtime.remember { 
+                            androidx.compose.runtime.mutableStateOf<Painter?>(null) 
+                        }
+                        
+                        SubcomposeAsyncImage(
                             model = ImageRequest.Builder(context)
                                 .data(state.frameUrl)
                                 .crossfade(false)
@@ -104,15 +112,34 @@ fun LiveScreen(
                                 .diskCachePolicy(coil.request.CachePolicy.DISABLED)
                                 .build(),
                             contentDescription = "Live view",
-                            contentScale = ContentScale.Fit,
                             onState = { coilState ->
-                                if (coilState is coil.compose.AsyncImagePainter.State.Success || 
-                                    coilState is coil.compose.AsyncImagePainter.State.Error) {
+                                if (coilState is AsyncImagePainter.State.Success) {
+                                    lastSuccessPainter = coilState.painter
+                                    viewModel.fetchNextFrame()
+                                } else if (coilState is AsyncImagePainter.State.Error) {
                                     viewModel.fetchNextFrame()
                                 }
                             },
                             modifier = Modifier.fillMaxSize(),
-                        )
+                        ) {
+                            val painterState = painter.state
+                            val displayPainter = if (painterState is AsyncImagePainter.State.Success) {
+                                painterState.painter
+                            } else {
+                                lastSuccessPainter
+                            }
+
+                            if (displayPainter != null) {
+                                Image(
+                                    painter = displayPainter,
+                                    contentDescription = "Live view",
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                CircularProgressIndicator(color = Color.White)
+                            }
+                        }
                     }
                     if (state.frameUrl == null) {
                         CircularProgressIndicator(color = Color.White)
