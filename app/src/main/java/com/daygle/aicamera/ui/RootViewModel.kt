@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-enum class StartDestination { LOADING, CONNECT, HOME }
+enum class StartDestination { LOADING, ONBOARDING, CONNECT, HOME }
 
 class RootViewModel(private val repository: CameraRepository) : ViewModel() {
 
@@ -19,6 +19,19 @@ class RootViewModel(private val repository: CameraRepository) : ViewModel() {
 
     init {
         viewModelScope.launch {
+            val hasConnection = repository.restore()
+            val needsOnboarding = !repository.currentSettingsStore().isOnboardingDone()
+            _start.value = when {
+                needsOnboarding -> StartDestination.ONBOARDING
+                hasConnection -> StartDestination.HOME
+                else -> StartDestination.CONNECT
+            }
+        }
+    }
+
+    fun onboardingComplete() {
+        viewModelScope.launch {
+            repository.currentSettingsStore().setOnboardingDone()
             _start.value = if (repository.restore()) StartDestination.HOME else StartDestination.CONNECT
         }
     }

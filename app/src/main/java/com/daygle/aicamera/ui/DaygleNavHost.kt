@@ -17,6 +17,7 @@ import com.daygle.aicamera.ui.components.LoadingState
 import com.daygle.aicamera.ui.connect.ConnectScreen
 import com.daygle.aicamera.ui.live.LiveScreen
 import com.daygle.aicamera.ui.notifications.NotificationsScreen
+import com.daygle.aicamera.ui.onboarding.OnboardingScreen
 import com.daygle.aicamera.ui.player.PlayerScreen
 
 private object Routes {
@@ -39,6 +40,9 @@ fun DaygleNavHost(
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         when (start) {
             StartDestination.LOADING -> LoadingState()
+            StartDestination.ONBOARDING -> {
+                OnboardingScreen(onDone = rootViewModel::onboardingComplete)
+            }
             StartDestination.CONNECT, StartDestination.HOME -> {
                 val navController = rememberNavController()
                 val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext

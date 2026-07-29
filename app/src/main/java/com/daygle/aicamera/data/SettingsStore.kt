@@ -3,6 +3,7 @@ package com.daygle.aicamera.data
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -34,6 +35,7 @@ class SettingsStore(private val context: Context) {
         val BASE_URL = stringPreferencesKey("base_url")
         val USERNAME = stringPreferencesKey("username")
         val PASSWORD = stringPreferencesKey("password")
+        val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
     }
 
     val connection: Flow<Connection> = context.dataStore.data.map { prefs ->
@@ -52,6 +54,13 @@ class SettingsStore(private val context: Context) {
             prefs[Keys.USERNAME] = connection.username
             prefs[Keys.PASSWORD] = connection.password
         }
+    }
+
+    suspend fun isOnboardingDone(): Boolean =
+        context.dataStore.data.map { prefs -> prefs[Keys.ONBOARDING_DONE] ?: false }.first()
+
+    suspend fun setOnboardingDone() {
+        context.dataStore.edit { it[Keys.ONBOARDING_DONE] = true }
     }
 
     suspend fun clear() {

@@ -61,4 +61,6 @@ class CameraRepository(
     fun recordingStreamUrl(recordingId: Int): String? = session.recordingStreamUrl(recordingId)
 
     fun httpClient() = session.httpClient
+
+    fun currentSettingsStore(): SettingsStore = settings
 }
