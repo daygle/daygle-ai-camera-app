@@ -31,7 +31,8 @@ data class EventsReady(
         events.mapNotNull { it.source }.distinct().sorted()
 
     val availableLabels: List<String> =
-        events.flatMap { it.detections.map { d -> d.label } }.distinct().sorted()
+        events.flatMap { it.detections.map { d -> d.label } + listOfNotNull(it.triggerType, it.triggerLabel) }
+            .distinct().sorted()
 }
 
 sealed interface EventsUiState {
@@ -120,7 +121,9 @@ class EventsViewModel(private val repository: CameraRepository) : ViewModel() {
             val q = filter.query.lowercase()
             result = result.filter { e ->
                 e.detections.any { it.label.lowercase().contains(q) } ||
-                    e.source?.lowercase()?.contains(q) == true
+                    e.source?.lowercase()?.contains(q) == true ||
+                    e.triggerLabel?.lowercase()?.contains(q) == true ||
+                    e.triggerType?.lowercase()?.contains(q) == true
             }
         }
 
@@ -133,7 +136,9 @@ class EventsViewModel(private val repository: CameraRepository) : ViewModel() {
         if (filter.selectedLabels.isNotEmpty()) {
             result = result.filter { e ->
                 filter.selectedLabels.any { sel ->
-                    e.detections.any { it.label == sel }
+                    e.detections.any { it.label == sel } ||
+                        e.triggerLabel == sel ||
+                        e.triggerType == sel
                 }
             }
         }

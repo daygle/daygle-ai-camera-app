@@ -76,11 +76,13 @@ data class Event(
     @SerialName("snapshot_path") val snapshotPath: String? = null,
     @SerialName("thumbnail_path") val thumbnailPath: String? = null,
     @SerialName("alert_triggered") val alertTriggered: Int = 0,
+    @SerialName("trigger_type") val triggerType: String? = null,
+    @SerialName("trigger_label") val triggerLabel: String? = null,
     val detections: List<Detection> = emptyList(),
     @SerialName("recording_status") val recordingStatus: String? = null,
 ) {
     val alerted: Boolean get() = alertTriggered != 0
-    val topLabel: String? get() = detections.maxByOrNull { it.confidence }?.label
+    val topLabel: String? get() = triggerLabel ?: triggerType ?: detections.maxByOrNull { it.confidence }?.label
 }
 
 /**

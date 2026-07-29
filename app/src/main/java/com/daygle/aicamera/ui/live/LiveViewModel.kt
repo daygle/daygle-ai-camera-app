@@ -67,8 +67,13 @@ class LiveViewModel(
                 if (_state.value.playing) {
                     val url = repository.snapshotUrl(cameraId, System.currentTimeMillis())
                     _state.update { it.copy(frameUrl = url) }
+                    // Wait for the next poll. In a real serial implementation, we might
+                    // wait for Coil's Success/Error event, but for now increasing the
+                    // default delay and ensuring we don't overlap requests is key.
+                    delay(intervalMs)
+                } else {
+                    delay(500) // Lower frequency check when paused
                 }
-                delay(intervalMs)
             }
         }
     }

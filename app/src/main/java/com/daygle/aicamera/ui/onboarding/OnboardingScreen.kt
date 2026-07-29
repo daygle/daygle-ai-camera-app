@@ -65,16 +65,16 @@ fun OnboardingScreen(
     ) {
         Text(
             "Before you start",
-            style = MaterialTheme.typography.headlineMedium,
+            style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
         )
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(8.dp))
         Text(
             "Daygle AI Camera needs a few permissions to deliver alerts reliably. You'll be asked for each one when it's needed.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(32.dp))
 
         permissions.forEachIndexed { i, item ->
             AnimatedVisibility(

@@ -102,12 +102,18 @@ class SessionManager {
         // Retrofit requires a base URL even before the user configures one; a
         // harmless placeholder keeps [api] non-null until [update] is called.
         val effective = url ?: "http://localhost/".toHttpUrlOrNull()!!
-        return Retrofit.Builder()
-            .baseUrl(effective)
-            .client(httpClient)
-            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
-            .build()
-            .create(DaygleApi::class.java)
+        return try {
+            Retrofit.Builder()
+                .baseUrl(effective)
+                .client(httpClient)
+                .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+                .build()
+                .create(DaygleApi::class.java)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to build API for $effective", e)
+            // Fallback to localhost if the provided URL is still somehow invalid for Retrofit
+            buildApi(null)
+        }
     }
 
     /** Absolute URL for a live snapshot; [cacheBuster] forces a fresh frame each poll. */
@@ -217,16 +223,24 @@ class SessionManager {
         fun extractCsrfToken(html: String): String? =
             CSRF_REGEX.find(html)?.groupValues?.getOrNull(1)
 
-        /** Normalize user input into an `http(s)://host[:port]` URL, defaulting to http. */
+        /** Normalize user input into an `http(s)://host[:port]` URL, ensuring a trailing slash for Retrofit. */
         fun normalizeBaseUrl(raw: String): HttpUrl? {
-            val trimmed = raw.trim().trimEnd('/')
+            val trimmed = raw.trim()
             if (trimmed.isEmpty()) return null
             val withScheme = if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
                 trimmed
             } else {
                 "http://$trimmed"
             }
-            return withScheme.toHttpUrlOrNull()
+
+            val url = withScheme.toHttpUrlOrNull() ?: return null
+
+            // Retrofit strictly requires base URLs to end in '/'.
+            return if (url.pathSegments.last().isNotEmpty()) {
+                url.newBuilder().addPathSegment("").build()
+            } else {
+                url
+            }
         }
     }
 }

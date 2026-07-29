@@ -26,14 +26,18 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +45,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -102,40 +107,51 @@ fun NotificationsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp),
         ) {
-            Text(
-                "Get a push notification when your cameras detect an object or sound. " +
-                    "The app listens to the same ntfy topic your server sends alerts to.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(
+                        "Get a push notification when your cameras detect an object or sound. " +
+                                "The app listens to the same ntfy topic your server sends alerts to.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+            
+            ListItem(
+                headlineContent = {
+                    Text("Enable alerts", fontWeight = FontWeight.Bold)
+                },
+                supportingContent = {
+                    Text(
+                        if (state.enabled) "Listening for alerts" else "Off",
+                        color = if (state.enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                trailingContent = {
+                    Switch(
+                        checked = state.enabled,
+                        enabled = state.canEnable || state.enabled,
+                        onCheckedChange = { checked ->
+                            if (checked) enable() else viewModel.commit(enabled = false) { }
+                        },
+                    )
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
             )
 
             Spacer(Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("Enable alerts", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        if (state.enabled) "Listening for alerts" else "Off",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    )
-                }
-                Switch(
-                    checked = state.enabled,
-                    enabled = state.canEnable || state.enabled,
-                    onCheckedChange = { checked ->
-                        if (checked) enable() else viewModel.commit(enabled = false) { }
-                    },
-                )
-            }
-
-            Spacer(Modifier.height(20.dp))
             OutlinedButton(
                 onClick = viewModel::autofillFromServer,
                 enabled = !state.discovering,
                 modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
             ) {
                 if (state.discovering) {
                     CircularProgressIndicator(Modifier.height(18.dp), strokeWidth = 2.dp)
@@ -144,7 +160,7 @@ fun NotificationsScreen(
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(24.dp))
             OutlinedTextField(
                 value = state.serverUrl,
                 onValueChange = viewModel::onServerUrl,
@@ -153,6 +169,7 @@ fun NotificationsScreen(
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
                 modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
             )
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
@@ -162,6 +179,7 @@ fun NotificationsScreen(
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
             )
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
@@ -171,6 +189,7 @@ fun NotificationsScreen(
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
             )
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
@@ -189,6 +208,7 @@ fun NotificationsScreen(
                 },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
                 modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
             )
 
             state.message?.let { msg ->
@@ -200,16 +220,17 @@ fun NotificationsScreen(
                 )
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(24.dp))
             Button(
                 onClick = { viewModel.commit(enabled = state.enabled) { } },
                 enabled = state.canEnable,
                 modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Save")
+                Text("Save Configuration")
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(16.dp))
             OutlinedButton(
                 onClick = {
                     context.startActivity(
@@ -218,8 +239,9 @@ fun NotificationsScreen(
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Open system notification settings")
+                Text("System notification settings")
             }
         }
     }

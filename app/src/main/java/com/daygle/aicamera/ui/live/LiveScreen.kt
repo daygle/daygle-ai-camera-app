@@ -12,26 +12,31 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -54,14 +59,22 @@ fun LiveScreen(
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = { Text(state.cameraName.ifBlank { "Live" }) },
+            CenterAlignedTopAppBar(
+                title = { 
+                    Text(
+                        state.cameraName.ifBlank { "Live" },
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    ) 
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
             )
@@ -72,34 +85,35 @@ fun LiveScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            Box(
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(16f / 9f)
-                    .background(Color.Black),
-                contentAlignment = Alignment.Center,
+                    .padding(16.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .aspectRatio(16f / 9f),
+                color = Color.Black
             ) {
-                val context = androidx.compose.ui.platform.LocalContext.current
-                if (state.frameUrl != null) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(state.frameUrl)
-                            .crossfade(false)
-                            // Live frames are unique per poll; caching them would
-                            // churn the disk cache with single-use images.
-                            .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
-                            .diskCachePolicy(coil.request.CachePolicy.DISABLED)
-                            .build(),
-                        contentDescription = "Live view",
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-                if (state.frameUrl == null) {
-                    CircularProgressIndicator(color = Color.White)
-                }
-                if (!state.playing) {
-                    PausedOverlay()
+                Box(contentAlignment = Alignment.Center) {
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    if (state.frameUrl != null) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(state.frameUrl)
+                                .crossfade(false)
+                                .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
+                                .diskCachePolicy(coil.request.CachePolicy.DISABLED)
+                                .build(),
+                            contentDescription = "Live view",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                    if (state.frameUrl == null) {
+                        CircularProgressIndicator(color = Color.White)
+                    }
+                    if (!state.playing) {
+                        PausedOverlay()
+                    }
                 }
             }
 
@@ -126,7 +140,7 @@ private fun PausedOverlay() {
             Icons.Filled.PlayArrow,
             contentDescription = "Resume",
             tint = Color.White,
-            modifier = Modifier.size(56.dp),
+            modifier = Modifier.size(64.dp),
         )
     }
 }
@@ -137,32 +151,46 @@ private fun ControlBar(
     resolution: String?,
     onTogglePlay: () -> Unit,
 ) {
-    Row(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(horizontal = 16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(20.dp)
     ) {
-        IconButton(onClick = onTogglePlay) {
-            Icon(
-                imageVector = if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                contentDescription = if (playing) "Pause" else "Play",
-                tint = MaterialTheme.colorScheme.primary,
-            )
-        }
-        Spacer(Modifier.width(4.dp))
-        Column(verticalArrangement = Arrangement.Center) {
-            Text(
-                if (playing) "Live" else "Paused",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-            )
-            if (resolution != null) {
-                Text(
-                    resolution,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            FilledTonalIconButton(
+                onClick = onTogglePlay,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    contentDescription = if (playing) "Pause" else "Play",
+                    modifier = Modifier.size(24.dp)
                 )
+            }
+            Spacer(Modifier.width(16.dp))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    if (playing) "Live Feed" else "Paused",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                if (resolution != null) {
+                    Text(
+                        resolution,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }
