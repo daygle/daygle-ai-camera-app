@@ -76,9 +76,9 @@ boot.
 - Push must be **configured and enabled on the server** (its Settings →
   notifications → ntfy). The app only listens; the server does the sending.
 - Delivery works while the app is backgrounded via an ongoing "watching for
-  alerts" status notification. It uses **no cloud push infrastructure**
-  (not Firebase/FCM). If Android kills the service under memory pressure it
-  resumes automatically when you next open the app, or on device reboot.
+  alerts" status notification. A periodic **WorkManager keep-alive** ensures
+  the listener restarts automatically if Android ever kills it — no need to
+  reopen the app. Uses **no cloud push infrastructure** (not Firebase/FCM).
 - If your ntfy topic is access-protected and you sign in as a **viewer**, the
   server redacts the ntfy password; enter the ntfy username/password manually
   on the notifications screen. Public/unprotected topics need no credentials.

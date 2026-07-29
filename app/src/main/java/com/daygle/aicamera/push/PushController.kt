@@ -8,9 +8,9 @@ import com.daygle.aicamera.DaygleApp
 
 /**
  * Starts/stops the [NtfyService] to match the persisted notification config.
- * Starting a foreground service is only reliable from a foreground context
- * (an Activity) or an allowed background entry point (boot), so callers should
- * invoke [sync] from those places - e.g. after sign-in and on app launch.
+ * Also schedules a periodic [PushKeepAliveWorker] so the listener restarts
+ * automatically if Android kills the foreground service under memory pressure
+ * — the user does not need to reopen the app to restore push delivery.
  */
 object PushController {
 
@@ -19,10 +19,12 @@ object PushController {
         runCatching {
             ContextCompat.startForegroundService(context, intent)
         }.onFailure { Log.w(TAG, "Could not start alert listener: ${it.message}") }
+        PushKeepAliveWorker.schedule(context)
     }
 
     fun stop(context: Context) {
         context.stopService(Intent(context, NtfyService::class.java))
+        PushKeepAliveWorker.cancel(context)
     }
 
     /** Start or stop the listener to match the saved config. */
