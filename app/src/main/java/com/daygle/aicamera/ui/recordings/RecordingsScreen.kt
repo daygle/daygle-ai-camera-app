@@ -62,6 +62,7 @@ import com.daygle.aicamera.ui.components.EmptyState
 import com.daygle.aicamera.ui.components.ErrorState
 import com.daygle.aicamera.ui.components.LoadingState
 import com.daygle.aicamera.ui.formatDuration
+import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatTimestamp
 import java.time.Instant
 import java.time.LocalDate
@@ -219,7 +220,7 @@ fun RecordingsScreen(
                                 selected = label in data.filter.selectedLabels,
                                 onClick = { viewModel.toggleLabel(label) },
                                 label = {
-                                    Text(label.replaceFirstChar { it.titlecase(Locale.getDefault()) })
+                                    Text(formatEventLabel(label))
                                 },
                             )
                         }
@@ -312,10 +313,23 @@ private fun RecordingRow(recording: Recording, onPlay: () -> Unit) {
                 )
             },
             supportingContent = {
-                Text(
-                    recording.subtitle(),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Column {
+                    Text(
+                        recording.subtitle(),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (recording.detections.isNotEmpty()) {
+                        Text(
+                            recording.detections.joinToString(", ") {
+                                "${formatEventLabel(it.label)} (${(it.confidence * 100).toInt()}%)"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             },
             leadingContent = {
                 Box(
@@ -350,13 +364,12 @@ private fun RecordingRow(recording: Recording, onPlay: () -> Unit) {
 }
 
 private fun Recording.title(): String {
-    val label = labels.firstOrNull() ?: triggerLabel ?: triggerType ?: "Recording"
-    return label.replaceFirstChar { it.titlecase(Locale.getDefault()) }
+    return formatEventLabel(topLabel ?: "Recording")
 }
 
 private fun Recording.subtitle(): String {
     val parts = mutableListOf<String>()
     formatTimestamp(startedAt).let { if (it != "-") parts.add(it) }
-    if (labels.isNotEmpty()) parts.add(labels.joinToString(", ") { it.replaceFirstChar { c -> c.titlecase(Locale.getDefault()) } })
+    if (labels.isNotEmpty()) parts.add(labels.joinToString(", ") { formatEventLabel(it) })
     return parts.joinToString("  ·  ")
 }

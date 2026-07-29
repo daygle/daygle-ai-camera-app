@@ -39,7 +39,7 @@ data class RecordingsReady(
 ) {
     val availableLabels: List<String> =
         recordings
-            .flatMap { r -> r.labels + listOfNotNull(r.triggerType, r.triggerLabel) }
+            .flatMap { r -> r.labels + r.detections.map { it.label } + listOfNotNull(r.triggerType, r.triggerLabel) }
             .distinct()
             .sorted()
 }
@@ -138,6 +138,7 @@ class RecordingsViewModel(private val repository: CameraRepository) : ViewModel(
             val q = filter.query.lowercase()
             result = result.filter { r ->
                 r.labels.any { it.lowercase().contains(q) } ||
+                    r.detections.any { it.label.lowercase().contains(q) } ||
                     r.triggerLabel?.lowercase()?.contains(q) == true ||
                     r.triggerType?.lowercase()?.contains(q) == true
             }
@@ -161,7 +162,7 @@ class RecordingsViewModel(private val repository: CameraRepository) : ViewModel(
         if (filter.selectedLabels.isNotEmpty()) {
             result = result.filter { r ->
                 filter.selectedLabels.any { sel ->
-                    sel in r.labels || sel == r.triggerType || sel == r.triggerLabel
+                    sel in r.labels || r.detections.any { it.label == sel } || sel == r.triggerType || sel == r.triggerLabel
                 }
             }
         }

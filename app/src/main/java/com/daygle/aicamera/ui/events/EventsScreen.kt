@@ -53,8 +53,8 @@ import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.ui.components.EmptyState
 import com.daygle.aicamera.ui.components.ErrorState
 import com.daygle.aicamera.ui.components.LoadingState
+import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatTimestamp
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -118,7 +118,7 @@ fun EventsScreen(
                                 selected = source in data.filter.selectedSources,
                                 onClick = { viewModel.toggleSource(source) },
                                 label = {
-                                    Text(source.replaceFirstChar { it.titlecase(Locale.getDefault()) })
+                                    Text(formatEventLabel(source))
                                 },
                             )
                         }
@@ -139,7 +139,7 @@ fun EventsScreen(
                                 selected = label in data.filter.selectedLabels,
                                 onClick = { viewModel.toggleLabel(label) },
                                 label = {
-                                    Text(label.replaceFirstChar { it.titlecase(Locale.getDefault()) })
+                                    Text(formatEventLabel(label))
                                 },
                             )
                         }
@@ -229,9 +229,7 @@ private fun EventRow(event: Event) {
         ListItem(
             headlineContent = {
                 Text(
-                    event.topLabel?.replaceFirstChar { it.titlecase(Locale.getDefault()) }
-                        ?: event.source?.replaceFirstChar { it.titlecase(Locale.getDefault()) }
-                        ?: "Event",
+                    formatEventLabel(event.topLabel ?: event.source),
                     fontWeight = FontWeight.Bold
                 )
             },
@@ -241,7 +239,7 @@ private fun EventRow(event: Event) {
                         Text(formatTimestamp(event.createdAt))
                         if (event.source != null) {
                             Text(
-                                event.source.replaceFirstChar { it.titlecase(Locale.getDefault()) },
+                                formatEventLabel(event.source),
                                 color = MaterialTheme.colorScheme.primary
                             )
                         }
@@ -249,7 +247,7 @@ private fun EventRow(event: Event) {
                     if (event.detections.isNotEmpty()) {
                         Text(
                             event.detections.joinToString(", ") {
-                                "${it.label} (${(it.confidence * 100).toInt()}%)"
+                                "${formatEventLabel(it.label)} (${(it.confidence * 100).toInt()}%)"
                             },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,

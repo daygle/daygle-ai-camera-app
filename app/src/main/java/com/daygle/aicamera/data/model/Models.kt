@@ -112,4 +112,7 @@ data class Recording(
     @SerialName("trigger_label") val triggerLabel: String? = null,
     @SerialName("media_ready") val mediaReady: Boolean = false,
     val labels: List<String> = emptyList(),
-)
+    val detections: List<Detection> = emptyList(),
+) {
+    val topLabel: String? get() = triggerLabel ?: triggerType ?: detections.maxByOrNull { it.confidence }?.label ?: labels.firstOrNull()
+}

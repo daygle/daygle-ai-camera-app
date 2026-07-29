@@ -23,6 +23,21 @@ fun formatTimestamp(iso: String?): String {
     }
 }
 
+/** 
+ * Map technical terms to user-friendly ones (e.g. 'rtsp' -> 'Object') 
+ * and ensure title-casing.
+ */
+fun formatEventLabel(text: String?): String {
+    if (text.isNullOrBlank()) return ""
+    val mapped = when (text.lowercase(Locale.getDefault())) {
+        "rtsp" -> "Object"
+        else -> text
+    }
+    return mapped.split(' ').joinToString(" ") { word ->
+        word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+    }
+}
+
 /** Human-friendly duration such as `1:05` or `0:42`. */
 fun formatDuration(seconds: Double): String {
     val total = seconds.toLong().coerceAtLeast(0)
