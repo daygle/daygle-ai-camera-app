@@ -13,7 +13,7 @@ import javax.net.ssl.SSLException
 fun Throwable.toUserFriendlyMessage(): String {
     val friendly = when (this) {
         is UnknownHostException -> "Server not found. Check the address and your network connection."
-        is SocketTimeoutException -> "Connection timed out. The server might be offline, or a firewall is blocking port ${message?.takeIf { it.contains(":") }?.substringAfterLast(":") ?: "the port"}."
+        is SocketTimeoutException -> "Connection timed out. The server might be offline, or a firewall is blocking the port."
         is ConnectException -> "Connection refused. Make sure the server is running and the port is correct."
         is NoRouteToHostException -> "No route to host. The server cannot be reached on this network."
         is SSLException -> "SSL/TLS error. Check if your server supports HTTPS and has a valid certificate."
