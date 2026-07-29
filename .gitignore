@@ -23,6 +23,7 @@ Thumbs.db
 
 # Gemini Artifacts
 .artifacts/
+.freebuff/
 
 # Kotlin compiler cache
 .kotlin/
