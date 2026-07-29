@@ -121,7 +121,12 @@ class SessionManager {
         val base = baseUrl ?: return null
         return base.newBuilder()
             .addPathSegments("api/live/snapshot")
-            .apply { if (!cameraId.isNullOrBlank()) addQueryParameter("camera_id", cameraId) }
+            .apply { 
+                if (!cameraId.isNullOrBlank()) addQueryParameter("camera_id", cameraId)
+                // Request a standard resolution to prevent decoder/network strain
+                addQueryParameter("width", "1280")
+                addQueryParameter("height", "720")
+            }
             .addQueryParameter("t", cacheBuster.toString())
             .build()
             .toString()

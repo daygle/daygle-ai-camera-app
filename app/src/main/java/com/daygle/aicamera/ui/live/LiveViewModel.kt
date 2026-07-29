@@ -41,10 +41,13 @@ class LiveViewModel(
     private val _state = MutableStateFlow(LiveUiState(cameraId = cameraId))
     val state: StateFlow<LiveUiState> = _state.asStateFlow()
 
+    @Volatile
+    private var isFetching = false
+
     init {
         _state.update { it.copy(cameraName = cameraId) }
         loadStatus()
-        startPolling()
+        fetchNextFrame()
     }
 
     private fun loadStatus() {
@@ -60,28 +63,37 @@ class LiveViewModel(
         }
     }
 
-    private fun startPolling() {
+    fun fetchNextFrame() {
+        if (!_state.value.playing || isFetching) return
+        isFetching = true
         viewModelScope.launch {
-            val intervalMs = repository.appPrefs().currentRefreshIntervalMs()
-            while (isActive) {
-                if (_state.value.playing) {
-                    val url = repository.snapshotUrl(cameraId, System.currentTimeMillis())
-                    _state.update { it.copy(frameUrl = url) }
-                    // Wait for the next poll. In a real serial implementation, we might
-                    // wait for Coil's Success/Error event, but for now increasing the
-                    // default delay and ensuring we don't overlap requests is key.
-                    delay(intervalMs)
-                } else {
-                    delay(500) // Lower frequency check when paused
-                }
+            try {
+                val intervalMs = repository.appPrefs().currentRefreshIntervalMs()
+                delay(intervalMs)
+                val url = repository.snapshotUrl(cameraId, System.currentTimeMillis())
+                _state.update { it.copy(frameUrl = url) }
+            } finally {
+                isFetching = false
             }
         }
     }
 
-    fun togglePlayback() = _state.update { it.copy(playing = !it.playing) }
+    fun togglePlayback() {
+        _state.update { 
+            val next = !it.playing
+            if (next) fetchNextFrame()
+            it.copy(playing = next) 
+        }
+    }
 
     fun pause() = _state.update { it.copy(playing = false) }
-    fun resume() = _state.update { it.copy(playing = true) }
+    
+    fun resume() {
+        _state.update { 
+            if (!it.playing) fetchNextFrame()
+            it.copy(playing = true) 
+        }
+    }
 
     companion object {
         const val ARG_CAMERA_ID = "cameraId"

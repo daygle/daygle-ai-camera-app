@@ -21,6 +21,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,6 +35,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import com.daygle.aicamera.DaygleApp
@@ -48,6 +51,9 @@ fun PlayerScreen(
     val context = LocalContext.current
     val repository = (context.applicationContext as DaygleApp).container.repository
     val streamUrl = repository.recordingStreamUrl(recordingId)
+    
+    var error by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    var retryKey by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
 
     Scaffold(
         modifier = modifier,
@@ -78,35 +84,48 @@ fun PlayerScreen(
             return@Scaffold
         }
 
-        val player = rememberExoPlayer(streamUrl)
-        Surface(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            color = MaterialTheme.colorScheme.surface
-        ) {
-            Box(
+        if (error != null) {
+            ErrorState(
+                message = error!!,
+                onRetry = { 
+                    error = null
+                    retryKey++
+                },
+                modifier = Modifier.padding(padding)
+            )
+        } else {
+            val player = rememberExoPlayer(streamUrl, retryKey) { playbackError ->
+                error = playbackError
+            }
+            Surface(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .aspectRatio(16f / 9f)
-                    .background(Color.Black),
-                contentAlignment = Alignment.Center,
+                    .fillMaxSize()
+                    .padding(padding),
+                color = MaterialTheme.colorScheme.surface
             ) {
-                AndroidView(
-                    factory = { ctx ->
-                        PlayerView(ctx).apply {
-                            this.player = player
-                            useController = true
-                            layoutParams = ViewGroup.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                            )
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .aspectRatio(16f / 9f)
+                        .background(Color.Black),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    AndroidView(
+                        factory = { ctx ->
+                            PlayerView(ctx).apply {
+                                this.player = player
+                                useController = true
+                                layoutParams = ViewGroup.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
         }
     }
@@ -114,16 +133,37 @@ fun PlayerScreen(
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
-private fun rememberExoPlayer(streamUrl: String): ExoPlayer {
+private fun rememberExoPlayer(
+    streamUrl: String, 
+    retryKey: Int, 
+    onError: (String) -> Unit
+): ExoPlayer {
     val context = LocalContext.current
     val repository = (context.applicationContext as DaygleApp).container.repository
 
-    val player = androidx.compose.runtime.remember(streamUrl) {
+    val player = androidx.compose.runtime.remember(streamUrl, retryKey) {
         val dataSourceFactory = OkHttpDataSource.Factory(repository.httpClient())
-        ExoPlayer.Builder(context)
+        // Configure renderers to be more resilient on emulators/constrained devices
+        val renderersFactory = DefaultRenderersFactory(context)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+            
+        ExoPlayer.Builder(context, renderersFactory)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
             .build()
             .apply {
+                addListener(object : androidx.media3.common.Player.Listener {
+                    override fun onPlayerError(playbackError: androidx.media3.common.PlaybackException) {
+                        val message = when (playbackError.errorCode) {
+                            androidx.media3.common.PlaybackException.ERROR_CODE_DECODING_FAILED -> 
+                                "Video decoding failed. The resolution might be too high for this device."
+                            androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+                            androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ->
+                                "Network connection failed. Check your server address."
+                            else -> "Playback error: ${playbackError.localizedMessage}"
+                        }
+                        onError(message)
+                    }
+                })
                 setMediaItem(MediaItem.fromUri(streamUrl))
                 prepare()
                 playWhenReady = true

@@ -10,15 +10,17 @@ setup stays in the server's web dashboard. This client focuses on watching.
 ## Features
 
 - **Connect to your server** - enter the server address and your Daygle AI
-  Camera credentials. The connection is verified on sign-in and remembered
-  between launches.
-- **Cameras dashboard** - a grid of every configured camera with live snapshot
-  thumbnails, online/offline status, and a system summary (cameras online, AI
-  backend, uptime).
+  Camera credentials. The connection is fault-tolerant, verified on sign-in,
+  and remembered between launches.
+- **Cameras dashboard** - a clean, vertical list of every configured camera
+  with live snapshot thumbnails, online/offline status, and a system summary
+  showing cameras online and system uptime.
 - **Live view** - tap a camera for a near-live feed (refreshed snapshots) with
-  play/pause and the current stream resolution. Polling pauses automatically
-  when the app is backgrounded.
-- **Events** - the detection/alert log, filterable to alerts only.
+  smooth serial polling, play/pause, and the current stream resolution.
+  Polling pauses automatically when the app is backgrounded.
+- **Events** - a detailed detection/alert log showing specific event types
+  (e.g., **Person**, **Dog Bark**) and confidence levels. Fully filterable
+  by source, label, or alerts only.
 - **Recordings** - browse saved clips and play them back in-app with a full
   video scrubber.
 - **Push alerts** - real notifications when your cameras detect an object or
@@ -115,8 +117,9 @@ CI runs on every push to `main` via GitHub Actions (`.github/workflows/android-b
 | Layer | Libraries |
 | --- | --- |
 | Language | Kotlin 2.4.10 |
-| UI | Jetpack Compose (BOM 2026.06), Material 3 |
-| Build | AGP 9.3.1, Gradle 9.5.0, JDK 17 |
+| UI | Jetpack Compose (BOM 2026.06), **Material 3 (ListItem, CenterAlignedTopAppBar)** |
+| Build | AGP 9.3.1, **Gradle 9.6.1**, JDK 17 |
+| Performance | Configuration Cache, Parallel Sync |
 | Navigation | Navigation Compose 2.9 |
 | Networking | OkHttp 5.4, Retrofit 3.0, kotlinx.serialization 1.11 |
 | Images | Coil 2.7 |
@@ -153,7 +156,7 @@ app/src/main/java/com/daygle/aicamera/
     │   ├── ConnectScreen.kt     # Server URL + credentials form
     │   └── ConnectViewModel.kt
     ├── dashboard/
-    │   ├── DashboardScreen.kt   # Camera grid + system summary
+    │   ├── DashboardScreen.kt   # Camera list + system summary
     │   └── DashboardViewModel.kt
     ├── events/
     │   ├── EventsScreen.kt      # Detection / alert log

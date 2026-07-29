@@ -74,7 +74,7 @@ fun LiveScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
             )
@@ -105,6 +105,12 @@ fun LiveScreen(
                                 .build(),
                             contentDescription = "Live view",
                             contentScale = ContentScale.Fit,
+                            onState = { coilState ->
+                                if (coilState is coil.compose.AsyncImagePainter.State.Success || 
+                                    coilState is coil.compose.AsyncImagePainter.State.Error) {
+                                    viewModel.fetchNextFrame()
+                                }
+                            },
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
