@@ -1,7 +1,6 @@
 package com.daygle.aicamera.ui.theme
 
 import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -12,6 +11,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import com.daygle.aicamera.DaygleApp
+import com.daygle.aicamera.data.ThemeMode
+import kotlinx.coroutines.runBlocking
 
 private val Accent = Color(0xFF3DDC97)
 private val AccentDark = Color(0xFF1FB877)
@@ -43,14 +45,23 @@ fun DaygleTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    val colors = if (darkTheme) DarkColors else LightColors
     val view = LocalView.current
+    val effectiveDark = if (view.isInEditMode) darkTheme else {
+        val app = (view.context.applicationContext as DaygleApp)
+        val mode = runBlocking { app.container.appPrefs.currentThemeMode() }
+        when (mode) {
+            ThemeMode.SYSTEM -> darkTheme
+            ThemeMode.DARK -> true
+            ThemeMode.LIGHT -> false
+        }
+    }
+    val colors = if (effectiveDark) DarkColors else LightColors
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
             @Suppress("DEPRECATION")
             window.statusBarColor = colors.background.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !effectiveDark
         }
     }
     MaterialTheme(

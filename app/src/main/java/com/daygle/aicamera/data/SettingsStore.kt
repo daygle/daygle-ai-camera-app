@@ -31,6 +31,8 @@ data class Connection(
  */
 class SettingsStore(private val context: Context) {
 
+    private val appPrefsStore = AppPreferencesStore(context)
+
     private object Keys {
         val BASE_URL = stringPreferencesKey("base_url")
         val USERNAME = stringPreferencesKey("username")
@@ -66,4 +68,6 @@ class SettingsStore(private val context: Context) {
     suspend fun clear() {
         context.dataStore.edit { it.clear() }
     }
+
+    fun appPrefs(): AppPreferencesStore = appPrefsStore
 }

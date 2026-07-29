@@ -62,12 +62,13 @@ class LiveViewModel(
 
     private fun startPolling() {
         viewModelScope.launch {
+            val intervalMs = repository.appPrefs().currentRefreshIntervalMs()
             while (isActive) {
                 if (_state.value.playing) {
                     val url = repository.snapshotUrl(cameraId, System.currentTimeMillis())
                     _state.update { it.copy(frameUrl = url) }
                 }
-                delay(REFRESH_INTERVAL_MS)
+                delay(intervalMs)
             }
         }
     }

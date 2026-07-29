@@ -19,11 +19,13 @@ import com.daygle.aicamera.ui.live.LiveScreen
 import com.daygle.aicamera.ui.notifications.NotificationsScreen
 import com.daygle.aicamera.ui.onboarding.OnboardingScreen
 import com.daygle.aicamera.ui.player.PlayerScreen
+import com.daygle.aicamera.ui.settings.SettingsScreen
 
 private object Routes {
     const val CONNECT = "connect"
     const val HOME = "home"
     const val NOTIFICATIONS = "notifications"
+    const val SETTINGS = "settings"
     const val LIVE = "live/{cameraId}"
     const val PLAYER = "player/{recordingId}"
 
@@ -63,6 +65,7 @@ fun DaygleNavHost(
                             onOpenCamera = { cameraId -> navController.navigate(Routes.live(cameraId)) },
                             onOpenRecording = { id -> navController.navigate(Routes.player(id)) },
                             onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
+                            onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                             onDisconnect = {
                                 com.daygle.aicamera.push.PushController.stop(appContext)
                                 rootViewModel.disconnect {
@@ -72,6 +75,9 @@ fun DaygleNavHost(
                                 }
                             },
                         )
+                    }
+                    composable(Routes.SETTINGS) {
+                        SettingsScreen(onBack = { navController.popBackStack() })
                     }
                     composable(Routes.NOTIFICATIONS) {
                         NotificationsScreen(onBack = { navController.popBackStack() })

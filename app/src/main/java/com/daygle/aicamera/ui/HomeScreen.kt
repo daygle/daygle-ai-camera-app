@@ -6,6 +6,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material.icons.outlined.VideoLibrary
@@ -43,6 +44,7 @@ fun HomeScreen(
     onOpenCamera: (String) -> Unit,
     onOpenRecording: (Int) -> Unit,
     onOpenNotifications: () -> Unit,
+    onOpenSettings: () -> Unit,
     onDisconnect: () -> Unit,
 ) {
     var selectedTab by remember { mutableStateOf(HomeTab.Cameras) }
@@ -59,8 +61,8 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text(selectedTab.label) },
                 actions = {
-                    IconButton(onClick = { refreshTrigger++ }) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Filled.Settings, contentDescription = "Settings")
                     }
                     IconButton(onClick = onOpenNotifications) {
                         Icon(Icons.Filled.NotificationsNone, contentDescription = "Alert notifications")

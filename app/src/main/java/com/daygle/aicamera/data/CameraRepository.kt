@@ -63,4 +63,6 @@ class CameraRepository(
     fun httpClient() = session.httpClient
 
     fun currentSettingsStore(): SettingsStore = settings
+
+    fun appPrefs(): AppPreferencesStore = settings.appPrefs()
 }
