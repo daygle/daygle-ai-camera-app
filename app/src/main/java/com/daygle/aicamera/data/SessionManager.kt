@@ -1,0 +1,231 @@
+package com.daygle.aicamera.data
+
+import android.util.Log
+import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import okhttp3.FormBody
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.Interceptor
+import okhttp3.JavaNetCookieJar
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Retrofit
+import java.net.CookieManager
+import java.net.CookiePolicy
+import java.util.concurrent.TimeUnit
+
+/**
+ * Owns the connection to a single Daygle AI Camera server: base URL,
+ * credentials, the shared cookie jar, and the authenticated OkHttp/Retrofit
+ * stack.
+ *
+ * The server uses browser-style session-cookie auth with a CSRF token (there
+ * is no bearer/API-token endpoint), so [performLogin] reproduces the browser
+ * login handshake:
+ *  1. `GET /login` — the server sets a CSRF cookie and embeds a matching
+ *     `csrf_token` in the returned HTML form.
+ *  2. `POST /login` (form-encoded `username`, `password`, `csrf_token`) — on
+ *     success the server sets the session cookie, which the [cookieJar] keeps.
+ *
+ * All read (`GET /api/*`) calls only need the session cookie. If it expires the
+ * [authInterceptor] transparently re-logs in and retries once.
+ */
+class SessionManager {
+
+    // NOTE: declaration order matters — Kotlin initializes properties top to
+    // bottom, so every field that [api]/the clients depend on must be declared
+    // above them (the clients reference [cookieJar]/[logging]; [api] references
+    // [httpClient]).
+
+    @Volatile
+    private var connection: Connection = Connection()
+
+    @Volatile
+    private var baseUrl: HttpUrl? = null
+
+    private val cookieManager = CookieManager(null, CookiePolicy.ACCEPT_ALL)
+    private val cookieJar = JavaNetCookieJar(cookieManager)
+    private val loginLock = Any()
+
+    private val logging = HttpLoggingInterceptor().apply {
+        level = HttpLoggingInterceptor.Level.BASIC
+        redactHeader("Cookie")
+        redactHeader("Set-Cookie")
+    }
+
+    /** Bare client used only for the login handshake (no auth interceptor, to avoid recursion). */
+    private val authClient: OkHttpClient = OkHttpClient.Builder()
+        .cookieJar(cookieJar)
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .addInterceptor(logging)
+        .build()
+
+    /**
+     * The authenticated client, shared by Retrofit, Coil (snapshots) and
+     * Media3 (recording playback) so they all ride the same session cookie and
+     * benefit from transparent re-login.
+     */
+    val httpClient: OkHttpClient = OkHttpClient.Builder()
+        .cookieJar(cookieJar)
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .addInterceptor(logging)
+        .addInterceptor(authInterceptor())
+        .build()
+
+    @Volatile
+    var api: DaygleApi = buildApi(null)
+        private set
+
+    val currentBaseUrl: String? get() = baseUrl?.toString()?.trimEnd('/')
+
+    /** Point the manager at a (possibly new) server. Clears cookies if the target changed. */
+    fun update(connection: Connection) {
+        val normalized = normalizeBaseUrl(connection.baseUrl)
+        val changed = normalized?.toString() != baseUrl?.toString()
+        this.connection = connection
+        this.baseUrl = normalized
+        if (changed) {
+            cookieManager.cookieStore.removeAll()
+        }
+        api = buildApi(normalized)
+    }
+
+    private fun buildApi(url: HttpUrl?): DaygleApi {
+        // Retrofit requires a base URL even before the user configures one; a
+        // harmless placeholder keeps [api] non-null until [update] is called.
+        val effective = url ?: "http://localhost/".toHttpUrlOrNull()!!
+        return Retrofit.Builder()
+            .baseUrl(effective)
+            .client(httpClient)
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .build()
+            .create(DaygleApi::class.java)
+    }
+
+    /** Absolute URL for a live snapshot; [cacheBuster] forces a fresh frame each poll. */
+    fun snapshotUrl(cameraId: String?, cacheBuster: Long): String? {
+        val base = baseUrl ?: return null
+        return base.newBuilder()
+            .addPathSegments("api/live/snapshot")
+            .apply { if (!cameraId.isNullOrBlank()) addQueryParameter("camera_id", cameraId) }
+            .addQueryParameter("t", cacheBuster.toString())
+            .build()
+            .toString()
+    }
+
+    /** Absolute URL for streaming a recording's MP4. */
+    fun recordingStreamUrl(recordingId: Int): String? {
+        val base = baseUrl ?: return null
+        return base.newBuilder()
+            .addPathSegments("api/recordings/$recordingId/stream")
+            .build()
+            .toString()
+    }
+
+    /**
+     * Establish a session against the current server. Safe to call from a
+     * coroutine; the blocking network work runs on [Dispatchers.IO].
+     */
+    suspend fun login(): LoginResult = withContext(Dispatchers.IO) {
+        synchronized(loginLock) { performLogin() }
+    }
+
+    private fun authInterceptor() = Interceptor { chain ->
+        val request = chain.request()
+        val response = chain.proceed(request)
+        val isApiCall = request.url.encodedPath.startsWith("/api/")
+        if (response.code == 401 && isApiCall && connection.isConfigured) {
+            response.close()
+            val result = synchronized(loginLock) { performLogin() }
+            if (result is LoginResult.Success) {
+                return@Interceptor chain.proceed(request.newBuilder().build())
+            }
+        }
+        response
+    }
+
+    /** Blocking login handshake. Callers must hold [loginLock]. */
+    private fun performLogin(): LoginResult {
+        val base = baseUrl ?: return LoginResult.NotConfigured
+        val conn = connection
+        if (!conn.isConfigured) return LoginResult.NotConfigured
+        val loginUrl = base.newBuilder().addPathSegment("login").build()
+        return try {
+            val token = authClient.newCall(Request.Builder().url(loginUrl).get().build())
+                .execute().use { pageResponse ->
+                    if (!pageResponse.isSuccessful) {
+                        return LoginResult.Error("Server returned ${pageResponse.code} for /login")
+                    }
+                    extractCsrfToken(pageResponse.body?.string().orEmpty())
+                } ?: return LoginResult.Error("Could not read the login security token from the server.")
+
+            val form = FormBody.Builder()
+                .add("username", conn.username)
+                .add("password", conn.password)
+                .add("csrf_token", token)
+                .build()
+            val postRequest = Request.Builder()
+                .url(loginUrl)
+                .header("Origin", base.toString().trimEnd('/'))
+                .post(form)
+                .build()
+            authClient.newCall(postRequest).execute().use { /* cookies captured by jar */ }
+
+            // The login POST redirects to a page regardless of outcome, so verify
+            // by hitting an authenticated endpoint.
+            val verifyUrl = base.newBuilder().addPathSegments("api/cameras").build()
+            authClient.newCall(Request.Builder().url(verifyUrl).get().build()).execute().use { verify ->
+                when {
+                    verify.isSuccessful -> LoginResult.Success
+                    verify.code == 401 -> LoginResult.InvalidCredentials
+                    else -> LoginResult.Error("Server returned ${verify.code}")
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Login failed", e)
+            LoginResult.Error(e.message ?: "Could not reach the server.")
+        }
+    }
+
+    companion object {
+        private const val TAG = "SessionManager"
+
+        val json: Json = Json {
+            ignoreUnknownKeys = true
+            coerceInputValues = true
+            explicitNulls = false
+        }
+
+        private val CSRF_REGEX = Regex("name=\"csrf_token\"\\s+value=\"([^\"]+)\"")
+
+        fun extractCsrfToken(html: String): String? =
+            CSRF_REGEX.find(html)?.groupValues?.getOrNull(1)
+
+        /** Normalize user input into an `http(s)://host[:port]` URL, defaulting to http. */
+        fun normalizeBaseUrl(raw: String): HttpUrl? {
+            val trimmed = raw.trim().trimEnd('/')
+            if (trimmed.isEmpty()) return null
+            val withScheme = if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+                trimmed
+            } else {
+                "http://$trimmed"
+            }
+            return withScheme.toHttpUrlOrNull()
+        }
+    }
+}
+
+sealed interface LoginResult {
+    data object Success : LoginResult
+    data object InvalidCredentials : LoginResult
+    data object NotConfigured : LoginResult
+    data class Error(val message: String) : LoginResult
+}
