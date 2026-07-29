@@ -33,7 +33,7 @@ import java.util.concurrent.TimeUnit
  *  2. `POST /login` (form-encoded `username`, `password`, `csrf_token`) — on
  *     success the server sets the session cookie, which the [cookieJar] keeps.
  *
- * All read (`GET /api/*`) calls only need the session cookie. If it expires the
+ * All read (GET /api/ endpoints) calls only need the session cookie. If it expires the
  * [authInterceptor] transparently re-logs in and retries once.
  */
 class SessionManager {
