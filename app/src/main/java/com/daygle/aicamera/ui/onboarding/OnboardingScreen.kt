@@ -20,9 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.NotificationsNone
-import androidx.compose.material.icons.filled.PhonelinkLock
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material3.Button
@@ -40,7 +38,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 
@@ -138,13 +135,6 @@ private fun PermissionRow(item: PermissionItem) {
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
             )
         }
-        Spacer(Modifier.width(8.dp))
-        Icon(
-            Icons.Filled.Check,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(18.dp),
-        )
     }
 }
 
@@ -158,7 +148,7 @@ private val permissions = listOf(
     PermissionItem(
         icon = Icons.Filled.NotificationsNone,
         title = "Notifications",
-        description = "Required so we can show an alert when your cameras detect an object or sound. You choose when to enable this.",
+        description = "You'll be asked for notification permission when you enable alerts. This lets the app notify you when a camera detects something.",
     ),
     PermissionItem(
         icon = Icons.Filled.Sensors,

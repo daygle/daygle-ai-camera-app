@@ -124,7 +124,7 @@ private fun PausedOverlay() {
     ) {
         Icon(
             Icons.Filled.PlayArrow,
-            contentDescription = null,
+            contentDescription = "Resume",
             tint = Color.White,
             modifier = Modifier.size(56.dp),
         )

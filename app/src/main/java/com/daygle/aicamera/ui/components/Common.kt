@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -63,12 +64,20 @@ fun ErrorState(
 
 @Composable
 fun EmptyState(message: String, modifier: Modifier = Modifier) {
-    Box(
+    Column(
         modifier = modifier
             .fillMaxSize()
             .padding(32.dp),
-        contentAlignment = Alignment.Center,
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        Icon(
+            Icons.Outlined.Inbox,
+            contentDescription = null,
+            modifier = Modifier.size(48.dp),
+            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+        )
+        Spacer(Modifier.height(12.dp))
         Text(
             message,
             style = MaterialTheme.typography.bodyMedium,

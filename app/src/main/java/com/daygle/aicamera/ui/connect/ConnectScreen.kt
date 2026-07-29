@@ -102,10 +102,10 @@ fun ConnectScreen(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        if (state.error != null) {
+        state.error?.let { error ->
             Spacer(Modifier.height(16.dp))
             Text(
-                state.error!!,
+                error,
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
             )
