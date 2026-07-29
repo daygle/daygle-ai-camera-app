@@ -16,11 +16,13 @@ import androidx.navigation.navArgument
 import com.daygle.aicamera.ui.components.LoadingState
 import com.daygle.aicamera.ui.connect.ConnectScreen
 import com.daygle.aicamera.ui.live.LiveScreen
+import com.daygle.aicamera.ui.notifications.NotificationsScreen
 import com.daygle.aicamera.ui.player.PlayerScreen
 
 private object Routes {
     const val CONNECT = "connect"
     const val HOME = "home"
+    const val NOTIFICATIONS = "notifications"
     const val LIVE = "live/{cameraId}"
     const val PLAYER = "player/{recordingId}"
 
@@ -39,6 +41,7 @@ fun DaygleNavHost(
             StartDestination.LOADING -> LoadingState()
             StartDestination.CONNECT, StartDestination.HOME -> {
                 val navController = rememberNavController()
+                val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
                 val startRoute = if (start == StartDestination.HOME) Routes.HOME else Routes.CONNECT
 
                 NavHost(navController = navController, startDestination = startRoute) {
@@ -55,7 +58,9 @@ fun DaygleNavHost(
                         HomeScreen(
                             onOpenCamera = { cameraId -> navController.navigate(Routes.live(cameraId)) },
                             onOpenRecording = { id -> navController.navigate(Routes.player(id)) },
+                            onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
                             onDisconnect = {
+                                com.daygle.aicamera.push.PushController.stop(appContext)
                                 rootViewModel.disconnect {
                                     navController.navigate(Routes.CONNECT) {
                                         popUpTo(Routes.HOME) { inclusive = true }
@@ -63,6 +68,9 @@ fun DaygleNavHost(
                                 }
                             },
                         )
+                    }
+                    composable(Routes.NOTIFICATIONS) {
+                        NotificationsScreen(onBack = { navController.popBackStack() })
                     }
                     composable(
                         route = Routes.LIVE,

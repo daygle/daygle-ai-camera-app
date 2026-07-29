@@ -4,6 +4,7 @@ import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.CameraHealthResponse
 import com.daygle.aicamera.data.model.CamerasResponse
 import com.daygle.aicamera.data.model.Event
+import com.daygle.aicamera.data.model.PushSettings
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.data.model.StatusResponse
 import retrofit2.http.GET
@@ -32,4 +33,7 @@ interface DaygleApi {
         @Query("camera_id") cameraId: String? = null,
         @Query("limit") limit: Int = 100,
     ): List<Recording>
+
+    @GET("api/settings/alert-push")
+    suspend fun pushSettings(): PushSettings
 }

@@ -3,6 +3,7 @@ package com.daygle.aicamera.data
 import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.CameraHealthResponse
 import com.daygle.aicamera.data.model.Event
+import com.daygle.aicamera.data.model.PushSettings
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.data.model.StatusResponse
 
@@ -51,6 +52,8 @@ class CameraRepository(
 
     suspend fun recordings(cameraId: String? = null): Result<List<Recording>> =
         runCatching { session.api.recordings(cameraId = cameraId) }
+
+    suspend fun pushSettings(): Result<PushSettings> = runCatching { session.api.pushSettings() }
 
     fun snapshotUrl(cameraId: String?, cacheBuster: Long): String? =
         session.snapshotUrl(cameraId, cacheBuster)
