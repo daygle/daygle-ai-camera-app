@@ -162,7 +162,7 @@ class SessionManager {
             val token = authClient.newCall(Request.Builder().url(loginUrl).get().build())
                 .execute().use { pageResponse ->
                     if (!pageResponse.isSuccessful) {
-                        return LoginResult.Error("Server returned ${pageResponse.code} for /login")
+                        return LoginResult.Error(mapHttpError(pageResponse.code, "/login"))
                     }
                     extractCsrfToken(pageResponse.body.string())
                 } ?: return LoginResult.Error("Could not read the login security token from the server.")
@@ -186,13 +186,21 @@ class SessionManager {
                 when {
                     verify.isSuccessful -> LoginResult.Success
                     verify.code == 401 -> LoginResult.InvalidCredentials
-                    else -> LoginResult.Error("Server returned ${verify.code}")
+                    else -> LoginResult.Error(mapHttpError(verify.code, "/api/cameras"))
                 }
             }
         } catch (e: Exception) {
             Log.w(TAG, "Login failed", e)
-            LoginResult.Error(e.message ?: "Could not reach the server.")
+            LoginResult.Error(e.toUserFriendlyMessage())
         }
+    }
+
+    private fun mapHttpError(code: Int, path: String): String = when (code) {
+        in 500..599 -> "Server error ($code) on $path. Check the server logs."
+        404 -> "Endpoint not found (404) on $path. Check the server address or update the server."
+        403 -> "Access forbidden (403). Check your account permissions."
+        401 -> "Authentication failed. Check your username and password."
+        else -> "Unexpected server response: $code on $path."
     }
 
     companion object {
