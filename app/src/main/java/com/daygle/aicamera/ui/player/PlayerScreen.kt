@@ -123,6 +123,9 @@ fun PlayerScreen(
                                 )
                             }
                         },
+                        update = {
+                            it.player = player
+                        },
                         onRelease = {
                             it.player = null
                         },
@@ -155,6 +158,7 @@ private fun rememberExoPlayer(
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
             .build()
             .apply {
+                // Ensure we use the main looper for all events
                 addListener(object : androidx.media3.common.Player.Listener {
                     override fun onPlayerError(playbackError: androidx.media3.common.PlaybackException) {
                         val message = when (playbackError.errorCode) {

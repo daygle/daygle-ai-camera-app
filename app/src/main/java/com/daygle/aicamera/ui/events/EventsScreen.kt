@@ -161,7 +161,7 @@ fun EventsScreen(
                     FilterChip(
                         selected = data.filter.alertedOnly,
                         onClick = { viewModel.setAlertedOnly(true) },
-                        label = { Text("Alerts only") },
+                        label = { Text("Alerts") },
                     )
                 }
 

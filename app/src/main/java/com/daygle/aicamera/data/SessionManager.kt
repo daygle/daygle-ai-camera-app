@@ -137,6 +137,9 @@ class SessionManager {
         val base = baseUrl ?: return null
         return base.newBuilder()
             .addPathSegments("api/recordings/$recordingId/stream")
+            // Request a standard resolution for recordings too, to avoid decoder crashes
+            .addQueryParameter("width", "1280")
+            .addQueryParameter("height", "720")
             .build()
             .toString()
     }
