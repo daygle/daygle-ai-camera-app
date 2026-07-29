@@ -177,7 +177,7 @@ fun RecordingsScreen(
                         leadingIcon = {
                             Icon(
                                 Icons.Filled.CalendarMonth,
-                                contentDescription = "Pick date range",
+                                contentDescription = "Select Date Range",
                                 modifier = Modifier.size(18.dp),
                             )
                         },
@@ -285,7 +285,7 @@ private val dateFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM
     .withLocale(Locale.getDefault())
 
 private fun dateRangeLabel(start: LocalDate?, end: LocalDate?): String {
-    if (start == null && end == null) return "Pick date range"
+    if (start == null && end == null) return "Select Date Range"
     if (start != null && end != null) {
         return "${start.format(dateFormatter)} - ${end.format(dateFormatter)}"
     }
@@ -353,7 +353,7 @@ private fun RecordingRow(recording: Recording, onPlay: () -> Unit) {
             },
             trailingContent = {
                 Text(
-                    if (recording.mediaReady) formatDuration(recording.durationSeconds) else "processing",
+                    if (recording.mediaReady) formatDuration(recording.durationSeconds) else "Processing",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
