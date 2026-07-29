@@ -368,8 +368,5 @@ private fun Recording.title(): String {
 }
 
 private fun Recording.subtitle(): String {
-    val parts = mutableListOf<String>()
-    formatTimestamp(startedAt).let { if (it != "-") parts.add(it) }
-    if (labels.isNotEmpty()) parts.add(labels.joinToString(", ") { formatEventLabel(it) })
-    return parts.joinToString("  ·  ")
+    return formatTimestamp(startedAt)
 }
