@@ -123,6 +123,9 @@ fun PlayerScreen(
                                 )
                             }
                         },
+                        onRelease = {
+                            it.player = null
+                        },
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -145,7 +148,8 @@ private fun rememberExoPlayer(
         val dataSourceFactory = OkHttpDataSource.Factory(repository.httpClient())
         // Configure renderers to be more resilient on emulators/constrained devices
         val renderersFactory = DefaultRenderersFactory(context)
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+            .setEnableDecoderFallback(true)
             
         ExoPlayer.Builder(context, renderersFactory)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
