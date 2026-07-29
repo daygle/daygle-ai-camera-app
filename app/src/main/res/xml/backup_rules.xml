@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Do not back up the credential/session datastore off-device. -->
+    <exclude domain="file" path="datastore/" />
+</full-backup-content>
