@@ -29,11 +29,12 @@ fun formatTimestamp(iso: String?): String {
  */
 fun formatEventLabel(text: String?): String {
     if (text.isNullOrBlank()) return ""
-    val mapped = when (text.lowercase(Locale.getDefault())) {
+    val normalized = text.replace('_', ' ')
+    val mapped = when (normalized.lowercase(Locale.getDefault())) {
         "rtsp" -> "Object"
-        else -> text
+        else -> normalized
     }
-    return mapped.split(' ').joinToString(" ") { word ->
+    return mapped.split(' ').filter { it.isNotBlank() }.joinToString(" ") { word ->
         word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
     }
 }
