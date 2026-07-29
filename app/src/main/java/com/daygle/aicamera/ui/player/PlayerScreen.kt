@@ -147,12 +147,13 @@ private fun rememberExoPlayer(
     val context = LocalContext.current
     val repository = (context.applicationContext as DaygleApp).container.repository
 
-    val player = androidx.compose.runtime.remember(streamUrl, retryKey) {
+    val player = androidx.compose.runtime.remember<ExoPlayer>(retryKey) {
         val dataSourceFactory = OkHttpDataSource.Factory(repository.httpClient())
         // Configure renderers to be more resilient on emulators/constrained devices
         val renderersFactory = DefaultRenderersFactory(context)
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
             .setEnableDecoderFallback(true)
+            .forceDisableMediaCodecAsynchronousQueueing()
             
         ExoPlayer.Builder(context, renderersFactory)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
@@ -179,6 +180,12 @@ private fun rememberExoPlayer(
     // Move media setup and preparation to a LaunchedEffect to ensure they happen 
     // after construction and are re-run if the stream URL changes without a full rebuild.
     androidx.compose.runtime.LaunchedEffect(player, streamUrl) {
+        // If the player is already playing something, stop it first to ensure a clean transition
+        // of MediaCodec states on Android 17.
+        if (player.playbackState != androidx.media3.common.Player.STATE_IDLE) {
+            player.stop()
+            player.clearMediaItems()
+        }
         player.setMediaItem(MediaItem.fromUri(streamUrl))
         player.prepare()
         player.playWhenReady = true
@@ -186,8 +193,10 @@ private fun rememberExoPlayer(
 
     DisposableEffect(player) {
         onDispose { 
-            // For Android 17 (API 37) DeliQueue stability, we must stop and clear 
-            // media items before releasing to avoid "dead thread" callbacks from MediaCodec.
+            // For Android 17 (API 37) DeliQueue stability, we must detach the surface
+            // and stop playback before releasing the player. This ensures MediaCodec
+            // doesn't attempt to post callbacks to the playback thread after it quits.
+            player.setVideoSurface(null)
             player.stop()
             player.clearMediaItems()
             player.release() 

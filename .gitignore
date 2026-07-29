@@ -19,3 +19,6 @@ gen/
 # OS
 .DS_Store
 Thumbs.db
+
+# Gemini Artifacts
+.artifacts/
