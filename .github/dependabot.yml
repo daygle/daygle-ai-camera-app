@@ -1,0 +1,48 @@
+version: 2
+
+updates:
+  # Gradle dependencies: scans build.gradle.kts files and the version catalog at gradle/libs.versions.toml.
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Australia/Sydney"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "gradle"
+    commit-message:
+      prefix: "gradle"
+      include: "scope"
+    groups:
+      androidx-and-google:
+        patterns:
+          - "androidx.*"
+          - "com.android.*"
+          - "com.google.*"
+      kotlin:
+        patterns:
+          - "org.jetbrains.kotlin*"
+          - "org.jetbrains.kotlinx*"
+      squareup-coil:
+        patterns:
+          - "com.squareup.*"
+          - "com.jakewharton.*"
+          - "io.coil-kt*"
+
+  # GitHub Actions: keeps actions/checkout, actions/setup-java, actions/upload-artifact, etc. up to date.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Australia/Sydney"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "ci"
