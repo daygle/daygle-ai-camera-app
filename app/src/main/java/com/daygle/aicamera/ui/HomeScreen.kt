@@ -3,7 +3,7 @@ package com.daygle.aicamera.ui
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.Notifications
@@ -66,7 +66,7 @@ fun HomeScreen(
                         Icon(Icons.Filled.NotificationsNone, contentDescription = "Alert notifications")
                     }
                     IconButton(onClick = onDisconnect) {
-                        Icon(Icons.Filled.Logout, contentDescription = "Disconnect")
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Disconnect")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

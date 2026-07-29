@@ -164,7 +164,7 @@ class SessionManager {
                     if (!pageResponse.isSuccessful) {
                         return LoginResult.Error("Server returned ${pageResponse.code} for /login")
                     }
-                    extractCsrfToken(pageResponse.body?.string().orEmpty())
+                    extractCsrfToken(pageResponse.body.string())
                 } ?: return LoginResult.Error("Could not read the login security token from the server.")
 
             val form = FormBody.Builder()

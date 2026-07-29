@@ -117,7 +117,7 @@ class NtfyService : Service() {
             if (!response.isSuccessful) {
                 throw IllegalStateException("ntfy returned HTTP ${response.code}")
             }
-            val source = response.body?.source() ?: return 0
+            val source = response.body.source()
             while (scope.isActive && !source.exhausted()) {
                 val line = source.readUtf8Line() ?: break
                 if (line.isBlank()) continue
