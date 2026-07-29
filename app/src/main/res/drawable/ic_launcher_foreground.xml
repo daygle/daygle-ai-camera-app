@@ -3,10 +3,34 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+
+    <!-- Camera body -->
     <path
         android:fillColor="#3DDC97"
-        android:pathData="M34,42h9l4,-6h14l4,6h9a4,4 0 0 1 4,4v22a4,4 0 0 1 -4,4H34a4,4 0 0 1 -4,-4V46A4,4 0 0 1 34,42zM54,50a9,9 0 1 0 0,18a9,9 0 0 0 0,-18z" />
+        android:pathData="M32,38h12l5,-8h18l5,8h12a5,5 0 0 1 5,5v28a5,5 0 0 1 -5,5H32a5,5 0 0 1 -5,-5V43a5,5 0 0 1 5,-5z" />
+
+    <!-- Lens outer ring -->
     <path
-        android:fillColor="#0B1220"
-        android:pathData="M54,54a5,5 0 1 0 0,10a5,5 0 0 0 0,-10z" />
+        android:fillColor="#04150E"
+        android:pathData="M54,48m-12,0a12,12 0 1 1 24,0a12,12 0 1 1 -24,0" />
+
+    <!-- Lens inner -->
+    <path
+        android:fillColor="#3DDC97"
+        android:pathData="M54,52m-7,0a7,7 0 1 1 14,0a7,7 0 1 1 -14,0" />
+
+    <!-- Lens highlight -->
+    <path
+        android:fillColor="#D8FFEE"
+        android:pathData="M51,49m-2,0a2,2 0 1 1 4,0a2,2 0 1 1 -4,0" />
+
+    <!-- AI sparkle top-right -->
+    <path
+        android:fillColor="#D8FFEE"
+        android:pathData="M74,43l1.5,4.5l4.5,1.5l-4.5,1.5l-1.5,4.5l-1.5,-4.5l-4.5,-1.5l4.5,-1.5z" />
+
+    <!-- AI sparkle bottom-left small -->
+    <path
+        android:fillColor="#D8FFEE"
+        android:pathData="M39,66l1,3l3,1l-3,1l-1,3l-1,-3l-3,-1l3,-1z" />
 </vector>
