@@ -4,6 +4,7 @@ import android.app.Application
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import com.daygle.aicamera.data.CameraRepository
+import com.daygle.aicamera.data.NotificationSettingsStore
 import com.daygle.aicamera.data.SessionManager
 import com.daygle.aicamera.data.SettingsStore
 
@@ -32,6 +33,7 @@ class DaygleApp : Application(), ImageLoaderFactory {
 
 class AppContainer(app: Application) {
     val settings = SettingsStore(app)
+    val notificationSettings = NotificationSettingsStore(app)
     val session = SessionManager()
     val repository = CameraRepository(session, settings)
 }
