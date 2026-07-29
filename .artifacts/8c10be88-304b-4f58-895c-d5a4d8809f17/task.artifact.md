@@ -1,0 +1,6 @@
+- [x] Modify `PlayerScreen.kt` to improve `ExoPlayer` lifecycle
+    - [x] Update `rememberExoPlayer` to ensure main looper usage
+    - [x] Move `prepare()` and `playWhenReady` to `LaunchedEffect`
+    - [x] Update `onDispose` to stop and clear media items before release
+- [x] Verify changes by building the project
+- [x] Create walkthrough artifact

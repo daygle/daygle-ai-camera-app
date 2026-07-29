@@ -156,6 +156,7 @@ private fun rememberExoPlayer(
             
         ExoPlayer.Builder(context, renderersFactory)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
+            .setLooper(android.os.Looper.getMainLooper()) // Explicitly use main looper for DeliQueue stability
             .build()
             .apply {
                 // Ensure we use the main looper for all events
@@ -172,14 +173,25 @@ private fun rememberExoPlayer(
                         onError(message)
                     }
                 })
-                setMediaItem(MediaItem.fromUri(streamUrl))
-                prepare()
-                playWhenReady = true
             }
     }
 
+    // Move media setup and preparation to a LaunchedEffect to ensure they happen 
+    // after construction and are re-run if the stream URL changes without a full rebuild.
+    androidx.compose.runtime.LaunchedEffect(player, streamUrl) {
+        player.setMediaItem(MediaItem.fromUri(streamUrl))
+        player.prepare()
+        player.playWhenReady = true
+    }
+
     DisposableEffect(player) {
-        onDispose { player.release() }
+        onDispose { 
+            // For Android 17 (API 37) DeliQueue stability, we must stop and clear 
+            // media items before releasing to avoid "dead thread" callbacks from MediaCodec.
+            player.stop()
+            player.clearMediaItems()
+            player.release() 
+        }
     }
     return player
 }
