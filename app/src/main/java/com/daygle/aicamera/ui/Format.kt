@@ -13,7 +13,7 @@ private val displayFormatter: DateTimeFormatter =
 
 /** Render an ISO-8601 timestamp from the server in the device's local time zone. */
 fun formatTimestamp(iso: String?): String {
-    if (iso.isNullOrBlank()) return "—"
+    if (iso.isNullOrBlank()) return "-"
     return try {
         OffsetDateTime.parse(iso)
             .atZoneSameInstant(ZoneId.systemDefault())

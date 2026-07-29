@@ -106,7 +106,7 @@ private fun SystemSummary(summary: CameraHealthSummary, status: StatusResponse?)
             Stat(label = "Online", value = "${summary.online}/${summary.total}")
             val ai = status?.let {
                 if (it.aiAvailable) it.aiBackend?.uppercase() ?: "ON" else "OFF"
-            } ?: "—"
+            } ?: "-"
             Stat(label = "AI", value = ai)
             status?.let {
                 if (it.uptimeSeconds > 0) Stat(label = "Uptime", value = formatUptime(it.uptimeSeconds))

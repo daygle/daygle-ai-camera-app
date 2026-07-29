@@ -1,27 +1,27 @@
-# Daygle AI Camera — Android app
+# Daygle AI Camera - Android app
 
 A native Android client for a self-hosted [Daygle AI Camera](https://github.com/daygle/daygle-ai-camera)
 server. Point it at your server, sign in, and view your cameras, live feeds,
 detection events, and recordings from your phone.
 
-The app is a **viewer** — all camera management, AI configuration, and rule
+The app is a **viewer** - all camera management, AI configuration, and rule
 setup stays in the server's web dashboard. This client focuses on watching.
 
 ## Features
 
-- **Connect to your server** — enter the server address and your Daygle AI
+- **Connect to your server** - enter the server address and your Daygle AI
   Camera credentials. The connection is verified on sign-in and remembered
   between launches.
-- **Cameras dashboard** — a grid of every configured camera with live snapshot
+- **Cameras dashboard** - a grid of every configured camera with live snapshot
   thumbnails, online/offline status, and a system summary (cameras online, AI
   backend, uptime).
-- **Live view** — tap a camera for a near-live feed (refreshed snapshots) with
+- **Live view** - tap a camera for a near-live feed (refreshed snapshots) with
   play/pause and the current stream resolution. Polling pauses automatically
   when the app is backgrounded.
-- **Events** — the detection/alert log, filterable to alerts only.
-- **Recordings** — browse saved clips and play them back in-app with a full
+- **Events** - the detection/alert log, filterable to alerts only.
+- **Recordings** - browse saved clips and play them back in-app with a full
   video scrubber.
-- **Push alerts** — real notifications when your cameras detect an object or
+- **Push alerts** - real notifications when your cameras detect an object or
   sound, delivered while the app is backgrounded (see below).
 
 ## How it connects
@@ -30,10 +30,10 @@ The server uses browser-style **session-cookie authentication with a CSRF
 token** (there is no bearer/API-token endpoint), so the app reproduces the web
 login handshake:
 
-1. `GET /login` — the server sets a CSRF cookie and returns a form containing a
+1. `GET /login` - the server sets a CSRF cookie and returns a form containing a
    matching `csrf_token`.
 2. `POST /login` with form-encoded `username`, `password`, and that
-   `csrf_token` — on success the server sets the session cookie.
+   `csrf_token` - on success the server sets the session cookie.
 
 The session cookie is then sent with every read request. All API calls the app
 makes are read-only `GET`s, which need only the cookie (no CSRF header). A
@@ -58,7 +58,7 @@ silent re-login and one retry).
 
 ## Push alerts
 
-The Daygle server sends detection alerts via **ntfy** — it POSTs to
+The Daygle server sends detection alerts via **ntfy** - it POSTs to
 `{server_url}/{topic}`. This app receives those alerts by **subscribing to the
 same ntfy topic's live stream** (`GET {server_url}/{topic}/json`), the same
 "instant delivery" model the official ntfy app uses for self-hosted servers.
@@ -76,8 +76,8 @@ boot.
 - Push must be **configured and enabled on the server** (its Settings →
   notifications → ntfy). The app only listens; the server does the sending.
 - Delivery works while the app is backgrounded via an ongoing "watching for
-  alerts" status notification. It is **not** Firebase/FCM — there's no cloud
-  push project — so if Android kills the service under heavy memory pressure
+  alerts" status notification. It is **not** Firebase/FCM - there's no cloud
+  push project - so if Android kills the service under heavy memory pressure
   it resumes the next time you open the app (or on reboot).
 - If your ntfy topic is access-protected and you sign in as a **viewer**, the
   server redacts the ntfy password; enter the ntfy username/password manually

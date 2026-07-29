@@ -28,9 +28,9 @@ import java.util.concurrent.TimeUnit
  * The server uses browser-style session-cookie auth with a CSRF token (there
  * is no bearer/API-token endpoint), so [performLogin] reproduces the browser
  * login handshake:
- *  1. `GET /login` — the server sets a CSRF cookie and embeds a matching
+ *  1. `GET /login` - the server sets a CSRF cookie and embeds a matching
  *     `csrf_token` in the returned HTML form.
- *  2. `POST /login` (form-encoded `username`, `password`, `csrf_token`) — on
+ *  2. `POST /login` (form-encoded `username`, `password`, `csrf_token`) - on
  *     success the server sets the session cookie, which the [cookieJar] keeps.
  *
  * All read (GET /api/ endpoints) calls only need the session cookie. If it expires the
@@ -38,7 +38,7 @@ import java.util.concurrent.TimeUnit
  */
 class SessionManager {
 
-    // NOTE: declaration order matters — Kotlin initializes properties top to
+    // NOTE: declaration order matters - Kotlin initializes properties top to
     // bottom, so every field that [api]/the clients depend on must be declared
     // above them (the clients reference [cookieJar]/[logging]; [api] references
     // [httpClient]).
