@@ -27,6 +27,7 @@ data class RecordingsFilter(
     val query: String = "",
     val dateStart: LocalDate? = null,
     val dateEnd: LocalDate? = null,
+    val selectedSources: Set<String> = emptySet(),
     val selectedLabels: Set<String> = emptySet(),
     val sortOrder: SortOrder = SortOrder.NEWEST,
 )
@@ -42,6 +43,9 @@ data class RecordingsReady(
             .flatMap { r -> r.labels + r.detections.map { it.label } + listOfNotNull(r.triggerType, r.triggerLabel) }
             .distinct()
             .sorted()
+
+    val availableSources: List<String> =
+        recordings.mapNotNull { it.source }.distinct().sorted()
 }
 
 sealed interface RecordingsUiState {
@@ -96,6 +100,17 @@ class RecordingsViewModel(private val repository: CameraRepository) : ViewModel(
         _state.update { current ->
             if (current is RecordingsUiState.Ready) {
                 val filter = current.data.filter.copy(dateStart = start, dateEnd = end)
+                RecordingsUiState.Ready(current.data.copy(filter = filter, filtered = applyFilters(filter)))
+            } else current
+        }
+    }
+
+    fun toggleSource(source: String) {
+        _state.update { current ->
+            if (current is RecordingsUiState.Ready) {
+                val selected = current.data.filter.selectedSources.toMutableSet()
+                if (!selected.add(source)) selected.remove(source)
+                val filter = current.data.filter.copy(selectedSources = selected)
                 RecordingsUiState.Ready(current.data.copy(filter = filter, filtered = applyFilters(filter)))
             } else current
         }
@@ -156,6 +171,11 @@ class RecordingsViewModel(private val repository: CameraRepository) : ViewModel(
                 if (end != null && !ts.isBefore(end)) return@filter false
                 true
             }
+        }
+
+        // Source filter
+        if (filter.selectedSources.isNotEmpty()) {
+            result = result.filter { r -> r.source in filter.selectedSources }
         }
 
         // Label / trigger type filter

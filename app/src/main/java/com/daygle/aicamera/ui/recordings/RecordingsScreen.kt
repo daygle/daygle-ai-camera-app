@@ -206,6 +206,27 @@ fun RecordingsScreen(
                     }
                 }
 
+                // Source chips (Sound/Object)
+                if (data.availableSources.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 12.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        data.availableSources.forEach { source ->
+                            FilterChip(
+                                selected = source in data.filter.selectedSources,
+                                onClick = { viewModel.toggleSource(source) },
+                                label = {
+                                    Text(formatEventLabel(source))
+                                },
+                            )
+                        }
+                    }
+                }
+
                 // Label / trigger chips
                 if (data.availableLabels.isNotEmpty()) {
                     Row(
@@ -231,6 +252,7 @@ fun RecordingsScreen(
                 val hasActiveFilters = data.filter.query.isNotBlank() ||
                     data.filter.dateStart != null ||
                     data.filter.dateEnd != null ||
+                    data.filter.selectedSources.isNotEmpty() ||
                     data.filter.selectedLabels.isNotEmpty()
 
                 if (hasActiveFilters) {
