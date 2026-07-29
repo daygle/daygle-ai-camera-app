@@ -24,6 +24,9 @@ Thumbs.db
 # Gemini Artifacts
 .artifacts/
 
+# Kotlin compiler cache
+.kotlin/
+
 # Local backup artifacts (history-rewrite bundles etc.)
 .git-backups/
 .venv-filter-repo/
