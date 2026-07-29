@@ -24,10 +24,17 @@ enum class DateFilter(val label: String) {
     THIS_MONTH("This month"),
 }
 
+enum class SortOrder(val label: String) {
+    NEWEST("Newest"),
+    OLDEST("Oldest"),
+    LONGEST("Longest"),
+}
+
 data class RecordingsFilter(
     val query: String = "",
     val dateFilter: DateFilter = DateFilter.ALL,
     val selectedLabels: Set<String> = emptySet(),
+    val sortOrder: SortOrder = SortOrder.NEWEST,
 )
 
 data class RecordingsReady(
@@ -111,6 +118,15 @@ class RecordingsViewModel(private val repository: CameraRepository) : ViewModel(
         }
     }
 
+    fun setSortOrder(sortOrder: SortOrder) {
+        _state.update { current ->
+            if (current is RecordingsUiState.Ready) {
+                val filter = current.data.filter.copy(sortOrder = sortOrder)
+                RecordingsUiState.Ready(current.data.copy(filter = filter, filtered = applyFilters(filter)))
+            } else current
+        }
+    }
+
     fun clearFilters() {
         _state.update { current ->
             if (current is RecordingsUiState.Ready) {
@@ -162,6 +178,13 @@ class RecordingsViewModel(private val repository: CameraRepository) : ViewModel(
                     sel in r.labels || sel == r.triggerType || sel == r.triggerLabel
                 }
             }
+        }
+
+        // Sort
+        result = when (filter.sortOrder) {
+            SortOrder.NEWEST -> result.sortedByDescending { it.id }
+            SortOrder.OLDEST -> result.sortedBy { it.id }
+            SortOrder.LONGEST -> result.sortedByDescending { it.durationSeconds }
         }
 
         return result

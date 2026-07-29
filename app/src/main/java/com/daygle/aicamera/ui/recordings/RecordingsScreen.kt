@@ -103,6 +103,23 @@ fun RecordingsScreen(
                     }
                 }
 
+                // Sort order row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    SortOrder.entries.forEach { sort ->
+                        FilterChip(
+                            selected = data.filter.sortOrder == sort,
+                            onClick = { viewModel.setSortOrder(sort) },
+                            label = { Text(sort.label) },
+                        )
+                    }
+                }
+
                 // Label / trigger chips
                 if (data.availableLabels.isNotEmpty()) {
                     Row(
