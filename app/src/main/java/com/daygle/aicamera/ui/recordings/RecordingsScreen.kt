@@ -32,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDateRangePickerState
@@ -236,19 +237,24 @@ fun RecordingsScreen(
                 Spacer(Modifier.height(4.dp))
 
                 // Recording list
-                if (data.filtered.isEmpty()) {
-                    EmptyState(
-                        if (hasActiveFilters) "No recordings match your filters." else "No recordings on the server yet.",
-                        modifier = Modifier.weight(1f),
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        items(data.filtered, key = { it.id }) { recording ->
-                            RecordingRow(recording, onPlay = { onPlay(recording.id) })
+                val refreshing = data.refreshing
+                PullToRefreshBox(
+                    isRefreshing = refreshing,
+                    onRefresh = viewModel::load,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    if (data.filtered.isEmpty()) {
+                        EmptyState(
+                            if (hasActiveFilters) "No recordings match your filters." else "No recordings on the server yet.",
+                        )
+                    } else {
+                        LazyColumn(
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            items(data.filtered, key = { it.id }) { recording ->
+                                RecordingRow(recording, onPlay = { onPlay(recording.id) })
+                            }
                         }
                     }
                 }

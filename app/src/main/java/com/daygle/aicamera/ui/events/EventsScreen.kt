@@ -24,11 +24,13 @@ import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -48,6 +50,7 @@ import com.daygle.aicamera.ui.components.LoadingState
 import com.daygle.aicamera.ui.formatTimestamp
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventsScreen(
     modifier: Modifier = Modifier,
@@ -175,19 +178,24 @@ fun EventsScreen(
                 Spacer(Modifier.height(4.dp))
 
                 // Event list
-                if (data.filtered.isEmpty()) {
-                    EmptyState(
-                        if (hasActiveFilters) "No events match your filters." else "No events recorded yet.",
-                        modifier = Modifier.weight(1f),
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        items(data.filtered, key = { it.id }) { event ->
-                            EventRow(event)
+                val refreshing = data.refreshing
+                PullToRefreshBox(
+                    isRefreshing = refreshing,
+                    onRefresh = viewModel::load,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    if (data.filtered.isEmpty()) {
+                        EmptyState(
+                            if (hasActiveFilters) "No events match your filters." else "No events recorded yet.",
+                        )
+                    } else {
+                        LazyColumn(
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            items(data.filtered, key = { it.id }) { event ->
+                                EventRow(event)
+                            }
                         }
                     }
                 }
