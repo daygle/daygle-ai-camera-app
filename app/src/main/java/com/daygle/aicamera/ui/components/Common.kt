@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun LoadingState(modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         CircularProgressIndicator()
     }
 }
@@ -32,8 +32,8 @@ fun LoadingState(modifier: Modifier = Modifier) {
 @Composable
 fun ErrorState(
     message: String,
-    onRetry: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
+    onRetry: (() -> Unit)? = null,
 ) {
     Column(
         modifier = modifier

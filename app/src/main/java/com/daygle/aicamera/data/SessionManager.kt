@@ -19,6 +19,7 @@ import retrofit2.Retrofit
 import java.net.CookieManager
 import java.net.CookiePolicy
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Owns the connection to a single Daygle AI Camera server: base URL,
@@ -52,6 +53,8 @@ class SessionManager {
     private val cookieManager = CookieManager(null, CookiePolicy.ACCEPT_ALL)
     private val cookieJar = JavaNetCookieJar(cookieManager)
     private val loginLock = Any()
+
+    private val sessionGeneration = AtomicLong()
 
     private val logging = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BASIC
@@ -89,11 +92,12 @@ class SessionManager {
     /** Point the manager at a (possibly new) server. Clears cookies if the target changed. */
     fun update(connection: Connection) {
         val normalized = normalizeBaseUrl(connection.baseUrl)
-        val changed = normalized?.toString() != baseUrl?.toString()
+        val changed = normalized?.toString() != baseUrl?.toString() || connection != this.connection
         this.connection = connection
         this.baseUrl = normalized
         if (changed) {
             cookieManager.cookieStore.removeAll()
+            sessionGeneration.incrementAndGet()
         }
         api = buildApi(normalized)
     }
@@ -154,11 +158,18 @@ class SessionManager {
 
     private fun authInterceptor() = Interceptor { chain ->
         val request = chain.request()
+        val generationAtRequest = sessionGeneration.get()
         val response = chain.proceed(request)
-        val isApiCall = request.url.encodedPath.startsWith("/api/")
+        val isApiCall = request.url.pathSegments.contains("api")
         if (response.code == 401 && isApiCall && connection.isConfigured) {
             response.close()
-            val result = synchronized(loginLock) { performLogin() }
+            val result = synchronized(loginLock) {
+                if (sessionGeneration.get() != generationAtRequest) {
+                    LoginResult.Success
+                } else {
+                    performLogin()
+                }
+            }
             if (result is LoginResult.Success) {
                 return@Interceptor chain.proceed(request.newBuilder().build())
             }
@@ -198,7 +209,10 @@ class SessionManager {
             val verifyUrl = base.newBuilder().addPathSegments("api/cameras").build()
             authClient.newCall(Request.Builder().url(verifyUrl).get().build()).execute().use { verify ->
                 when {
-                    verify.isSuccessful -> LoginResult.Success
+                    verify.isSuccessful -> {
+                        sessionGeneration.incrementAndGet()
+                        LoginResult.Success
+                    }
                     verify.code == 401 -> LoginResult.InvalidCredentials
                     else -> LoginResult.Error(mapHttpError(verify.code, "/api/cameras"))
                 }

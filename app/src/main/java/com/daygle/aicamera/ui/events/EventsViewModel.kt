@@ -8,6 +8,8 @@ import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.ui.dashboard.friendlyMessage
 import com.daygle.aicamera.ui.isSoundLabel
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -51,8 +53,10 @@ data class EventsReady(
         events.mapNotNull { it.triggerType }.distinct().sorted()
 
     val availableLabels: List<String> =
-        events.flatMap { it.detections.map { d -> d.label } + listOfNotNull(it.triggerLabel) }
-            .distinct().sorted()
+        events.flatMap { event ->
+            event.detections.map { it.label } +
+                listOfNotNull(event.triggerLabel, event.metadataLabel())
+        }.distinct().sorted()
 
     val availableObjectLabels: List<String> = availableLabels.filter { !isSoundLabel(it) }
     val availableSoundLabels: List<String> = availableLabels.filter { isSoundLabel(it) }
@@ -178,7 +182,8 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
                 e.detections.any { it.label.lowercase().contains(q) } ||
                     e.source?.lowercase()?.contains(q) == true ||
                     e.triggerLabel?.lowercase()?.contains(q) == true ||
-                    e.triggerType?.lowercase()?.contains(q) == true
+                    e.triggerType?.lowercase()?.contains(q) == true ||
+                    e.metadataLabel()?.lowercase()?.contains(q) == true
             }
         }
 
@@ -223,7 +228,8 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
             result = result.filter { e ->
                 filter.selectedLabels.any { sel ->
                     e.detections.any { it.label == sel } ||
-                        e.triggerLabel == sel
+                        e.triggerLabel == sel ||
+                        e.metadataLabel() == sel
                 }
             }
         }
@@ -242,3 +248,6 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
         return result
     }
 }
+
+private fun Event.metadataLabel(): String? =
+    (metadata["label"] as? JsonPrimitive)?.contentOrNull

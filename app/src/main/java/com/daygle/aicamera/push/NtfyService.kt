@@ -1,5 +1,6 @@
 package com.daygle.aicamera.push
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -7,11 +8,13 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationManagerCompat
 import com.daygle.aicamera.MainActivity
 import com.daygle.aicamera.R
@@ -61,7 +64,9 @@ class NtfyService : Service() {
     private val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(20, TimeUnit.SECONDS)
-            .readTimeout(0, TimeUnit.MILLISECONDS) // hold the stream open indefinitely
+            // ntfy sends periodic keep-alives; a finite timeout lets the loop
+            // recover when a mobile network silently drops the connection.
+            .readTimeout(75, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
             .build()
     }
@@ -137,7 +142,10 @@ class NtfyService : Service() {
     }
 
     private fun postAlert(message: NtfyMessage) {
-        if (NotificationManagerCompat.from(this).areNotificationsEnabled().not()) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) return
+        if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) return
         val title = message.title?.takeIf { it.isNotBlank() } ?: "Camera alert"
         val text = message.message?.takeIf { it.isNotBlank() } ?: "A detection alert was triggered."
 
@@ -161,6 +169,8 @@ class NtfyService : Service() {
 
         runCatching {
             NotificationManagerCompat.from(this).notify(alertId.incrementAndGet(), notification)
+        }.onFailure { error ->
+            Log.w(TAG, "Could not post camera alert notification", error)
         }
     }
 

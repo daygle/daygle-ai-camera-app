@@ -17,11 +17,14 @@ class CameraRepository(
     private val settings: SettingsStore,
 ) {
 
-    /** Save connection details and verify them by logging in. */
+    /** Verify connection details and persist them only after a successful login. */
     suspend fun connect(connection: Connection): LoginResult {
-        settings.save(connection)
         session.update(connection)
-        return session.login()
+        val result = session.login()
+        if (result is LoginResult.Success) {
+            settings.save(connection)
+        }
+        return result
     }
 
     /** Re-apply the persisted connection to the session (e.g. on app launch). */

@@ -66,7 +66,11 @@ class SettingsStore(private val context: Context) {
     }
 
     suspend fun clear() {
-        context.dataStore.edit { it.clear() }
+        context.dataStore.edit { prefs ->
+            prefs.remove(Keys.BASE_URL)
+            prefs.remove(Keys.USERNAME)
+            prefs.remove(Keys.PASSWORD)
+        }
     }
 
     fun appPrefs(): AppPreferencesStore = appPrefsStore

@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.model.StatusResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +27,7 @@ data class LiveUiState(
 /**
  * Drives the live view by polling `/api/live/snapshot`. The server exposes
  * per-frame JPEG snapshots (not an MJPEG/WebRTC stream), so a steady refresh at
- * [REFRESH_INTERVAL_MS] provides a near-live feed while staying easy on the
+ * the configured refresh interval provides a near-live feed while staying easy on the
  * server. Playback pauses automatically when the screen leaves the foreground.
  */
 @HiltViewModel
@@ -39,8 +41,7 @@ class LiveViewModel @Inject constructor(
     private val _state = MutableStateFlow(LiveUiState(cameraId = cameraId))
     val state: StateFlow<LiveUiState> = _state.asStateFlow()
 
-    @Volatile
-    private var isFetching = false
+    private var frameFetchJob: Job? = null
 
     init {
         _state.update { it.copy(cameraName = cameraId) }
@@ -62,39 +63,44 @@ class LiveViewModel @Inject constructor(
     }
 
     fun fetchNextFrame() {
-        if (!_state.value.playing || isFetching) return
-        isFetching = true
-        viewModelScope.launch {
+        if (!_state.value.playing || frameFetchJob?.isActive == true) return
+        frameFetchJob = viewModelScope.launch {
+            val thisJob = currentCoroutineContext()[Job]
             try {
                 val intervalMs = repository.appPrefs().currentRefreshIntervalMs()
                 delay(intervalMs)
-                val url = repository.snapshotUrl(cameraId, System.currentTimeMillis())
-                _state.update { it.copy(frameUrl = url) }
+                if (_state.value.playing) {
+                    val url = repository.snapshotUrl(cameraId, System.currentTimeMillis())
+                    // Release the guard before publishing the frame so the
+                    // image loader can immediately schedule the next refresh.
+                    frameFetchJob = null
+                    _state.update { it.copy(frameUrl = url) }
+                }
             } finally {
-                isFetching = false
+                if (frameFetchJob === thisJob) frameFetchJob = null
             }
         }
     }
 
     fun togglePlayback() {
-        _state.update { 
-            val next = !it.playing
-            if (next) fetchNextFrame()
-            it.copy(playing = next) 
-        }
+        val shouldResume = !_state.value.playing
+        _state.update { it.copy(playing = shouldResume) }
+        if (shouldResume) fetchNextFrame()
     }
 
-    fun pause() = _state.update { it.copy(playing = false) }
-    
+    fun pause() {
+        _state.update { it.copy(playing = false) }
+        frameFetchJob?.cancel()
+        frameFetchJob = null
+    }
+
     fun resume() {
-        _state.update { 
-            if (!it.playing) fetchNextFrame()
-            it.copy(playing = true) 
-        }
+        val shouldResume = !_state.value.playing
+        _state.update { it.copy(playing = true) }
+        if (shouldResume) fetchNextFrame()
     }
 
     companion object {
         const val ARG_CAMERA_ID = "cameraId"
-        private const val REFRESH_INTERVAL_MS = 700L
     }
 }

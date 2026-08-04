@@ -17,7 +17,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Brightness4
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Schedule
@@ -25,7 +24,6 @@ import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -33,7 +31,6 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -93,9 +90,9 @@ fun SettingsScreen(
             }
 
             SettingsGroup(title = "Live View Refresh", icon = Icons.Filled.Speed) {
-                RefreshOption("Fast (500 ms)", state.refreshLabel == "Fast (500 ms)", 500L, state, viewModel)
-                RefreshOption("Balanced (1 s)", state.refreshLabel == "Balanced (1 s)", 1000L, state, viewModel)
-                RefreshOption("Smooth (2 s)", state.refreshLabel == "Smooth (2 s)", 2000L, state, viewModel)
+                RefreshOption("Fast (500 ms)", state.refreshLabel == "Fast (500 ms)", 500L, viewModel)
+                RefreshOption("Balanced (1 s)", state.refreshLabel == "Balanced (1 s)", 1000L, viewModel)
+                RefreshOption("Smooth (2 s)", state.refreshLabel == "Smooth (2 s)", 2000L, viewModel)
             }
 
             SettingsGroup(title = "About", icon = Icons.Filled.Info) {
@@ -188,7 +185,6 @@ private fun RefreshOption(
     label: String,
     selected: Boolean,
     intervalMs: Long,
-    state: SettingsUiState,
     viewModel: SettingsViewModel,
 ) {
     ListItem(

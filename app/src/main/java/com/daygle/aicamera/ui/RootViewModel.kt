@@ -40,6 +40,7 @@ class RootViewModel @Inject constructor(private val repository: CameraRepository
     fun disconnect(onDone: () -> Unit) {
         viewModelScope.launch {
             repository.disconnect()
+            _start.value = StartDestination.CONNECT
             onDone()
         }
     }
