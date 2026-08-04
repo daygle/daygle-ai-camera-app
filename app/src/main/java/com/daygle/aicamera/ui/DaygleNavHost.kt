@@ -15,7 +15,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.daygle.aicamera.ui.components.LoadingState
 import com.daygle.aicamera.ui.connect.ConnectScreen
-import com.daygle.aicamera.ui.live.LiveScreen
 import com.daygle.aicamera.ui.notifications.NotificationsScreen
 import com.daygle.aicamera.ui.onboarding.OnboardingScreen
 import com.daygle.aicamera.ui.player.PlayerScreen
@@ -26,10 +25,8 @@ private object Routes {
     const val HOME = "home"
     const val NOTIFICATIONS = "notifications"
     const val SETTINGS = "settings"
-    const val LIVE = "live/{cameraId}"
     const val PLAYER = "player/{recordingId}"
 
-    fun live(cameraId: String) = "live/$cameraId"
     fun player(recordingId: Int) = "player/$recordingId"
 }
 
@@ -62,7 +59,6 @@ fun DaygleNavHost(
                     }
                     composable(Routes.HOME) {
                         HomeScreen(
-                            onOpenCamera = { cameraId -> navController.navigate(Routes.live(cameraId)) },
                             onOpenRecording = { id -> navController.navigate(Routes.player(id)) },
                             onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
                             onOpenSettings = { navController.navigate(Routes.SETTINGS) },
@@ -83,12 +79,6 @@ fun DaygleNavHost(
                     }
                     composable(Routes.NOTIFICATIONS) {
                         NotificationsScreen(onBack = { navController.popBackStack() })
-                    }
-                    composable(
-                        route = Routes.LIVE,
-                        arguments = listOf(navArgument("cameraId") { type = NavType.StringType }),
-                    ) {
-                        LiveScreen(onBack = { navController.popBackStack() })
                     }
                     composable(
                         route = Routes.PLAYER,
