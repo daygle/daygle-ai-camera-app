@@ -77,6 +77,7 @@ import com.daygle.aicamera.ui.components.LoadingState
 import com.daygle.aicamera.ui.formatDuration
 import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatTimestamp
+import com.daygle.aicamera.ui.isSoundLabel
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -105,7 +106,8 @@ fun RecordingsScreen(
             availableModes = (state as? RecordingsUiState.Ready)?.data?.availableModes ?: emptyList(),
             availableCameras = (state as? RecordingsUiState.Ready)?.data?.availableCameras ?: emptyList(),
             availableTriggerTypes = (state as? RecordingsUiState.Ready)?.data?.availableTriggerTypes ?: emptyList(),
-            availableLabels = (state as? RecordingsUiState.Ready)?.data?.availableLabels ?: emptyList(),
+            availableObjectLabels = (state as? RecordingsUiState.Ready)?.data?.availableObjectLabels ?: emptyList(),
+            availableSoundLabels = (state as? RecordingsUiState.Ready)?.data?.availableSoundLabels ?: emptyList(),
             cameraMap = (state as? RecordingsUiState.Ready)?.data?.cameras?.associate { it.id to it.displayName } ?: emptyMap(),
             onDismiss = { showFilterSheet = false },
             viewModel = viewModel
@@ -271,7 +273,8 @@ private fun RecordingsFilterSheet(
     availableModes: List<String>,
     availableCameras: List<String>,
     availableTriggerTypes: List<String>,
-    availableLabels: List<String>,
+    availableObjectLabels: List<String>,
+    availableSoundLabels: List<String>,
     cameraMap: Map<String, String>,
     onDismiss: () -> Unit,
     viewModel: RecordingsViewModel
@@ -423,15 +426,35 @@ private fun RecordingsFilterSheet(
             }
 
             // Labels
-            if (availableLabels.isNotEmpty()) {
-                FilterSection(title = "Activity", icon = Icons.Filled.FilterList) {
+            if (availableObjectLabels.isNotEmpty()) {
+                FilterSection(title = "Object Activity", icon = Icons.Filled.FilterList) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        availableLabels.forEach { label ->
+                        availableObjectLabels.forEach { label ->
+                            FilterChip(
+                                selected = label in state.selectedLabels,
+                                onClick = { viewModel.toggleLabel(label) },
+                                label = { Text(formatEventLabel(label)) },
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (availableSoundLabels.isNotEmpty()) {
+                FilterSection(title = "Sound Activity", icon = Icons.Filled.GraphicEq) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        availableSoundLabels.forEach { label ->
                             FilterChip(
                                 selected = label in state.selectedLabels,
                                 onClick = { viewModel.toggleLabel(label) },
@@ -520,7 +543,10 @@ private fun RecordingRow(recording: Recording, onPlay: () -> Unit) {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        val isSound = recording.source?.lowercase() == "sound"
+                        val isSound = recording.source?.lowercase() == "sound" || 
+                                recording.triggerType?.lowercase() == "sound" || 
+                                isSoundLabel(recording.triggerLabel) || 
+                                recording.labels.any { isSoundLabel(it) }
                         Icon(
                             imageVector = if (isSound) Icons.Filled.GraphicEq else Icons.Filled.Videocam,
                             contentDescription = null,
@@ -555,7 +581,10 @@ private fun RecordingRow(recording: Recording, onPlay: () -> Unit) {
                 }
             },
             leadingContent = {
-                val isSound = recording.source?.lowercase() == "sound"
+                val isSound = recording.source?.lowercase() == "sound" || 
+                        recording.triggerType?.lowercase() == "sound" || 
+                        isSoundLabel(recording.triggerLabel) || 
+                        recording.labels.any { isSoundLabel(it) }
                 Box(
                     modifier = Modifier
                         .size(48.dp)

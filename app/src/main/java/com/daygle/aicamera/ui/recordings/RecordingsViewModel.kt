@@ -6,6 +6,7 @@ import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.ui.dashboard.friendlyMessage
+import com.daygle.aicamera.ui.isSoundLabel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -54,6 +55,9 @@ data class RecordingsReady(
             .flatMap { r -> r.labels + r.detections.map { it.label } + listOfNotNull(r.triggerLabel) }
             .distinct()
             .sorted()
+
+    val availableObjectLabels: List<String> = availableLabels.filter { !isSoundLabel(it) }
+    val availableSoundLabels: List<String> = availableLabels.filter { isSoundLabel(it) }
 }
 
 sealed interface RecordingsUiState {
@@ -217,7 +221,11 @@ class RecordingsViewModel @Inject constructor(private val repository: CameraRepo
         // Mode filter (Object vs Sound)
         if (filter.selectedModes.isNotEmpty()) {
             result = result.filter { r -> 
-                val mode = if (r.source?.lowercase() == "sound") "Sound" else "Object"
+                val isSound = r.source?.lowercase() == "sound" || 
+                    r.triggerType?.lowercase() == "sound" || 
+                    isSoundLabel(r.triggerLabel) || 
+                    r.labels.any { isSoundLabel(it) }
+                val mode = if (isSound) "Sound" else "Object"
                 mode in filter.selectedModes
             }
         }

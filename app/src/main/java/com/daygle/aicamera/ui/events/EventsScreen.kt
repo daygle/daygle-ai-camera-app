@@ -77,6 +77,7 @@ import com.daygle.aicamera.ui.components.ErrorState
 import com.daygle.aicamera.ui.components.LoadingState
 import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatTimestamp
+import com.daygle.aicamera.ui.isSoundLabel
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
@@ -107,7 +108,8 @@ fun EventsScreen(
             availableModes = (state as? EventsUiState.Ready)?.data?.availableModes ?: emptyList(),
             availableTriggerTypes = (state as? EventsUiState.Ready)?.data?.availableTriggerTypes ?: emptyList(),
             availableSources = (state as? EventsUiState.Ready)?.data?.availableSources ?: emptyList(),
-            availableLabels = (state as? EventsUiState.Ready)?.data?.availableLabels ?: emptyList(),
+            availableObjectLabels = (state as? EventsUiState.Ready)?.data?.availableObjectLabels ?: emptyList(),
+            availableSoundLabels = (state as? EventsUiState.Ready)?.data?.availableSoundLabels ?: emptyList(),
             cameraMap = (state as? EventsUiState.Ready)?.data?.cameras?.associate { it.id to it.displayName } ?: emptyMap(),
             onDismiss = { showFilterSheet = false },
             viewModel = viewModel
@@ -285,7 +287,8 @@ private fun EventsFilterSheet(
     availableModes: List<String>,
     availableTriggerTypes: List<String>,
     availableSources: List<String>,
-    availableLabels: List<String>,
+    availableObjectLabels: List<String>,
+    availableSoundLabels: List<String>,
     cameraMap: Map<String, String>,
     onDismiss: () -> Unit,
     viewModel: EventsViewModel
@@ -447,15 +450,35 @@ private fun EventsFilterSheet(
             }
 
             // Labels
-            if (availableLabels.isNotEmpty()) {
-                FilterSection(title = "Detections", icon = Icons.Filled.FilterList) {
+            if (availableObjectLabels.isNotEmpty()) {
+                FilterSection(title = "Object Detections", icon = Icons.Filled.FilterList) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        availableLabels.forEach { label ->
+                        availableObjectLabels.forEach { label ->
+                            FilterChip(
+                                selected = label in state.selectedLabels,
+                                onClick = { viewModel.toggleLabel(label) },
+                                label = { Text(formatEventLabel(label)) },
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (availableSoundLabels.isNotEmpty()) {
+                FilterSection(title = "Sound Detections", icon = Icons.Filled.GraphicEq) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        availableSoundLabels.forEach { label ->
                             FilterChip(
                                 selected = label in state.selectedLabels,
                                 onClick = { viewModel.toggleLabel(label) },
@@ -539,7 +562,10 @@ private fun EventRow(event: Event) {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val isSound = event.source?.lowercase() == "sound"
+                        val isSound = event.source?.lowercase() == "sound" || 
+                                event.triggerType?.lowercase() == "sound" || 
+                                isSoundLabel(event.triggerLabel) || 
+                                event.detections.any { isSoundLabel(it.label) }
                         Icon(
                             imageVector = if (isSound) Icons.Filled.GraphicEq else Icons.Filled.Videocam,
                             contentDescription = null,
@@ -586,7 +612,10 @@ private fun EventRow(event: Event) {
                 }
             },
             leadingContent = {
-                val isSound = event.source?.lowercase() == "sound"
+                val isSound = event.source?.lowercase() == "sound" || 
+                        event.triggerType?.lowercase() == "sound" || 
+                        isSoundLabel(event.triggerLabel) || 
+                        event.detections.any { isSoundLabel(it.label) }
                 Box(
                     modifier = Modifier
                         .size(48.dp)

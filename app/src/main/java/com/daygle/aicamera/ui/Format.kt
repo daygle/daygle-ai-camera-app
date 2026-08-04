@@ -7,6 +7,17 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
 
+private val SOUND_CLASS_IDS = setOf(
+    "cat_meow", "dog_bark", "glass_breaking", "smoke_alarm",
+    "baby_crying", "doorbell", "car_alarm", "loud_bang"
+)
+
+/** Returns true if the label identifies a sound category. */
+fun isSoundLabel(label: String?): Boolean {
+    val normalized = label?.trim()?.lowercase(Locale.getDefault())?.replace(" ", "_") ?: return false
+    return normalized in SOUND_CLASS_IDS || normalized.contains("sound")
+}
+
 private fun getDisplayFormatter(): DateTimeFormatter =
     DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
         .withLocale(Locale.getDefault())
