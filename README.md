@@ -1,4 +1,4 @@
-# Daygle AI Camera - Android app
+# Daygle AI Camera - Android Application
 
 A native Android client for a self-hosted [Daygle AI Camera](https://github.com/daygle/daygle-ai-camera)
 server. Point it at your server, sign in, and view your cameras, live feeds,
