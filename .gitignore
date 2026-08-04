@@ -31,3 +31,7 @@ Thumbs.db
 # Local backup artifacts (history-rewrite bundles etc.)
 .git-backups/
 .venv-filter-repo/
+
+# Python
+__pycache__/
+*.pyc
