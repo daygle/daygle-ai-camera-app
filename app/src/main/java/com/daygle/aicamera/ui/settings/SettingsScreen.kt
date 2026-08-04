@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Speed
@@ -52,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.daygle.aicamera.ui.permissions.PermissionsChecklist
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -113,6 +115,18 @@ fun SettingsScreen(
                 RefreshOption("Fast (500 ms)", state.refreshLabel == "Fast (500 ms)", 500L, viewModel)
                 RefreshOption("Balanced (1 s)", state.refreshLabel == "Balanced (1 s)", 1000L, viewModel)
                 RefreshOption("Smooth (2 s)", state.refreshLabel == "Smooth (2 s)", 2000L, viewModel)
+            }
+
+            SettingsGroup(title = "Permissions", icon = Icons.Filled.NotificationsActive) {
+                Text(
+                    "Required for camera alerts to reach this device.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
+                )
+                PermissionsChecklist(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+                )
             }
 
             SettingsGroup(title = "Account", icon = Icons.Filled.Dns) {

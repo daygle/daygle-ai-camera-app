@@ -98,7 +98,7 @@ class NtfyService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        createChannels()
+        ensureChannels(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -217,21 +217,6 @@ class NtfyService : Service() {
         stopSelf()
     }
 
-    private fun createChannels() {
-        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.createNotificationChannel(
-            NotificationChannel(STATUS_CHANNEL, "Alert listener", NotificationManager.IMPORTANCE_MIN).apply {
-                description = "Ongoing status while listening for camera alerts."
-            },
-        )
-        manager.createNotificationChannel(
-            NotificationChannel(ALERTS_CHANNEL, "Camera alerts", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Object and sound detection alerts from your cameras."
-                enableVibration(true)
-            },
-        )
-    }
-
     override fun onDestroy() {
         currentCall?.cancel()
         scope.cancel()
@@ -243,6 +228,60 @@ class NtfyService : Service() {
         private const val STATUS_CHANNEL = "alert_listener"
         private const val ALERTS_CHANNEL = "camera_alerts"
         private const val STATUS_ID = 1001
+        private const val TEST_ID = 1002
+
+        /** Create the status + alert notification channels. Safe to call repeatedly. */
+        fun ensureChannels(context: Context) {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.createNotificationChannel(
+                NotificationChannel(STATUS_CHANNEL, "Alert listener", NotificationManager.IMPORTANCE_MIN).apply {
+                    description = "Ongoing status while listening for camera alerts."
+                },
+            )
+            manager.createNotificationChannel(
+                NotificationChannel(ALERTS_CHANNEL, "Camera alerts", NotificationManager.IMPORTANCE_HIGH).apply {
+                    description = "Object and sound detection alerts from your cameras."
+                    enableVibration(true)
+                },
+            )
+        }
+
+        /**
+         * Post a sample alert on the camera-alerts channel so the user can
+         * confirm notifications actually appear on this device. Returns false
+         * (posting nothing) when notifications are not permitted, so the caller
+         * can prompt for the permission instead.
+         */
+        fun postTestNotification(context: Context): Boolean {
+            ensureChannels(context)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) return false
+            if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
+
+            val contentIntent = PendingIntent.getActivity(
+                context,
+                0,
+                Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            val title = "Daygle AI Camera Alert: Person Detected (Test)"
+            val body = "This is a test notification. If you can see this, camera alerts are working on this device."
+            val notification = NotificationCompat.Builder(context, ALERTS_CHANNEL)
+                .setSmallIcon(R.drawable.ic_stat_alert)
+                .setContentTitle(title)
+                .setContentText("Test notification - alerts are working.")
+                .setStyle(NotificationCompat.BigTextStyle().bigText("$title\n\n$body"))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setAutoCancel(true)
+                .setContentIntent(contentIntent)
+                .build()
+            return runCatching {
+                NotificationManagerCompat.from(context).notify(TEST_ID, notification)
+                true
+            }.getOrDefault(false)
+        }
     }
 }
 
