@@ -129,6 +129,27 @@ fun EventsScreen(
                     }
                 }
 
+                // Trigger Type chips (Sound/Object)
+                if (data.availableTriggerTypes.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 12.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        data.availableTriggerTypes.forEach { type ->
+                            FilterChip(
+                                selected = type in data.filter.selectedTriggerTypes,
+                                onClick = { viewModel.toggleTriggerType(type) },
+                                label = {
+                                    Text(formatEventLabel(type))
+                                },
+                            )
+                        }
+                    }
+                }
+
                 // Label chips
                 if (data.availableLabels.isNotEmpty()) {
                     Row(
@@ -172,6 +193,7 @@ fun EventsScreen(
                 // Active filter count & clear
                 val hasActiveFilters = data.filter.query.isNotBlank() ||
                     data.filter.selectedSources.isNotEmpty() ||
+                    data.filter.selectedTriggerTypes.isNotEmpty() ||
                     data.filter.selectedLabels.isNotEmpty() ||
                     data.filter.alertedOnly
 

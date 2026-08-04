@@ -207,7 +207,28 @@ fun RecordingsScreen(
                     }
                 }
 
-                // Source chips (Sound/Object)
+                // Trigger Type chips (Sound/Object)
+                if (data.availableTriggerTypes.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 12.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        data.availableTriggerTypes.forEach { type ->
+                            FilterChip(
+                                selected = type in data.filter.selectedTriggerTypes,
+                                onClick = { viewModel.toggleTriggerType(type) },
+                                label = {
+                                    Text(formatEventLabel(type))
+                                },
+                            )
+                        }
+                    }
+                }
+
+                // Source chips (Cameras)
                 if (data.availableSources.isNotEmpty()) {
                     Row(
                         modifier = Modifier
@@ -254,6 +275,7 @@ fun RecordingsScreen(
                     data.filter.dateStart != null ||
                     data.filter.dateEnd != null ||
                     data.filter.selectedSources.isNotEmpty() ||
+                    data.filter.selectedTriggerTypes.isNotEmpty() ||
                     data.filter.selectedLabels.isNotEmpty()
 
                 if (hasActiveFilters) {

@@ -27,6 +27,7 @@ data class RecordingsFilter(
     val dateStart: LocalDate? = null,
     val dateEnd: LocalDate? = null,
     val selectedSources: Set<String> = emptySet(),
+    val selectedTriggerTypes: Set<String> = emptySet(),
     val selectedLabels: Set<String> = emptySet(),
     val sortOrder: SortOrder = SortOrder.NEWEST,
 )
@@ -37,9 +38,12 @@ data class RecordingsReady(
     val filter: RecordingsFilter = RecordingsFilter(),
     val refreshing: Boolean = false,
 ) {
+    val availableTriggerTypes: List<String> =
+        recordings.mapNotNull { it.triggerType }.distinct().sorted()
+
     val availableLabels: List<String> =
         recordings
-            .flatMap { r -> r.labels + r.detections.map { it.label } + listOfNotNull(r.triggerType, r.triggerLabel) }
+            .flatMap { r -> r.labels + r.detections.map { it.label } + listOfNotNull(r.triggerLabel) }
             .distinct()
             .sorted()
 
@@ -116,6 +120,17 @@ class RecordingsViewModel @Inject constructor(private val repository: CameraRepo
         }
     }
 
+    fun toggleTriggerType(type: String) {
+        _state.update { current ->
+            if (current is RecordingsUiState.Ready) {
+                val selected = current.data.filter.selectedTriggerTypes.toMutableSet()
+                if (!selected.add(type)) selected.remove(type)
+                val filter = current.data.filter.copy(selectedTriggerTypes = selected)
+                RecordingsUiState.Ready(current.data.copy(filter = filter, filtered = applyFilters(filter)))
+            } else current
+        }
+    }
+
     fun toggleLabel(label: String) {
         _state.update { current ->
             if (current is RecordingsUiState.Ready) {
@@ -178,11 +193,16 @@ class RecordingsViewModel @Inject constructor(private val repository: CameraRepo
             result = result.filter { r -> r.source in filter.selectedSources }
         }
 
-        // Label / trigger type filter
+        // Trigger type filter
+        if (filter.selectedTriggerTypes.isNotEmpty()) {
+            result = result.filter { r -> r.triggerType in filter.selectedTriggerTypes }
+        }
+
+        // Label filter
         if (filter.selectedLabels.isNotEmpty()) {
             result = result.filter { r ->
                 filter.selectedLabels.any { sel ->
-                    sel in r.labels || r.detections.any { it.label == sel } || sel == r.triggerType || sel == r.triggerLabel
+                    sel in r.labels || r.detections.any { it.label == sel } || sel == r.triggerLabel
                 }
             }
         }

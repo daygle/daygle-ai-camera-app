@@ -16,6 +16,7 @@ import javax.inject.Inject
 data class EventsFilter(
     val query: String = "",
     val selectedSources: Set<String> = emptySet(),
+    val selectedTriggerTypes: Set<String> = emptySet(),
     val selectedLabels: Set<String> = emptySet(),
     val alertedOnly: Boolean = false,
 )
@@ -29,8 +30,11 @@ data class EventsReady(
     val availableSources: List<String> =
         events.mapNotNull { it.source }.distinct().sorted()
 
+    val availableTriggerTypes: List<String> =
+        events.mapNotNull { it.triggerType }.distinct().sorted()
+
     val availableLabels: List<String> =
-        events.flatMap { it.detections.map { d -> d.label } + listOfNotNull(it.triggerType, it.triggerLabel) }
+        events.flatMap { it.detections.map { d -> d.label } + listOfNotNull(it.triggerLabel) }
             .distinct().sorted()
 }
 
@@ -88,6 +92,14 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
         }
     }
 
+    fun toggleTriggerType(type: String) {
+        updateFilter { current ->
+            val selected = current.selectedTriggerTypes.toMutableSet()
+            if (!selected.add(type)) selected.remove(type)
+            current.copy(selectedTriggerTypes = selected)
+        }
+    }
+
     fun toggleLabel(label: String) {
         updateFilter { current ->
             val selected = current.selectedLabels.toMutableSet()
@@ -132,13 +144,17 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
             result = result.filter { e -> e.source in filter.selectedSources }
         }
 
+        // Trigger type filter
+        if (filter.selectedTriggerTypes.isNotEmpty()) {
+            result = result.filter { e -> e.triggerType in filter.selectedTriggerTypes }
+        }
+
         // Label filter
         if (filter.selectedLabels.isNotEmpty()) {
             result = result.filter { e ->
                 filter.selectedLabels.any { sel ->
                     e.detections.any { it.label == sel } ||
-                        e.triggerLabel == sel ||
-                        e.triggerType == sel
+                        e.triggerLabel == sel
                 }
             }
         }

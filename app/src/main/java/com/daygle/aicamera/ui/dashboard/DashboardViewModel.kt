@@ -24,8 +24,6 @@ sealed interface DashboardUiState {
     data class Error(val message: String) : DashboardUiState
     data class Ready(
         val cameras: List<CameraCard>,
-        val summary: CameraHealthSummary,
-        val status: StatusResponse?,
         val refreshing: Boolean = false,
     ) : DashboardUiState
 }
@@ -58,7 +56,6 @@ class DashboardViewModel @Inject constructor(private val repository: CameraRepos
                 return@launch
             }
             val health = repository.cameraHealth().getOrNull()
-            val status = repository.status(null).getOrNull()
             val cards = cameras.map { camera ->
                 CameraCard(
                     camera = camera,
@@ -67,8 +64,6 @@ class DashboardViewModel @Inject constructor(private val repository: CameraRepos
             }
             _state.value = DashboardUiState.Ready(
                 cameras = cards,
-                summary = health?.summary ?: CameraHealthSummary(total = cameras.size, online = cameras.size),
-                status = status,
             )
         }
     }
