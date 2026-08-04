@@ -20,12 +20,14 @@ import com.daygle.aicamera.ui.notifications.NotificationsScreen
 import com.daygle.aicamera.ui.onboarding.OnboardingScreen
 import com.daygle.aicamera.ui.player.PlayerScreen
 import com.daygle.aicamera.ui.settings.SettingsScreen
+import com.daygle.aicamera.ui.vpn.VpnScreen
 
 private object Routes {
     const val CONNECT = "connect"
     const val HOME = "home"
     const val NOTIFICATIONS = "notifications"
     const val SETTINGS = "settings"
+    const val VPN = "vpn"
     const val LIVE = "live/{cameraId}"
     const val PLAYER = "player/{recordingId}"
 
@@ -58,6 +60,7 @@ fun DaygleNavHost(
                                     popUpTo(Routes.CONNECT) { inclusive = true }
                                 }
                             },
+                            onOpenVpn = { navController.navigate(Routes.VPN) },
                         )
                     }
                     composable(Routes.HOME) {
@@ -77,7 +80,13 @@ fun DaygleNavHost(
                         )
                     }
                     composable(Routes.SETTINGS) {
-                        SettingsScreen(onBack = { navController.popBackStack() })
+                        SettingsScreen(
+                            onBack = { navController.popBackStack() },
+                            onOpenVpn = { navController.navigate(Routes.VPN) },
+                        )
+                    }
+                    composable(Routes.VPN) {
+                        VpnScreen(onBack = { navController.popBackStack() })
                     }
                     composable(Routes.NOTIFICATIONS) {
                         NotificationsScreen(onBack = { navController.popBackStack() })

@@ -20,6 +20,8 @@ import com.daygle.aicamera.MainActivity
 import com.daygle.aicamera.R
 import com.daygle.aicamera.data.NotificationConfig
 import com.daygle.aicamera.data.NotificationSettingsStore
+import com.daygle.aicamera.data.VpnRequiredException
+import com.daygle.aicamera.vpn.TunnelManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -54,6 +56,9 @@ class NtfyService : Service() {
     @Inject
     lateinit var notificationSettings: NotificationSettingsStore
 
+    @Inject
+    lateinit var tunnelManager: TunnelManager
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val alertId = AtomicInteger(2000)
     private val running = java.util.concurrent.atomic.AtomicBoolean(false)
@@ -68,6 +73,14 @@ class NtfyService : Service() {
             // recover when a mobile network silently drops the connection.
             .readTimeout(75, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
+            // Fail closed: never open the alert stream outside the tunnel when
+            // VPN-only mode is on.
+            .addInterceptor { chain ->
+                if (tunnelManager.vpnOnlyEnabled && !tunnelManager.tunnelUp) {
+                    throw VpnRequiredException()
+                }
+                chain.proceed(chain.request())
+            }
             .build()
     }
 
@@ -98,11 +111,21 @@ class NtfyService : Service() {
                 stopSelfSafely()
                 return
             }
+            // Raise the WireGuard tunnel (no-op unless VPN-only mode is on) so
+            // alerts keep flowing while the app is backgrounded.
+            tunnelManager.ensureUp()
             try {
                 // The JSON stream delivers only messages published after the
                 // connection opens, so there's no history to replay on connect.
                 streamOnce(config)
                 backoffMs = 2_000L
+            } catch (e: VpnRequiredException) {
+                // Tunnel not up yet: poll briefly instead of backing off, so the
+                // stream reconnects promptly once WireGuard reconnects.
+                Log.i(TAG, "Waiting for VPN tunnel before opening alert stream")
+                if (!scope.isActive) return
+                delay(3_000L)
+                continue
             } catch (e: Exception) {
                 Log.w(TAG, "ntfy stream error: ${e.message}")
             }
