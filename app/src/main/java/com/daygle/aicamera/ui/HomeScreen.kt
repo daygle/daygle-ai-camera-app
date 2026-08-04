@@ -99,6 +99,7 @@ fun HomeScreen(
                 refreshTrigger = refreshTrigger,
             )
             HomeTab.Events -> EventsScreen(
+                onPlayRecording = onOpenRecording,
                 modifier = contentModifier,
                 refreshTrigger = refreshTrigger,
             )

@@ -1,23 +1,29 @@
 package com.daygle.aicamera.ui.dashboard
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.VideocamOff
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ListItem
@@ -26,21 +32,27 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
+import com.daygle.aicamera.ui.LifecycleResumeEffect
 import com.daygle.aicamera.ui.components.EmptyState
 import com.daygle.aicamera.ui.components.ErrorState
 import com.daygle.aicamera.ui.components.LoadingState
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 
 @Composable
 fun DashboardScreen(
@@ -50,6 +62,9 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    // Keep polling while visible; stop while backgrounded or covered by another screen.
+    LifecycleResumeEffect(onPause = viewModel::pause, onResume = viewModel::resume)
 
     androidx.compose.runtime.LaunchedEffect(refreshTrigger) {
         if (refreshTrigger > 0) viewModel.load()
@@ -70,7 +85,7 @@ fun DashboardScreen(
                     items(s.cameras, key = { it.camera.id }) { card ->
                         CameraTile(
                             card = card,
-                            snapshotUrl = viewModel.snapshotUrl(card.camera.id),
+                            snapshotUrl = s.snapshotUrls[card.camera.id],
                             onClick = { onOpenCamera(card.camera.id) },
                         )
                     }
@@ -98,16 +113,7 @@ private fun CameraTile(card: CameraCard, snapshotUrl: String?, onClick: () -> Un
                 contentAlignment = Alignment.Center,
             ) {
                 if (card.online) {
-                    val context = androidx.compose.ui.platform.LocalContext.current
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(snapshotUrl)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = card.camera.displayName,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                    LiveThumbnail(snapshotUrl)
                 } else {
                     Icon(
                         Icons.Filled.VideocamOff,
@@ -115,6 +121,9 @@ private fun CameraTile(card: CameraCard, snapshotUrl: String?, onClick: () -> Un
                         tint = Color.White.copy(alpha = 0.35f),
                         modifier = Modifier.size(48.dp),
                     )
+                }
+                if (card.online) {
+                    LiveBadge(Modifier.align(Alignment.TopStart))
                 }
             }
             ListItem(
@@ -136,6 +145,81 @@ private fun CameraTile(card: CameraCard, snapshotUrl: String?, onClick: () -> Un
                     )
                 },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            )
+        }
+    }
+}
+
+/**
+ * A self-refreshing snapshot. Each new [snapshotUrl] (cache-busted every poll
+ * tick) triggers a fresh Coil request; the last successful painter is kept so
+ * the tile doesn't flash a spinner between frames.
+ */
+@Composable
+private fun LiveThumbnail(snapshotUrl: String?) {
+    if (snapshotUrl == null) {
+        CircularProgressIndicator(color = Color.White)
+        return
+    }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var lastSuccessPainter by remember { mutableStateOf<Painter?>(null) }
+    SubcomposeAsyncImage(
+        model = ImageRequest.Builder(context)
+            .data(snapshotUrl)
+            .crossfade(true)
+            .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
+            .diskCachePolicy(coil.request.CachePolicy.DISABLED)
+            .build(),
+        contentDescription = "Live camera view",
+        onState = { coilState ->
+            if (coilState is AsyncImagePainter.State.Success) {
+                lastSuccessPainter = coilState.painter
+            }
+        },
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        val painterState = painter.state
+        val displayPainter = if (painterState is AsyncImagePainter.State.Success) {
+            painterState.painter
+        } else {
+            lastSuccessPainter
+        }
+        if (displayPainter != null) {
+            Image(
+                painter = displayPainter,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            CircularProgressIndicator(color = Color.White)
+        }
+    }
+}
+
+@Composable
+private fun LiveBadge(modifier: Modifier = Modifier) {
+    Surface(
+        color = MaterialTheme.colorScheme.error,
+        shape = CircleShape,
+        modifier = modifier.padding(8.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(Color.White),
+            )
+            Spacer(Modifier.width(5.dp))
+            Text(
+                "LIVE",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White,
             )
         }
     }

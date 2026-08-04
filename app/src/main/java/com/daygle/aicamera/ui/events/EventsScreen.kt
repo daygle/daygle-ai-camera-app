@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Videocam
@@ -90,6 +91,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventsScreen(
+    onPlayRecording: (Int) -> Unit = {},
     modifier: Modifier = Modifier,
     refreshTrigger: Int = 0,
     viewModel: EventsViewModel = hiltViewModel(),
@@ -155,7 +157,7 @@ fun EventsScreen(
                                 focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
                             )
                         )
-                        
+
                         BadgedBox(
                             badge = {
                                 if (activeFilterCount > 0) {
@@ -199,7 +201,7 @@ fun EventsScreen(
                         selected = data.filter.alertedOnly,
                         onClick = { viewModel.setAlertedOnly(!data.filter.alertedOnly) },
                         label = { Text("Alerts Only") },
-                        leadingIcon = { 
+                        leadingIcon = {
                             if (data.filter.alertedOnly) {
                                 Icon(Icons.Filled.NotificationsActive, null, Modifier.size(18.dp))
                             }
@@ -223,12 +225,12 @@ fun EventsScreen(
                             onClick = { showFilterSheet = true },
                             label = { Text(dateRangeLabel(data.filter.dateStart, data.filter.dateEnd)) },
                             leadingIcon = { Icon(Icons.Filled.CalendarMonth, null, Modifier.size(18.dp)) },
-                            trailingIcon = { 
+                            trailingIcon = {
                                 Icon(
-                                    Icons.Filled.Clear, 
-                                    null, 
+                                    Icons.Filled.Clear,
+                                    null,
                                     Modifier.size(16.dp).clickable { viewModel.setDateRange(null, null) }
-                                ) 
+                                )
                             },
                             shape = RoundedCornerShape(12.dp)
                         )
@@ -269,7 +271,7 @@ fun EventsScreen(
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             items(data.filtered, key = { it.id }) { event ->
-                                EventRow(event)
+                                EventRow(event, onPlayRecording = onPlayRecording)
                             }
                         }
                     }
@@ -542,8 +544,13 @@ private fun dateRangeLabel(start: LocalDate?, end: LocalDate?): String {
 }
 
 @Composable
-private fun EventRow(event: Event) {
+private fun EventRow(event: Event, onPlayRecording: (Int) -> Unit = {}) {
+    val firstRecordingId = event.recordings.firstOrNull()?.id
     Card(
+        onClick = {
+            if (firstRecordingId != null) onPlayRecording(firstRecordingId)
+        },
+        enabled = firstRecordingId != null,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
@@ -562,9 +569,9 @@ private fun EventRow(event: Event) {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val isSound = event.source?.lowercase() == "sound" || 
-                                event.triggerType?.lowercase() == "sound" || 
-                                isSoundLabel(event.triggerLabel) || 
+                        val isSound = event.source?.lowercase() == "sound" ||
+                                event.triggerType?.lowercase() == "sound" ||
+                                isSoundLabel(event.triggerLabel) ||
                                 event.detections.any { isSoundLabel(it.label) }
                         Icon(
                             imageVector = if (isSound) Icons.Filled.GraphicEq else Icons.Filled.Videocam,
@@ -612,16 +619,16 @@ private fun EventRow(event: Event) {
                 }
             },
             leadingContent = {
-                val isSound = event.source?.lowercase() == "sound" || 
-                        event.triggerType?.lowercase() == "sound" || 
-                        isSoundLabel(event.triggerLabel) || 
+                val isSound = event.source?.lowercase() == "sound" ||
+                        event.triggerType?.lowercase() == "sound" ||
+                        isSoundLabel(event.triggerLabel) ||
                         event.detections.any { isSoundLabel(it.label) }
                 Box(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
                         .background(
-                            if (isSound) MaterialTheme.colorScheme.secondaryContainer 
+                            if (isSound) MaterialTheme.colorScheme.secondaryContainer
                             else MaterialTheme.colorScheme.primaryContainer
                         ),
                     contentAlignment = Alignment.Center
@@ -636,8 +643,18 @@ private fun EventRow(event: Event) {
                 }
             },
             trailingContent = {
-                if (event.alerted) {
-                    AlertBadge()
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (event.recordings.isNotEmpty()) {
+                        Icon(
+                            Icons.Filled.PlayCircle,
+                            contentDescription = "Play recording",
+                            modifier = Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    if (event.alerted) {
+                        AlertBadge()
+                    }
                 }
             },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
