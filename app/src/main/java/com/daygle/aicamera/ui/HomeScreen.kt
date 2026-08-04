@@ -40,7 +40,6 @@ private enum class HomeTab(val label: String, val icon: ImageVector) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onOpenCamera: (String) -> Unit,
     onOpenRecording: (Int) -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -89,7 +88,6 @@ fun HomeScreen(
             .padding(padding)
         when (selectedTab) {
             HomeTab.Cameras -> DashboardScreen(
-                onOpenCamera = onOpenCamera,
                 modifier = contentModifier,
                 refreshTrigger = refreshTrigger,
             )

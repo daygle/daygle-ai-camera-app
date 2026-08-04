@@ -15,11 +15,10 @@ setup stays in the server's web dashboard. This client focuses on watching.
 - **Cameras dashboard** - a clean, vertical list of every configured camera
   with live snapshot thumbnails, online/offline status, and a system summary
   showing cameras online and system uptime.
-- **Live view** - tap a camera for a near-live feed (refreshed snapshots) with
-  smooth serial polling, play/pause, and the current stream resolution.
-  Pinch to zoom (up to 5x, double-tap to reset) and tap the full-screen
-  button for an immersive, system-bar-free view. Polling pauses automatically
-  when the app is backgrounded.
+- **Live view** - tap a camera on the dashboard to expand its feed into an
+  immersive, system-bar-free full-screen view right on the cameras page, with
+  play/pause. Pinch to zoom (up to 5x, pan, double-tap to reset). Polling
+  pauses automatically when the app is backgrounded.
 - **Events** - a detailed detection/alert log showing specific event types
   (e.g., **Person**, **Dog Bark**) and confidence levels. Fully filterable
   by source, label, or alerts only.
@@ -173,14 +172,11 @@ app/src/main/java/com/daygle/aicamera/
     │   ├── ConnectScreen.kt     # Server URL + credentials form
     │   └── ConnectViewModel.kt
     ├── dashboard/
-    │   ├── DashboardScreen.kt   # Camera list + system summary
+    │   ├── DashboardScreen.kt   # Camera list + in-place full-screen live view
     │   └── DashboardViewModel.kt
     ├── events/
     │   ├── EventsScreen.kt      # Detection / alert log
     │   └── EventsViewModel.kt
-    ├── live/
-    │   ├── LiveScreen.kt        # Near-live snapshot view
-    │   └── LiveViewModel.kt
     ├── notifications/
     │   ├── NotificationsScreen.kt  # Push-alert settings
     │   └── NotificationsViewModel.kt
