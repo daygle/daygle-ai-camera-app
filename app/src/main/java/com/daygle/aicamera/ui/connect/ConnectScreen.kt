@@ -15,6 +15,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -45,12 +47,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun ConnectScreen(
     onConnected: () -> Unit,
-    onOpenVpn: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ConnectViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var passwordVisible by remember { mutableStateOf(false) }
+    var cfSecretVisible by remember { mutableStateOf(false) }
+    var showCloudflare by remember { mutableStateOf(state.cfAccessClientId.isNotBlank() || state.cfAccessClientSecret.isNotBlank()) }
 
     Column(
         modifier = modifier
@@ -118,6 +121,55 @@ fun ConnectScreen(
             shape = RoundedCornerShape(16.dp)
         )
 
+        Spacer(Modifier.height(8.dp))
+        TextButton(
+            onClick = { showCloudflare = !showCloudflare },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Cloudflare Access (optional)")
+            Icon(
+                imageVector = if (showCloudflare) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                contentDescription = null,
+            )
+        }
+        if (showCloudflare) {
+            Text(
+                "Only for servers behind a Cloudflare Tunnel protected by Cloudflare Access. " +
+                    "Create a service token in Zero Trust and paste it here.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(16.dp))
+            OutlinedTextField(
+                value = state.cfAccessClientId,
+                onValueChange = viewModel::onCfAccessClientId,
+                label = { Text("Client ID") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp)
+            )
+            Spacer(Modifier.height(16.dp))
+            OutlinedTextField(
+                value = state.cfAccessClientSecret,
+                onValueChange = viewModel::onCfAccessClientSecret,
+                label = { Text("Client Secret") },
+                singleLine = true,
+                visualTransformation = if (cfSecretVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                trailingIcon = {
+                    IconButton(onClick = { cfSecretVisible = !cfSecretVisible }) {
+                        Icon(
+                            imageVector = if (cfSecretVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                            contentDescription = if (cfSecretVisible) "Hide client secret" else "Show client secret",
+                        )
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp)
+            )
+        }
+
         state.error?.let { error ->
             Spacer(Modifier.height(16.dp))
             Text(
@@ -142,11 +194,6 @@ fun ConnectScreen(
             } else {
                 Text("Connect")
             }
-        }
-
-        Spacer(Modifier.height(8.dp))
-        TextButton(onClick = onOpenVpn, modifier = Modifier.fillMaxWidth()) {
-            Text("Set up VPN (WireGuard)")
         }
     }
 }

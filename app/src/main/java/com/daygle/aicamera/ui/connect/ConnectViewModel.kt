@@ -17,6 +17,8 @@ data class ConnectUiState(
     val baseUrl: String = "",
     val username: String = "",
     val password: String = "",
+    val cfAccessClientId: String = "",
+    val cfAccessClientSecret: String = "",
     val connecting: Boolean = false,
     val error: String? = null,
 ) {
@@ -34,7 +36,13 @@ class ConnectViewModel @Inject constructor(private val repository: CameraReposit
             val saved = repository.currentConnection()
             if (saved.baseUrl.isNotBlank() || saved.username.isNotBlank()) {
                 _state.update {
-                    it.copy(baseUrl = saved.baseUrl, username = saved.username, password = saved.password)
+                    it.copy(
+                        baseUrl = saved.baseUrl,
+                        username = saved.username,
+                        password = saved.password,
+                        cfAccessClientId = saved.cfAccessClientId,
+                        cfAccessClientSecret = saved.cfAccessClientSecret,
+                    )
                 }
             }
         }
@@ -43,6 +51,8 @@ class ConnectViewModel @Inject constructor(private val repository: CameraReposit
     fun onBaseUrl(value: String) = _state.update { it.copy(baseUrl = value, error = null) }
     fun onUsername(value: String) = _state.update { it.copy(username = value, error = null) }
     fun onPassword(value: String) = _state.update { it.copy(password = value, error = null) }
+    fun onCfAccessClientId(value: String) = _state.update { it.copy(cfAccessClientId = value, error = null) }
+    fun onCfAccessClientSecret(value: String) = _state.update { it.copy(cfAccessClientSecret = value, error = null) }
 
     fun connect(onSuccess: () -> Unit) {
         val current = _state.value
@@ -54,6 +64,8 @@ class ConnectViewModel @Inject constructor(private val repository: CameraReposit
                     baseUrl = current.baseUrl.trim(),
                     username = current.username.trim(),
                     password = current.password,
+                    cfAccessClientId = current.cfAccessClientId.trim(),
+                    cfAccessClientSecret = current.cfAccessClientSecret,
                 ),
             )
             when (result) {

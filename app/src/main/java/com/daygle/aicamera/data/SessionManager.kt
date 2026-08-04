@@ -16,10 +16,18 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
+import java.io.IOException
 import java.net.CookieManager
 import java.net.CookiePolicy
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
+
+/**
+ * Thrown when Cloudflare Access intercepts a request because the service token
+ * is missing or invalid. Extends [IOException] so OkHttp/Retrofit surface it as
+ * an ordinary network failure that [toUserFriendlyMessage] can translate.
+ */
+class CloudflareAccessRequiredException : IOException("Cloudflare Access rejected the request")
 
 /**
  * Owns the connection to a single Daygle AI Camera server: base URL,
@@ -36,8 +44,15 @@ import java.util.concurrent.atomic.AtomicLong
  *
  * All read (GET /api/ endpoints) calls only need the session cookie. If it expires the
  * [authInterceptor] transparently re-logs in and retries once.
+ *
+ * When the server is exposed through a Cloudflare Tunnel protected by
+ * Cloudflare Access, every request (login handshake included) must carry the
+ * `CF-Access-Client-Id` / `CF-Access-Client-Secret` service-token headers, or
+ * Access redirects/denies the traffic before it ever reaches the server. If the
+ * user configured a service token in [Connection], [cloudflareAccessInterceptor]
+ * adds those headers to every request on both clients.
  */
-class SessionManager(private val tunnelGate: TunnelGate) {
+class SessionManager {
 
     // NOTE: declaration order matters - Kotlin initializes properties top to
     // bottom, so every field that [api]/the clients depend on must be declared
@@ -50,6 +65,12 @@ class SessionManager(private val tunnelGate: TunnelGate) {
     @Volatile
     private var baseUrl: HttpUrl? = null
 
+    @Volatile
+    private var cfAccessClientId: String = ""
+
+    @Volatile
+    private var cfAccessClientSecret: String = ""
+
     private val cookieManager = CookieManager(null, CookiePolicy.ACCEPT_ALL)
     private val cookieJar = JavaNetCookieJar(cookieManager)
     private val loginLock = Any()
@@ -60,18 +81,42 @@ class SessionManager(private val tunnelGate: TunnelGate) {
         level = HttpLoggingInterceptor.Level.BASIC
         redactHeader("Cookie")
         redactHeader("Set-Cookie")
+        // Service-token headers are credentials; never let logging print them.
+        redactHeader("CF-Access-Client-Id")
+        redactHeader("CF-Access-Client-Secret")
     }
 
     /**
-     * Fail-closed guard: when VPN-only mode is on but the WireGuard tunnel is
-     * not up, refuse every request so nothing leaks outside the tunnel. Added
-     * first so it runs before any network work.
+     * When a Cloudflare Access service token is configured, attach the
+     * `CF-Access-Client-Id` / `CF-Access-Client-Secret` headers to the request.
+     * No-op (request passes through untouched) when unset, so behaviour is
+     * unchanged for servers not behind Access.
      */
-    private fun vpnGateInterceptor() = Interceptor { chain ->
-        if (tunnelGate.vpnOnlyEnabled && !tunnelGate.tunnelUp) {
-            throw VpnRequiredException()
+    private fun cloudflareAccessInterceptor() = Interceptor { chain ->
+        val clientId = cfAccessClientId
+        val clientSecret = cfAccessClientSecret
+        if (clientId.isBlank() || clientSecret.isBlank()) {
+            return@Interceptor chain.proceed(chain.request())
         }
-        chain.proceed(chain.request())
+        chain.proceed(
+            chain.request().newBuilder()
+                .header("CF-Access-Client-Id", clientId)
+                .header("CF-Access-Client-Secret", clientSecret)
+                .build()
+        )
+    }
+
+    /**
+     * True when the (already-followed) response was intercepted by a Cloudflare
+     * Access login page: either the request ended up on a *.cloudflareaccess.com
+     * address, or the server answered with an Access rejection header.
+     */
+    private fun isCloudflareAccessRejection(response: Response): Boolean {
+        val finalUrl = response.request.url.toString().lowercase()
+        if (finalUrl.contains("cloudflareaccess") || finalUrl.contains("cf-access")) return true
+        val location = response.header("Location").orEmpty().lowercase()
+        if (location.contains("cloudflareaccess") || location.contains("cf-access")) return true
+        return response.header("Cf-Access-Error") != null
     }
 
     /** Bare client used only for the login handshake (no auth interceptor, to avoid recursion). */
@@ -79,7 +124,7 @@ class SessionManager(private val tunnelGate: TunnelGate) {
         .cookieJar(cookieJar)
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
-        .addInterceptor(vpnGateInterceptor())
+        .addInterceptor(cloudflareAccessInterceptor())
         .addInterceptor(logging)
         .build()
 
@@ -92,7 +137,7 @@ class SessionManager(private val tunnelGate: TunnelGate) {
         .cookieJar(cookieJar)
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
-        .addInterceptor(vpnGateInterceptor())
+        .addInterceptor(cloudflareAccessInterceptor())
         .addInterceptor(logging)
         .addInterceptor(authInterceptor())
         .build()
@@ -103,12 +148,20 @@ class SessionManager(private val tunnelGate: TunnelGate) {
 
     val currentBaseUrl: String? get() = baseUrl?.toString()?.trimEnd('/')
 
+    /** Current Cloudflare Access service-token Client ID, or "" when unset. */
+    fun currentCfAccessClientId(): String = cfAccessClientId
+
+    /** Current Cloudflare Access service-token Client Secret, or "" when unset. */
+    fun currentCfAccessClientSecret(): String = cfAccessClientSecret
+
     /** Point the manager at a (possibly new) server. Clears cookies if the target changed. */
     fun update(connection: Connection) {
         val normalized = normalizeBaseUrl(connection.baseUrl)
         val changed = normalized?.toString() != baseUrl?.toString() || connection != this.connection
         this.connection = connection
         this.baseUrl = normalized
+        this.cfAccessClientId = connection.cfAccessClientId.trim()
+        this.cfAccessClientSecret = connection.cfAccessClientSecret
         if (changed) {
             cookieManager.cookieStore.removeAll()
             sessionGeneration.incrementAndGet()
@@ -174,10 +227,17 @@ class SessionManager(private val tunnelGate: TunnelGate) {
         val request = chain.request()
         val generationAtRequest = sessionGeneration.get()
         val response = chain.proceed(request)
+        // Cloudflare Access owns this request before the server ever saw it.
+        // Surface a clear message instead of a redirect/HTML page, which would
+        // otherwise fail confusingly (login page parsed as JSON, etc.).
+        if (isCloudflareAccessRejection(response)) {
+            Log.w(TAG, "Cloudflare Access intercepted ${request.url.encodedPath}")
+            response.close()
+            throw CloudflareAccessRequiredException()
+        }
         val isApiCall = request.url.pathSegments.contains("api")
         if (response.code == 401 && isApiCall && connection.isConfigured) {
             Log.w(TAG, "401 on ${request.url.encodedPath}; attempting re-login")
-            response.close()
             val result = synchronized(loginLock) {
                 if (sessionGeneration.get() != generationAtRequest) {
                     LoginResult.Success
@@ -186,6 +246,7 @@ class SessionManager(private val tunnelGate: TunnelGate) {
                 }
             }
             if (result is LoginResult.Success) {
+                response.close()
                 Log.i(TAG, "Re-login succeeded; retrying ${request.url.encodedPath}")
                 return@Interceptor chain.proceed(request.newBuilder().build())
             }
@@ -203,6 +264,9 @@ class SessionManager(private val tunnelGate: TunnelGate) {
         return try {
             val token = authClient.newCall(Request.Builder().url(loginUrl).get().build())
                 .execute().use { pageResponse ->
+                    if (isCloudflareAccessRejection(pageResponse)) {
+                        return LoginResult.Error(CLOUDFLARE_ACCESS_MESSAGE)
+                    }
                     if (!pageResponse.isSuccessful) {
                         return LoginResult.Error(mapHttpError(pageResponse.code, "/login"))
                     }
@@ -224,7 +288,12 @@ class SessionManager(private val tunnelGate: TunnelGate) {
                 .header("Origin", base.toString().trimEnd('/'))
                 .post(form)
                 .build()
-            authClient.newCall(postRequest).execute().use { /* cookies captured by jar */ }
+            authClient.newCall(postRequest).execute().use { response ->
+                if (isCloudflareAccessRejection(response)) {
+                    return LoginResult.Error(CLOUDFLARE_ACCESS_MESSAGE)
+                }
+                /* cookies captured by jar */
+            }
 
             // The login POST redirects to a page regardless of outcome, so verify
             // by hitting an authenticated endpoint.
@@ -235,6 +304,7 @@ class SessionManager(private val tunnelGate: TunnelGate) {
                         sessionGeneration.incrementAndGet()
                         LoginResult.Success
                     }
+                    isCloudflareAccessRejection(verify) -> LoginResult.Error(CLOUDFLARE_ACCESS_MESSAGE)
                     verify.code == 401 -> LoginResult.InvalidCredentials
                     else -> LoginResult.Error(mapHttpError(verify.code, "/api/cameras"))
                 }
@@ -255,6 +325,11 @@ class SessionManager(private val tunnelGate: TunnelGate) {
 
     companion object {
         private const val TAG = "SessionManager"
+
+        /** Shown when Cloudflare Access blocks a request because the service token is missing or rejected. */
+        const val CLOUDFLARE_ACCESS_MESSAGE =
+            "This server is protected by Cloudflare Access. Add your Cloudflare Access service token " +
+                "(Client ID and Client Secret) in the connection settings to sign in."
 
         val json: Json = Json {
             ignoreUnknownKeys = true

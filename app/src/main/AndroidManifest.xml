@@ -39,18 +39,6 @@
                 android:value="Maintains a persistent connection to a self-hosted ntfy server to deliver camera detection alerts instantly." />
         </service>
 
-        <!-- WireGuard userspace backend's VPN service. The app drives it via
-             TunnelManager to route only this app's traffic through the tunnel
-             when VPN-only mode is enabled. -->
-        <service
-            android:name="com.wireguard.android.backend.GoBackend$VpnService"
-            android:exported="false"
-            android:permission="android.permission.BIND_VPN_SERVICE">
-            <intent-filter>
-                <action android:name="android.net.VpnService" />
-            </intent-filter>
-        </service>
-
         <receiver
             android:name=".push.BootReceiver"
             android:exported="true">

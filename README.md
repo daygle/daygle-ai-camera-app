@@ -87,41 +87,25 @@ boot.
 - On Android 13+ the app requests the notification permission the first time
   you enable alerts.
 
-## VPN-only mode (embedded WireGuard)
+### Remote access via Cloudflare TunnelInstead of exposing the server directly with port forwarding, you can put the
+server behind a **Cloudflare Tunnel**: the server
 
-For servers you only expose over a private WireGuard network, the app can run
-**its own** WireGuard tunnel and refuse to talk to the server unless that tunnel
-is up - no separate WireGuard app required.
+dials *out* to Cloudflare, so no ports are opened and the server never gets a
+public IP. The app simply points at the resulting `https://` hostname.
 
-Turn it on under **Settings → Network → VPN (WireGuard)**:
-
-1. Paste your WireGuard `.conf` (interface keys, peer endpoint, `AllowedIPs`).
-2. Flip **VPN-only mode** on and grant the one-time Android VPN consent.
-
-How it behaves:
-
-- **App-scoped tunnel.** The tunnel is pinned to this app's UID
-  (`IncludedApplications`), so **only this app's traffic** goes through
-  WireGuard while every other app on the phone is untouched. (If your config
-  already lists `IncludedApplications`/`ExcludedApplications`, that is respected
-  instead.)
-- **Fail-closed.** While VPN-only mode is on, a fail-closed interceptor on every
-  OkHttp client (API, snapshots, playback, and the push stream) blocks all
-  traffic whenever the tunnel is down, so nothing leaks outside the tunnel.
-- **App-driven lifecycle.** The app raises the tunnel when it is foregrounded
-  and - when push alerts are enabled - keeps it up in the background so alerts
-  keep flowing; it is torn down when VPN-only mode is switched off. The one-time
-  system consent is the only manual step.
-
-> Push alerts and background tunnel behaviour depend on Android's
-> battery/background policies. For the most reliable background delivery, exempt
-> the app from battery optimisation. A `PersistentKeepalive` (e.g. `25`) in your
-> peer config keeps the tunnel alive across sleep and network switches.
+If you protect the tunnel with **Cloudflare Access**, add a **service token**
+(Zero Trust → Access → Service Auth) and enter its **Client ID / Client Secret**
+in the app's connect screen under *Cloudflare Access (optional)*. The app then
+sends the `CF-Access-Client-Id` / `CF-Access-Client-Secret` headers on every
+request - including the login handshake and the push-alert stream - so
+Access lets the app through instead of redirecting it to a browser login page.
+When the fields are empty, the app behaves exactly as before (no headers sent),
+so servers not behind Access are unaffected.
 
 ## Requirements
 
 - Android 8.0 (API 26) or newer
-- A reachable Daygle AI Camera server (LAN, VPN, or a public HTTPS host)
+- A reachable Daygle AI Camera server (LAN or a public HTTPS host)
 
 > **Cleartext HTTP** is allowed because these servers are commonly hosted on a
 > LAN address over plain HTTP (e.g. `http://192.168.1.20:8080`). Prefer HTTPS
@@ -156,7 +140,7 @@ CI runs on every push to `main` via GitHub Actions (`.github/workflows/android-b
 | Images | Coil 2.7 |
 | Video | Media3 / ExoPlayer 1.10 |
 | Storage | DataStore 1.2 |
-| Architecture | MVVM, manual DI (no Hilt/Koin) |
+| Architecture | MVVM, Hilt DI |
 
 ## Project layout
 

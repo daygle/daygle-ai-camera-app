@@ -20,8 +20,7 @@ import com.daygle.aicamera.MainActivity
 import com.daygle.aicamera.R
 import com.daygle.aicamera.data.NotificationConfig
 import com.daygle.aicamera.data.NotificationSettingsStore
-import com.daygle.aicamera.data.VpnRequiredException
-import com.daygle.aicamera.vpn.TunnelManager
+import com.daygle.aicamera.data.SessionManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -57,7 +56,7 @@ class NtfyService : Service() {
     lateinit var notificationSettings: NotificationSettingsStore
 
     @Inject
-    lateinit var tunnelManager: TunnelManager
+    lateinit var session: SessionManager
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val alertId = AtomicInteger(2000)
@@ -73,13 +72,22 @@ class NtfyService : Service() {
             // recover when a mobile network silently drops the connection.
             .readTimeout(75, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
-            // Fail closed: never open the alert stream outside the tunnel when
-            // VPN-only mode is on.
+            // When the Daygle server (and its ntfy endpoint) sits behind a
+            // Cloudflare Tunnel protected by Cloudflare Access, the stream must
+            // carry the same service-token headers as every other request.
             .addInterceptor { chain ->
-                if (tunnelManager.vpnOnlyEnabled && !tunnelManager.tunnelUp) {
-                    throw VpnRequiredException()
+                val clientId = session.currentCfAccessClientId()
+                val clientSecret = session.currentCfAccessClientSecret()
+                if (clientId.isBlank() || clientSecret.isBlank()) {
+                    chain.proceed(chain.request())
+                } else {
+                    chain.proceed(
+                        chain.request().newBuilder()
+                            .header("CF-Access-Client-Id", clientId)
+                            .header("CF-Access-Client-Secret", clientSecret)
+                            .build()
+                    )
                 }
-                chain.proceed(chain.request())
             }
             .build()
     }
@@ -111,21 +119,11 @@ class NtfyService : Service() {
                 stopSelfSafely()
                 return
             }
-            // Raise the WireGuard tunnel (no-op unless VPN-only mode is on) so
-            // alerts keep flowing while the app is backgrounded.
-            tunnelManager.ensureUp()
             try {
                 // The JSON stream delivers only messages published after the
                 // connection opens, so there's no history to replay on connect.
                 streamOnce(config)
                 backoffMs = 2_000L
-            } catch (e: VpnRequiredException) {
-                // Tunnel not up yet: poll briefly instead of backing off, so the
-                // stream reconnects promptly once WireGuard reconnects.
-                Log.i(TAG, "Waiting for VPN tunnel before opening alert stream")
-                if (!scope.isActive) return
-                delay(3_000L)
-                continue
             } catch (e: Exception) {
                 Log.w(TAG, "ntfy stream error: ${e.message}")
             }
