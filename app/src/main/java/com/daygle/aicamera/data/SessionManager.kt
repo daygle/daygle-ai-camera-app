@@ -216,6 +216,19 @@ class SessionManager {
     }
 
     /**
+     * Absolute URL for an event's saved snapshot, annotated with green
+     * detection boxes (the same overlay used in alert emails). Loaded by Coil,
+     * which rides the shared session-cookie client.
+     */
+    fun eventSnapshotUrl(eventId: Int): String? {
+        val base = baseUrl ?: return null
+        return base.newBuilder()
+            .addPathSegments("api/events/$eventId/snapshot")
+            .build()
+            .toString()
+    }
+
+    /**
      * Establish a session against the current server. Safe to call from a
      * coroutine; the blocking network work runs on [Dispatchers.IO].
      */

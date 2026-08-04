@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -26,6 +27,8 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Search
@@ -65,9 +68,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import coil3.compose.AsyncImage
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.daygle.aicamera.data.model.Detection
@@ -98,9 +105,17 @@ fun EventsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showFilterSheet by remember { mutableStateOf(false) }
+    var snapshotEventId by remember { mutableStateOf<Int?>(null) }
 
     androidx.compose.runtime.LaunchedEffect(refreshTrigger) {
         if (refreshTrigger > 0) viewModel.load()
+    }
+
+    snapshotEventId?.let { id ->
+        SnapshotViewerDialog(
+            url = viewModel.snapshotUrl(id),
+            onDismiss = { snapshotEventId = null },
+        )
     }
 
     if (showFilterSheet) {
@@ -271,7 +286,11 @@ fun EventsScreen(
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             items(data.filtered, key = { it.id }) { event ->
-                                EventRow(event, onPlayRecording = onPlayRecording)
+                                EventRow(
+                                    event,
+                                    onPlayRecording = onPlayRecording,
+                                    onOpenSnapshot = { snapshotEventId = it },
+                                )
                             }
                         }
                     }
@@ -544,8 +563,14 @@ private fun dateRangeLabel(start: LocalDate?, end: LocalDate?): String {
 }
 
 @Composable
-private fun EventRow(event: Event, onPlayRecording: (Int) -> Unit = {}) {
-    val firstRecordingId = event.recordings.firstOrNull()?.id
+private fun EventRow(
+    event: Event,
+    onPlayRecording: (Int) -> Unit = {},
+    onOpenSnapshot: (Int) -> Unit = {},
+) {
+    // Prefer the explicit recording link (recording : events = 1:many); fall
+    // back to the embedded recordings list for older server payloads.
+    val firstRecordingId = event.recordingId ?: event.recordings.firstOrNull()?.id
     Card(
         onClick = {
             if (firstRecordingId != null) onPlayRecording(firstRecordingId)
@@ -648,17 +673,31 @@ private fun EventRow(event: Event, onPlayRecording: (Int) -> Unit = {}) {
                 }
             },
             trailingContent = {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (event.recordings.isNotEmpty()) {
-                        Icon(
-                            Icons.Filled.PlayCircle,
-                            contentDescription = "Play recording",
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
+                // Two explicit actions per event: open the annotated snapshot
+                // (green detection boxes) and/or open the related recording.
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (event.alerted) {
                         AlertBadge()
+                    }
+                    if (event.hasSnapshot) {
+                        IconButton(onClick = { onOpenSnapshot(event.id) }, modifier = Modifier.size(40.dp)) {
+                            Icon(
+                                Icons.Filled.Image,
+                                contentDescription = "Open snapshot",
+                                modifier = Modifier.size(22.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                    if (firstRecordingId != null) {
+                        IconButton(onClick = { onPlayRecording(firstRecordingId) }, modifier = Modifier.size(40.dp)) {
+                            Icon(
+                                Icons.Filled.PlayCircle,
+                                contentDescription = "Open recording",
+                                modifier = Modifier.size(24.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 }
             },
@@ -690,6 +729,45 @@ private fun AlertBadge() {
                 fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.error,
             )
+        }
+    }
+}
+
+@Composable
+private fun SnapshotViewerDialog(url: String?, onDismiss: () -> Unit) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.92f))
+                .clickable(onClick = onDismiss),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (url != null) {
+                AsyncImage(
+                    model = url,
+                    contentDescription = "Event snapshot",
+                    modifier = Modifier.fillMaxWidth(),
+                    contentScale = ContentScale.Fit,
+                )
+            } else {
+                Text(
+                    "Snapshot unavailable",
+                    color = Color.White,
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp),
+            ) {
+                Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color.White)
+            }
         }
     }
 }

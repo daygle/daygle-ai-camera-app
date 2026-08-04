@@ -578,6 +578,15 @@ private fun RecordingRow(recording: Recording, onPlay: () -> Unit) {
                             overflow = TextOverflow.Ellipsis
                         )
                     }
+                    // A recording spans many events: surface the count so one clip
+                    // with several detections reads as one entry, not duplicates.
+                    if (recording.events.size > 1) {
+                        Text(
+                            "${recording.events.size} events",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             },
             leadingContent = {
