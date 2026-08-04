@@ -25,6 +25,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun ConnectScreen(
     onConnected: () -> Unit,
+    onOpenVpn: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ConnectViewModel = hiltViewModel(),
 ) {
@@ -140,6 +142,11 @@ fun ConnectScreen(
             } else {
                 Text("Connect")
             }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        TextButton(onClick = onOpenVpn, modifier = Modifier.fillMaxWidth()) {
+            Text("Set up VPN (WireGuard)")
         }
     }
 }

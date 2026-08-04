@@ -87,6 +87,37 @@ boot.
 - On Android 13+ the app requests the notification permission the first time
   you enable alerts.
 
+## VPN-only mode (embedded WireGuard)
+
+For servers you only expose over a private WireGuard network, the app can run
+**its own** WireGuard tunnel and refuse to talk to the server unless that tunnel
+is up - no separate WireGuard app required.
+
+Turn it on under **Settings → Network → VPN (WireGuard)**:
+
+1. Paste your WireGuard `.conf` (interface keys, peer endpoint, `AllowedIPs`).
+2. Flip **VPN-only mode** on and grant the one-time Android VPN consent.
+
+How it behaves:
+
+- **App-scoped tunnel.** The tunnel is pinned to this app's UID
+  (`IncludedApplications`), so **only this app's traffic** goes through
+  WireGuard while every other app on the phone is untouched. (If your config
+  already lists `IncludedApplications`/`ExcludedApplications`, that is respected
+  instead.)
+- **Fail-closed.** While VPN-only mode is on, a fail-closed interceptor on every
+  OkHttp client (API, snapshots, playback, and the push stream) blocks all
+  traffic whenever the tunnel is down, so nothing leaks outside the tunnel.
+- **App-driven lifecycle.** The app raises the tunnel when it is foregrounded
+  and - when push alerts are enabled - keeps it up in the background so alerts
+  keep flowing; it is torn down when VPN-only mode is switched off. The one-time
+  system consent is the only manual step.
+
+> Push alerts and background tunnel behaviour depend on Android's
+> battery/background policies. For the most reliable background delivery, exempt
+> the app from battery optimisation. A `PersistentKeepalive` (e.g. `25`) in your
+> peer config keeps the tunnel alive across sleep and network switches.
+
 ## Requirements
 
 - Android 8.0 (API 26) or newer

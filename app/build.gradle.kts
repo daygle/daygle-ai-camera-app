@@ -94,6 +94,8 @@ dependencies {
 
     implementation(libs.androidx.work.runtime.ktx)
 
+    implementation(libs.wireguard.tunnel)
+
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)

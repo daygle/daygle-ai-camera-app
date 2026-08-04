@@ -17,7 +17,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Speed
@@ -50,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    onOpenVpn: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -87,6 +90,18 @@ fun SettingsScreen(
 
             SettingsGroup(title = "Display Options", icon = Icons.Filled.Schedule) {
                 SwitchRow("Use 24-Hour Format", state.use24Hour) { viewModel.setUse24Hour(it) }
+            }
+
+            SettingsGroup(title = "Network", icon = Icons.Filled.Lock) {
+                ListItem(
+                    headlineContent = { Text("VPN (WireGuard)", style = MaterialTheme.typography.bodyLarge) },
+                    supportingContent = { Text("Route this app through your own WireGuard tunnel") },
+                    trailingContent = {
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                    },
+                    modifier = Modifier.clickable { onOpenVpn() },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                )
             }
 
             SettingsGroup(title = "Live View Refresh", icon = Icons.Filled.Speed) {

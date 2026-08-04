@@ -37,7 +37,7 @@ import java.util.concurrent.atomic.AtomicLong
  * All read (GET /api/ endpoints) calls only need the session cookie. If it expires the
  * [authInterceptor] transparently re-logs in and retries once.
  */
-class SessionManager {
+class SessionManager(private val tunnelGate: TunnelGate) {
 
     // NOTE: declaration order matters - Kotlin initializes properties top to
     // bottom, so every field that [api]/the clients depend on must be declared
@@ -62,11 +62,24 @@ class SessionManager {
         redactHeader("Set-Cookie")
     }
 
+    /**
+     * Fail-closed guard: when VPN-only mode is on but the WireGuard tunnel is
+     * not up, refuse every request so nothing leaks outside the tunnel. Added
+     * first so it runs before any network work.
+     */
+    private fun vpnGateInterceptor() = Interceptor { chain ->
+        if (tunnelGate.vpnOnlyEnabled && !tunnelGate.tunnelUp) {
+            throw VpnRequiredException()
+        }
+        chain.proceed(chain.request())
+    }
+
     /** Bare client used only for the login handshake (no auth interceptor, to avoid recursion). */
     private val authClient: OkHttpClient = OkHttpClient.Builder()
         .cookieJar(cookieJar)
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
+        .addInterceptor(vpnGateInterceptor())
         .addInterceptor(logging)
         .build()
 
@@ -79,6 +92,7 @@ class SessionManager {
         .cookieJar(cookieJar)
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
+        .addInterceptor(vpnGateInterceptor())
         .addInterceptor(logging)
         .addInterceptor(authInterceptor())
         .build()
