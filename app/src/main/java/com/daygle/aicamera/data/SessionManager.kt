@@ -125,7 +125,7 @@ class SessionManager {
         val base = baseUrl ?: return null
         return base.newBuilder()
             .addPathSegments("api/live/snapshot")
-            .apply { 
+            .apply {
                 if (!cameraId.isNullOrBlank()) addQueryParameter("camera_id", cameraId)
                 // Request a standard resolution to prevent decoder/network strain
                 addQueryParameter("width", "1280")
@@ -298,4 +298,4 @@ sealed interface LoginResult {
     data object InvalidCredentials : LoginResult
     data object NotConfigured : LoginResult
     data class Error(val message: String) : LoginResult
-}
+}
