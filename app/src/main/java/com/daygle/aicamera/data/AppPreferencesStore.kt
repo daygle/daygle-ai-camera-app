@@ -40,8 +40,10 @@ class AppPreferencesStore(private val context: Context) {
         prefs[Keys.USE_24H] ?: false
     }
 
+    // Default matches the "Balanced (1 s)" option offered in Settings so a fresh
+    // install shows a selection that reflects the real interval.
     val refreshIntervalMs: Flow<Long> = context.appPrefsDataStore.data.map { prefs ->
-        prefs[Keys.REFRESH_INTERVAL_MS] ?: 700L
+        prefs[Keys.REFRESH_INTERVAL_MS] ?: 1000L
     }
 
     suspend fun currentThemeMode(): ThemeMode = themeMode.first()

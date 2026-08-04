@@ -40,7 +40,7 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Run checks and build APKs
-        run: ./gradlew lintDebug testDebugUnitTest assembleDebug assembleRelease --warning-mode=all
+        run: ./gradlew lintDebug testDebugUnitTest assembleDebug assembleRelease --warning-mode=all --stacktrace
 
       - name: Upload APKs
         uses: actions/upload-artifact@v7

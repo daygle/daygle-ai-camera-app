@@ -633,7 +633,7 @@ private fun EventRow(event: Event, onPlayRecording: (Int) -> Unit = {}) {
                         .size(48.dp)
                         .clip(CircleShape)
                         .background(
-                            if (isSound) MaterialTheme.colorScheme.secondaryContainer
+                            if (isSound) MaterialTheme.colorScheme.tertiaryContainer
                             else MaterialTheme.colorScheme.primaryContainer
                         ),
                     contentAlignment = Alignment.Center
@@ -641,7 +641,7 @@ private fun EventRow(event: Event, onPlayRecording: (Int) -> Unit = {}) {
                     Icon(
                         imageVector = if (isSound) Icons.Filled.GraphicEq else Icons.Filled.NotificationsActive,
                         contentDescription = null,
-                        tint = if (isSound) MaterialTheme.colorScheme.onSecondaryContainer
+                        tint = if (isSound) MaterialTheme.colorScheme.onTertiaryContainer
                                else MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.size(24.dp)
                     )
