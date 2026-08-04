@@ -162,6 +162,7 @@ class SessionManager {
         val response = chain.proceed(request)
         val isApiCall = request.url.pathSegments.contains("api")
         if (response.code == 401 && isApiCall && connection.isConfigured) {
+            Log.w(TAG, "401 on ${request.url.encodedPath}; attempting re-login")
             response.close()
             val result = synchronized(loginLock) {
                 if (sessionGeneration.get() != generationAtRequest) {
@@ -171,8 +172,10 @@ class SessionManager {
                 }
             }
             if (result is LoginResult.Success) {
+                Log.i(TAG, "Re-login succeeded; retrying ${request.url.encodedPath}")
                 return@Interceptor chain.proceed(request.newBuilder().build())
             }
+            Log.w(TAG, "Re-login failed: $result")
         }
         response
     }
@@ -189,8 +192,13 @@ class SessionManager {
                     if (!pageResponse.isSuccessful) {
                         return LoginResult.Error(mapHttpError(pageResponse.code, "/login"))
                     }
-                    extractCsrfToken(pageResponse.body.string())
-                } ?: return LoginResult.Error("Could not read the login security token from the server.")
+                    val pageHtml = pageResponse.body.string()
+                    extractCsrfToken(pageHtml)
+                        ?: return LoginResult.Error(
+                            "Could not read the login security token from the server. " +
+                                "The server returned ${pageHtml.length} bytes of HTML without a csrf_token input."
+                        )
+                }
 
             val form = FormBody.Builder()
                 .add("username", conn.username)
@@ -219,7 +227,7 @@ class SessionManager {
             }
         } catch (e: Exception) {
             Log.w(TAG, "Login failed", e)
-            LoginResult.Error(e.toUserFriendlyMessage())
+            LoginResult.Error("${e.toUserFriendlyMessage()} (${e::class.java.simpleName})")
         }
     }
 
@@ -240,10 +248,28 @@ class SessionManager {
             explicitNulls = false
         }
 
-        private val CSRF_REGEX = Regex("name=\"csrf_token\"\\s+value=\"([^\"]+)\"")
+        /**
+         * Two-step CSRF token extraction:
+         *  1. Locate the `<input ... name="csrf_token" ...>` tag (any attribute order).
+         *  2. Within that tag, find the `value="..."` attribute.
+         *
+         * This is order-independent and works with double-quoted, single-quoted,
+         * or unquoted attribute values.
+         */
+        private val CSRF_INPUT = Regex(
+            """<input\b[^>]*\bname\s*=\s*(?:"csrf_token"|'csrf_token'|csrf_token)[^>]*>""",
+            RegexOption.IGNORE_CASE
+        )
+        private val VALUE_ATTR = Regex(
+            """\bvalue\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]*))"""
+        )
 
-        fun extractCsrfToken(html: String): String? =
-            CSRF_REGEX.find(html)?.groupValues?.getOrNull(1)
+        fun extractCsrfToken(html: String): String? {
+            val inputTag = CSRF_INPUT.find(html)?.value ?: return null
+            val match = VALUE_ATTR.find(inputTag) ?: return null
+            val (doubleQuoted, singleQuoted, unquoted) = match.destructured
+            return doubleQuoted.ifEmpty { singleQuoted }.ifEmpty { unquoted }.ifEmpty { null }
+        }
 
         /** Normalize user input into an `http(s)://host[:port]` URL, ensuring a trailing slash for Retrofit. */
         fun normalizeBaseUrl(raw: String): HttpUrl? {
@@ -272,4 +298,4 @@ sealed interface LoginResult {
     data object InvalidCredentials : LoginResult
     data object NotConfigured : LoginResult
     data class Error(val message: String) : LoginResult
-}
+}

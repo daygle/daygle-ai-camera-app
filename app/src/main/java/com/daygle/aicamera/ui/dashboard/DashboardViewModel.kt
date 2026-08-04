@@ -73,5 +73,6 @@ fun Throwable.friendlyMessage(): String = when (this) {
     is java.net.UnknownHostException -> "Server not found. Check the address."
     is java.net.ConnectException -> "Could not connect to the server."
     is java.net.SocketTimeoutException -> "The server took too long to respond."
-    else -> message ?: "Something went wrong."
+    is java.net.HttpRetryException -> "Server returned ${this.responseCode()}. Try reconnecting."
+    else -> (message ?: "Something went wrong.") + " (${this::class.java.simpleName})"
 }
