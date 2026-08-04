@@ -63,6 +63,8 @@ class CameraRepository(
 
     fun recordingStreamUrl(recordingId: Int): String? = session.recordingStreamUrl(recordingId)
 
+    fun eventSnapshotUrl(eventId: Int): String? = session.eventSnapshotUrl(eventId)
+
     fun httpClient() = session.httpClient
 
     fun currentSettingsStore(): SettingsStore = settings

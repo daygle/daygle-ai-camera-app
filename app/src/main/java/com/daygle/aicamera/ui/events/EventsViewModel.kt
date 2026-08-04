@@ -163,6 +163,9 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
         updateFilter { EventsFilter() }
     }
 
+    /** Absolute URL for an event's annotated snapshot, or null if unconfigured. */
+    fun snapshotUrl(eventId: Int): String? = repository.eventSnapshotUrl(eventId)
+
     private fun updateFilter(transform: (EventsFilter) -> EventsFilter) {
         _state.update { current ->
             if (current is EventsUiState.Ready) {

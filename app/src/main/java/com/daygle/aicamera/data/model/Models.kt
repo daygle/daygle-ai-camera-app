@@ -104,6 +104,9 @@ data class Event(
     // strongest alert fired for it (alert : event = 1:1), if any.
     @SerialName("recording_id") val recordingId: Int? = null,
     val alert: Alert? = null,
+    // Whether an annotated snapshot can be opened for this event
+    // (GET /api/events/{id}/snapshot). Sound/frameless events have none.
+    @SerialName("has_snapshot") val hasSnapshot: Boolean = false,
     val metadata: Map<String, JsonElement> = emptyMap(),
 ) {
     val alerted: Boolean get() = alertTriggered != 0 || alert != null
