@@ -26,6 +26,7 @@ interface DaygleApi {
     suspend fun events(
         @Query("limit") limit: Int = 100,
         @Query("alerted_only") alertedOnly: Boolean = false,
+        @Query("with_recording") withRecording: Boolean = true,
     ): List<Event>
 
     @GET("api/recordings")
