@@ -19,29 +19,33 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.runBlocking
 
-private val Accent = Color(0xFF3DDC97)
-private val AccentDark = Color(0xFF1FB877)
+private val Accent = Color(0xFF00A3FF)
+private val AccentDark = Color(0xFF0084D1)
 
 private val DarkColors = darkColorScheme(
     primary = Accent,
-    onPrimary = Color(0xFF04150E),
-    secondary = Color(0xFF7FD8FF),
-    background = Color(0xFF0B1220),
-    surface = Color(0xFF131C2B),
-    surfaceVariant = Color(0xFF1C2740),
-    onBackground = Color(0xFFE6ECF5),
-    onSurface = Color(0xFFE6ECF5),
-    error = Color(0xFFFF6B6B),
+    onPrimary = Color.Black,
+    secondary = Color(0xFF30363D),
+    background = Color(0xFF0D1117),
+    surface = Color(0xFF161B22),
+    surfaceVariant = Color(0xFF21262D),
+    onBackground = Color(0xFFF0F6FC),
+    onSurface = Color(0xFFF0F6FC),
+    onSurfaceVariant = Color(0xFF8B949E),
+    error = Color(0xFFF85149),
 )
 
 private val LightColors = lightColorScheme(
     primary = AccentDark,
     onPrimary = Color.White,
-    secondary = Color(0xFF0B72A8),
-    background = Color(0xFFF6F8FB),
+    secondary = Color(0xFF30363D),
+    background = Color(0xFFF6F8FA),
     surface = Color(0xFFFFFFFF),
-    surfaceVariant = Color(0xFFE7ECF3),
-    error = Color(0xFFC62828),
+    surfaceVariant = Color(0xFFE6EDF0),
+    onBackground = Color(0xFF1F2328),
+    onSurface = Color(0xFF1F2328),
+    onSurfaceVariant = Color(0xFF656D76),
+    error = Color(0xFFCF222E),
 )
 
 @EntryPoint
