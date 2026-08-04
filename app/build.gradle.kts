@@ -61,6 +61,47 @@ android {
     }
 }
 
+// WireGuard's com.wireguard.android:tunnel ships prebuilt native libs that
+// must satisfy the 16 KB page size requirement (mandatory for apps targeting
+// Android 15+). Even in 1.0.20260102 only the arm64-v8a / x86_64 libs are
+// 16 KB-aligned; the armeabi-v7a / x86 libs are still 4 KB (p_align 0x1000).
+// This realignment is REQUIRED, not merely a safety net: AGP 9's packageRelease
+// stores native libs uncompressed and page-aligned, and refuses to package the
+// 4 KB-aligned 32-bit .so files, so assembleRelease fails without it. (Do not
+// remove this without also dropping the 32-bit ABIs.) scripts/align_elf_16k.py
+// inserts padding between LOAD segments and raises p_align to 0x4000 without
+// touching any virtual address, relocation, or symbol -- the bytes each segment
+// maps are identical, so the result behaves exactly like the original on 4 KB
+// devices and becomes loadable on 16 KB devices.
+val alignScript = rootProject.file("scripts/align_elf_16k.py")
+val pythonExecutable =
+    if (org.gradle.internal.os.OperatingSystem.current().isWindows) "python" else "python3"
+
+// AGP 9 removed the public task classes (e.g. MergeNativeLibsTask), so the
+// native libs directory that packaging consumes is located by its stable
+// convention path: the *stripped* output, since package{Variant} reads from
+// stripped_native_libs rather than merged_native_libs.
+listOf("debug", "release").forEach { buildType ->
+    val cap = buildType.replaceFirstChar { it.uppercase() }
+    val nativeLibsDir =
+        layout.buildDirectory.dir(
+            "intermediates/stripped_native_libs/$buildType/strip${cap}DebugSymbols/out"
+        )
+    val alignTask = tasks.register<Exec>("align${cap}NativeLibs16k") {
+        group = "build"
+        description = "Realigns WireGuard native libs to 16 KB page boundaries"
+        dependsOn("strip${cap}DebugSymbols")
+        // Resolved at configuration time so no closure (and no config-cache
+        // script reference) is involved; only plain strings reach commandLine.
+        inputs.dir(nativeLibsDir)
+        val dir = nativeLibsDir.get().asFile.absolutePath
+        commandLine(pythonExecutable, alignScript.absolutePath, dir)
+    }
+    tasks.matching { it.name == "package$cap" }.configureEach {
+        dependsOn(alignTask)
+    }
+}
+
 kotlin {
     jvmToolchain(17)
 }
