@@ -17,7 +17,9 @@ setup stays in the server's web dashboard. This client focuses on watching.
   showing cameras online and system uptime.
 - **Live view** - tap a camera for a near-live feed (refreshed snapshots) with
   smooth serial polling, play/pause, and the current stream resolution.
-  Polling pauses automatically when the app is backgrounded.
+  Pinch to zoom (up to 5x, double-tap to reset) and tap the full-screen
+  button for an immersive, system-bar-free view. Polling pauses automatically
+  when the app is backgrounded.
 - **Events** - a detailed detection/alert log showing specific event types
   (e.g., **Person**, **Dog Bark**) and confidence levels. Fully filterable
   by source, label, or alerts only.
