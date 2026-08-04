@@ -91,8 +91,8 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventsScreen(
-    onPlayRecording: (Int) -> Unit = {},
     modifier: Modifier = Modifier,
+    onPlayRecording: (Int) -> Unit = {},
     refreshTrigger: Int = 0,
     viewModel: EventsViewModel = hiltViewModel(),
 ) {

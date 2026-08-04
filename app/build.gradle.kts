@@ -61,16 +61,17 @@ android {
     }
 }
 
-// WireGuard's com.wireguard.android:tunnel ships prebuilt native libs whose
-// ELF LOAD segments are aligned to 4 KB only, which fails Google Play's
-// 16 KB page size requirement (mandatory for apps targeting Android 15+).
-// The upstream fix (ANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES) exists only in the
-// library's source tree and is not published to Maven Central, so we realign
-// the merged .so files at build time instead. scripts/align_elf_16k.py inserts
-// padding between LOAD segments and raises p_align to 0x4000 without touching
-// any virtual address, relocation, or symbol -- the bytes each segment maps
-// are identical, so the result behaves exactly like the original on 4 KB
-// devices and becomes loadable on 16 KB devices.
+// WireGuard's com.wireguard.android:tunnel ships prebuilt native libs that
+// must satisfy Google Play's 16 KB page size requirement (mandatory for apps
+// targeting Android 15+). Versions >= 1.0.20260102 publish 16 KB-aligned
+// arm64-v8a / x86_64 libs, but the 32-bit ABIs are still 4 KB aligned (which
+// is harmless: 16 KB page devices are 64-bit only). Keep this build-time
+// realignment as a safety net in case upstream ever regresses:
+// scripts/align_elf_16k.py inserts padding between LOAD segments and raises
+// p_align to 0x4000 without touching any virtual address, relocation, or
+// symbol -- the bytes each segment maps are identical, so the result behaves
+// exactly like the original on 4 KB devices and becomes loadable on 16 KB
+// devices.
 val alignScript = rootProject.file("scripts/align_elf_16k.py")
 val pythonExecutable =
     if (org.gradle.internal.os.OperatingSystem.current().isWindows) "python" else "python3"

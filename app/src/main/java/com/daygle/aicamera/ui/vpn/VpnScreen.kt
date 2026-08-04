@@ -138,7 +138,7 @@ fun VpnScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 ListItem(
-                    headlineContent = { Text("VPN-only mode", fontWeight = FontWeight.Bold) },
+                    headlineContent = { Text("VPN-Only Mode", fontWeight = FontWeight.Bold) },
                     supportingContent = { Text(statusLabel(state.status)) },
                     trailingContent = {
                         Switch(
@@ -160,7 +160,7 @@ fun VpnScreen(
             // Config editor
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "WireGuard configuration",
+                    "WireGuard Configuration",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 4.dp),
