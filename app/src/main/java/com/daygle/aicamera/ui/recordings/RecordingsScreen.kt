@@ -27,9 +27,10 @@ import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -40,7 +41,6 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DateRangePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -94,7 +94,6 @@ fun RecordingsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showFilterSheet by remember { mutableStateOf(false) }
-    val sheetState = rememberModalBottomSheetState()
 
     androidx.compose.runtime.LaunchedEffect(refreshTrigger) {
         if (refreshTrigger > 0) viewModel.load()
@@ -103,11 +102,12 @@ fun RecordingsScreen(
     if (showFilterSheet) {
         RecordingsFilterSheet(
             state = (state as? RecordingsUiState.Ready)?.data?.filter ?: RecordingsFilter(),
+            availableModes = (state as? RecordingsUiState.Ready)?.data?.availableModes ?: emptyList(),
+            availableCameras = (state as? RecordingsUiState.Ready)?.data?.availableCameras ?: emptyList(),
             availableTriggerTypes = (state as? RecordingsUiState.Ready)?.data?.availableTriggerTypes ?: emptyList(),
-            availableSources = (state as? RecordingsUiState.Ready)?.data?.availableSources ?: emptyList(),
             availableLabels = (state as? RecordingsUiState.Ready)?.data?.availableLabels ?: emptyList(),
+            cameraMap = (state as? RecordingsUiState.Ready)?.data?.cameras?.associate { it.id to it.displayName } ?: emptyMap(),
             onDismiss = { showFilterSheet = false },
-            onUpdateFilter = { /* updates handled via individual viewModel calls in sheet */ },
             viewModel = viewModel
         )
     }
@@ -117,6 +117,8 @@ fun RecordingsScreen(
         is RecordingsUiState.Error -> ErrorState(s.message, onRetry = viewModel::load, modifier = modifier)
         is RecordingsUiState.Ready -> {
             val data = s.data
+            val activeFilterCount = data.filter.activeCount()
+            
             Column(modifier) {
                 // Modern Search & Filter Bar
                 Surface(
@@ -151,7 +153,6 @@ fun RecordingsScreen(
                             )
                         )
                         
-                        val activeFilterCount = data.filter.activeCount()
                         BadgedBox(
                             badge = {
                                 if (activeFilterCount > 0) {
@@ -174,7 +175,6 @@ fun RecordingsScreen(
                     }
                 }
 
-                val activeFilterCount = data.filter.activeCount()
                 // Quick Chips Row
                 Row(
                     modifier = Modifier
@@ -188,9 +188,19 @@ fun RecordingsScreen(
                     AssistChip(
                         onClick = { showFilterSheet = true },
                         label = { Text(data.filter.sortOrder.label) },
-                        leadingIcon = { Icon(Icons.Filled.Sort, null, Modifier.size(18.dp)) },
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.Sort, null, Modifier.size(18.dp)) },
                         shape = RoundedCornerShape(12.dp)
                     )
+
+                    // Active modes (Sound/Object)
+                    data.filter.selectedModes.forEach { mode ->
+                        FilterChip(
+                            selected = true,
+                            onClick = { viewModel.toggleMode(mode) },
+                            label = { Text(mode) },
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
 
                     // Date range if active
                     if (data.filter.dateStart != null || data.filter.dateEnd != null) {
@@ -208,18 +218,8 @@ fun RecordingsScreen(
                             shape = RoundedCornerShape(12.dp)
                         )
                     }
-
-                    // Active triggers
-                    data.filter.selectedTriggerTypes.forEach { type ->
-                        FilterChip(
-                            selected = true,
-                            onClick = { viewModel.toggleTriggerType(type) },
-                            label = { Text(formatEventLabel(type)) },
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                    }
                     
-                    if (data.filter.activeCount() > 0) {
+                    if (activeFilterCount > 0) {
                         TextButton(onClick = viewModel::clearFilters) {
                             Text("Reset", style = MaterialTheme.typography.labelLarge)
                         }
@@ -239,9 +239,8 @@ fun RecordingsScreen(
                 }
 
                 // Recording list
-                val refreshing = data.refreshing
                 PullToRefreshBox(
-                    isRefreshing = refreshing,
+                    isRefreshing = data.refreshing,
                     onRefresh = viewModel::load,
                     modifier = Modifier.weight(1f),
                 ) {
@@ -269,11 +268,12 @@ fun RecordingsScreen(
 @Composable
 private fun RecordingsFilterSheet(
     state: RecordingsFilter,
+    availableModes: List<String>,
+    availableCameras: List<String>,
     availableTriggerTypes: List<String>,
-    availableSources: List<String>,
     availableLabels: List<String>,
+    cameraMap: Map<String, String>,
     onDismiss: () -> Unit,
-    onUpdateFilter: () -> Unit,
     viewModel: RecordingsViewModel
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
@@ -328,12 +328,12 @@ private fun RecordingsFilterSheet(
             ) {
                 Text("Filters", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 TextButton(onClick = { viewModel.clearFilters(); onDismiss() }) {
-                    Text("Clear all")
+                    Text("Clear All")
                 }
             }
 
             // Sort By
-            FilterSection(title = "Sort by", icon = Icons.Filled.Sort) {
+            FilterSection(title = "Sort By", icon = Icons.AutoMirrored.Filled.Sort) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -351,8 +351,27 @@ private fun RecordingsFilterSheet(
                 }
             }
 
+            // Type (Object vs Sound)
+            FilterSection(title = "Detection Type", icon = Icons.Filled.History) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    availableModes.forEach { mode ->
+                        FilterChip(
+                            selected = mode in state.selectedModes,
+                            onClick = { viewModel.toggleMode(mode) },
+                            label = { Text(mode) },
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                }
+            }
+
             // Date Range
-            FilterSection(title = "Time period", icon = Icons.Filled.CalendarMonth) {
+            FilterSection(title = "Time Period", icon = Icons.Filled.CalendarMonth) {
                 AssistChip(
                     onClick = { showDatePicker = true },
                     label = { Text(dateRangeLabel(state.dateStart, state.dateEnd)) },
@@ -363,7 +382,7 @@ private fun RecordingsFilterSheet(
 
             // Trigger Types
             if (availableTriggerTypes.isNotEmpty()) {
-                FilterSection(title = "Trigger type", icon = Icons.Filled.History) {
+                FilterSection(title = "Specific Trigger", icon = Icons.Filled.History) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -383,7 +402,7 @@ private fun RecordingsFilterSheet(
             }
 
             // Cameras
-            if (availableSources.isNotEmpty()) {
+            if (availableCameras.isNotEmpty()) {
                 FilterSection(title = "Cameras", icon = Icons.Filled.Videocam) {
                     Row(
                         modifier = Modifier
@@ -391,11 +410,11 @@ private fun RecordingsFilterSheet(
                             .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        availableSources.forEach { source ->
+                        availableCameras.forEach { cam ->
                             FilterChip(
-                                selected = source in state.selectedSources,
-                                onClick = { viewModel.toggleSource(source) },
-                                label = { Text(formatEventLabel(source)) },
+                                selected = cam in state.selectedCameras,
+                                onClick = { viewModel.toggleCamera(cam) },
+                                label = { Text(cameraMap[cam] ?: formatEventLabel(cam)) },
                                 shape = RoundedCornerShape(12.dp)
                             )
                         }
@@ -454,21 +473,24 @@ private fun RecordingsFilter.activeCount(): Int {
     var count = 0
     if (query.isNotBlank()) count++
     if (dateStart != null || dateEnd != null) count++
-    count += selectedSources.size
+    count += selectedModes.size
+    count += selectedCameras.size
     count += selectedTriggerTypes.size
     count += selectedLabels.size
     return count
 }
 
-private val dateFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
-    .withLocale(Locale.getDefault())
+private fun getDateFormatter(): DateTimeFormatter =
+    DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
+        .withLocale(Locale.getDefault())
 
 private fun dateRangeLabel(start: LocalDate?, end: LocalDate?): String {
-    if (start == null && end == null) return "Any time"
+    if (start == null && end == null) return "Any Time"
+    val formatter = getDateFormatter()
     if (start != null && end != null) {
-        return "${start.format(dateFormatter)} - ${end.format(dateFormatter)}"
+        return "${start.format(formatter)} - ${end.format(formatter)}"
     }
-    return if (start != null) "From ${start.format(dateFormatter)}" else "Until ${end!!.format(dateFormatter)}"
+    return if (start != null) "From ${start.format(formatter)}" else "Until ${end!!.format(formatter)}"
 }
 
 @Composable
@@ -493,12 +515,24 @@ private fun RecordingRow(recording: Recording, onPlay: () -> Unit) {
                 )
             },
             supportingContent = {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        recording.subtitle(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val isSound = recording.source?.lowercase() == "sound"
+                        Icon(
+                            imageVector = if (isSound) Icons.Filled.GraphicEq else Icons.Filled.Videocam,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                        )
+                        Text(
+                            recording.subtitle(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     val detectionsToShow = if (recording.detections.isEmpty() && recording.labelConfidences.isNotEmpty()) {
                         recording.labelConfidences.map { (label, confidence) ->
                             Detection(label, confidence)
@@ -521,18 +555,27 @@ private fun RecordingRow(recording: Recording, onPlay: () -> Unit) {
                 }
             },
             leadingContent = {
+                val isSound = recording.source?.lowercase() == "sound"
                 Box(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.primaryContainer),
+                        .background(
+                            if (isSound) MaterialTheme.colorScheme.secondaryContainer 
+                            else MaterialTheme.colorScheme.primaryContainer
+                        ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        imageVector = if (recording.mediaReady) Icons.Filled.PlayCircle else Icons.Filled.Videocam,
+                        imageVector = when {
+                            !recording.mediaReady -> Icons.Filled.Videocam
+                            isSound -> Icons.Filled.GraphicEq
+                            else -> Icons.Filled.PlayCircle
+                        },
                         contentDescription = null,
                         tint = if (recording.mediaReady) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
+                            if (isSound) MaterialTheme.colorScheme.onSecondaryContainer
+                            else MaterialTheme.colorScheme.onPrimaryContainer
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
                         },

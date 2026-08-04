@@ -3,6 +3,7 @@ package com.daygle.aicamera.ui.recordings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
+import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.ui.dashboard.friendlyMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,7 +27,8 @@ data class RecordingsFilter(
     val query: String = "",
     val dateStart: LocalDate? = null,
     val dateEnd: LocalDate? = null,
-    val selectedSources: Set<String> = emptySet(),
+    val selectedModes: Set<String> = emptySet(),
+    val selectedCameras: Set<String> = emptySet(),
     val selectedTriggerTypes: Set<String> = emptySet(),
     val selectedLabels: Set<String> = emptySet(),
     val sortOrder: SortOrder = SortOrder.NEWEST,
@@ -35,21 +37,23 @@ data class RecordingsFilter(
 data class RecordingsReady(
     val recordings: List<Recording>,
     val filtered: List<Recording>,
+    val cameras: List<Camera> = emptyList(),
     val filter: RecordingsFilter = RecordingsFilter(),
     val refreshing: Boolean = false,
 ) {
+    val availableModes: List<String> = listOf("Object", "Sound")
+
+    val availableCameras: List<String> =
+        recordings.mapNotNull { it.cameraId ?: it.source }.filter { it != "sound" && it != "rtsp" }.distinct().sorted()
+
     val availableTriggerTypes: List<String> =
-        (recordings.mapNotNull { it.triggerType } + recordings.filter { it.source == "sound" }.map { "sound" })
-            .distinct().sorted()
+        recordings.mapNotNull { it.triggerType }.distinct().sorted()
 
     val availableLabels: List<String> =
         recordings
             .flatMap { r -> r.labels + r.detections.map { it.label } + listOfNotNull(r.triggerLabel) }
             .distinct()
             .sorted()
-
-    val availableSources: List<String> =
-        recordings.mapNotNull { it.source }.filter { it != "sound" }.distinct().sorted()
 }
 
 sealed interface RecordingsUiState {
@@ -78,17 +82,27 @@ class RecordingsViewModel @Inject constructor(private val repository: CameraRepo
             _state.value = RecordingsUiState.Loading
         }
         viewModelScope.launch {
-            repository.recordings()
-                .onSuccess { recordings ->
-                    allRecordings = recordings
-                    _state.value = RecordingsUiState.Ready(
-                        RecordingsReady(
-                            recordings = recordings,
-                            filtered = recordings,
-                        )
+            val recordingsRes = repository.recordings()
+            val camerasRes = repository.cameras()
+
+            if (recordingsRes.isSuccess && camerasRes.isSuccess) {
+                val recordings = recordingsRes.getOrThrow()
+                val cameras = camerasRes.getOrThrow()
+                allRecordings = recordings
+                
+                val currentFilter = (_state.value as? RecordingsUiState.Ready)?.data?.filter ?: RecordingsFilter()
+                _state.value = RecordingsUiState.Ready(
+                    RecordingsReady(
+                        recordings = recordings,
+                        filtered = applyFilters(currentFilter),
+                        cameras = cameras,
+                        filter = currentFilter,
                     )
-                }
-                .onFailure { _state.value = RecordingsUiState.Error(it.friendlyMessage()) }
+                )
+            } else {
+                val error = recordingsRes.exceptionOrNull() ?: camerasRes.exceptionOrNull()
+                _state.value = RecordingsUiState.Error(error?.friendlyMessage() ?: "Unknown error")
+            }
         }
     }
 
@@ -110,12 +124,23 @@ class RecordingsViewModel @Inject constructor(private val repository: CameraRepo
         }
     }
 
-    fun toggleSource(source: String) {
+    fun toggleCamera(cameraId: String) {
         _state.update { current ->
             if (current is RecordingsUiState.Ready) {
-                val selected = current.data.filter.selectedSources.toMutableSet()
-                if (!selected.add(source)) selected.remove(source)
-                val filter = current.data.filter.copy(selectedSources = selected)
+                val selected = current.data.filter.selectedCameras.toMutableSet()
+                if (!selected.add(cameraId)) selected.remove(cameraId)
+                val filter = current.data.filter.copy(selectedCameras = selected)
+                RecordingsUiState.Ready(current.data.copy(filter = filter, filtered = applyFilters(filter)))
+            } else current
+        }
+    }
+
+    fun toggleMode(mode: String) {
+        _state.update { current ->
+            if (current is RecordingsUiState.Ready) {
+                val selected = current.data.filter.selectedModes.toMutableSet()
+                if (!selected.add(mode)) selected.remove(mode)
+                val filter = current.data.filter.copy(selectedModes = selected)
                 RecordingsUiState.Ready(current.data.copy(filter = filter, filtered = applyFilters(filter)))
             } else current
         }
@@ -189,17 +214,22 @@ class RecordingsViewModel @Inject constructor(private val repository: CameraRepo
             }
         }
 
-        // Source filter
-        if (filter.selectedSources.isNotEmpty()) {
-            result = result.filter { r -> r.source in filter.selectedSources }
+        // Mode filter (Object vs Sound)
+        if (filter.selectedModes.isNotEmpty()) {
+            result = result.filter { r -> 
+                val mode = if (r.source?.lowercase() == "sound") "Sound" else "Object"
+                mode in filter.selectedModes
+            }
         }
 
-        // Trigger type filter (includes 'sound' which might be in the source field)
+        // Camera filter
+        if (filter.selectedCameras.isNotEmpty()) {
+            result = result.filter { r -> (r.cameraId ?: r.source) in filter.selectedCameras }
+        }
+
+        // Trigger type filter
         if (filter.selectedTriggerTypes.isNotEmpty()) {
-            result = result.filter { r -> 
-                r.triggerType in filter.selectedTriggerTypes || 
-                (r.source == "sound" && "sound" in filter.selectedTriggerTypes)
-            }
+            result = result.filter { r -> r.triggerType in filter.selectedTriggerTypes }
         }
 
         // Label filter

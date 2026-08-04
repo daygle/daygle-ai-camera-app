@@ -14,7 +14,7 @@ import dagger.hilt.components.SingletonComponent
  * Starts/stops the [NtfyService] to match the persisted notification config.
  * Also schedules a periodic [PushKeepAliveWorker] so the listener restarts
  * automatically if Android kills the foreground service under memory pressure
- * — the user does not need to reopen the app to restore push delivery.
+ * - the user does not need to reopen the app to restore push delivery.
  */
 object PushController {
 

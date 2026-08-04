@@ -1,6 +1,7 @@
 package com.daygle.aicamera.ui.events
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -19,6 +21,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.History
@@ -27,11 +31,15 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DateRangePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -46,6 +54,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -71,6 +80,12 @@ import com.daygle.aicamera.ui.formatTimestamp
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,9 +104,11 @@ fun EventsScreen(
     if (showFilterSheet) {
         EventsFilterSheet(
             state = (state as? EventsUiState.Ready)?.data?.filter ?: EventsFilter(),
+            availableModes = (state as? EventsUiState.Ready)?.data?.availableModes ?: emptyList(),
             availableTriggerTypes = (state as? EventsUiState.Ready)?.data?.availableTriggerTypes ?: emptyList(),
             availableSources = (state as? EventsUiState.Ready)?.data?.availableSources ?: emptyList(),
             availableLabels = (state as? EventsUiState.Ready)?.data?.availableLabels ?: emptyList(),
+            cameraMap = (state as? EventsUiState.Ready)?.data?.cameras?.associate { it.id to it.displayName } ?: emptyMap(),
             onDismiss = { showFilterSheet = false },
             viewModel = viewModel
         )
@@ -102,6 +119,8 @@ fun EventsScreen(
         is EventsUiState.Error -> ErrorState(s.message, onRetry = viewModel::load, modifier = modifier)
         is EventsUiState.Ready -> {
             val data = s.data
+            val activeFilterCount = data.filter.activeCount()
+
             Column(modifier) {
                 // Search & Filter Bar
                 Surface(
@@ -136,7 +155,6 @@ fun EventsScreen(
                             )
                         )
                         
-                        val activeFilterCount = data.filter.activeCount()
                         BadgedBox(
                             badge = {
                                 if (activeFilterCount > 0) {
@@ -168,6 +186,14 @@ fun EventsScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Sort order quick view
+                    AssistChip(
+                        onClick = { showFilterSheet = true },
+                        label = { Text(data.filter.sortOrder.label) },
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.Sort, null, Modifier.size(18.dp)) },
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
                     FilterChip(
                         selected = data.filter.alertedOnly,
                         onClick = { viewModel.setAlertedOnly(!data.filter.alertedOnly) },
@@ -180,17 +206,34 @@ fun EventsScreen(
                         shape = RoundedCornerShape(12.dp)
                     )
 
-                    // Active triggers
-                    data.filter.selectedTriggerTypes.forEach { type ->
+                    // Active modes (Sound/Object)
+                    data.filter.selectedModes.forEach { mode ->
                         FilterChip(
                             selected = true,
-                            onClick = { viewModel.toggleTriggerType(type) },
-                            label = { Text(formatEventLabel(type)) },
+                            onClick = { viewModel.toggleMode(mode) },
+                            label = { Text(mode) },
                             shape = RoundedCornerShape(12.dp)
                         )
                     }
 
-                    if (data.filter.activeCount() > 0) {
+                    // Date range if active
+                    if (data.filter.dateStart != null || data.filter.dateEnd != null) {
+                        AssistChip(
+                            onClick = { showFilterSheet = true },
+                            label = { Text(dateRangeLabel(data.filter.dateStart, data.filter.dateEnd)) },
+                            leadingIcon = { Icon(Icons.Filled.CalendarMonth, null, Modifier.size(18.dp)) },
+                            trailingIcon = { 
+                                Icon(
+                                    Icons.Filled.Clear, 
+                                    null, 
+                                    Modifier.size(16.dp).clickable { viewModel.setDateRange(null, null) }
+                                ) 
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+
+                    if (activeFilterCount > 0) {
                         TextButton(onClick = viewModel::clearFilters) {
                             Text("Reset", style = MaterialTheme.typography.labelLarge)
                         }
@@ -210,15 +253,14 @@ fun EventsScreen(
                 }
 
                 // Event list
-                val refreshing = data.refreshing
                 PullToRefreshBox(
-                    isRefreshing = refreshing,
+                    isRefreshing = data.refreshing,
                     onRefresh = viewModel::load,
                     modifier = Modifier.weight(1f),
                 ) {
                     if (data.filtered.isEmpty()) {
                         EmptyState(
-                            if (data.filter.activeCount() > 0) "No events match your filters." else "No events recorded yet.",
+                            if (activeFilterCount > 0) "No events match your filters." else "No events recorded yet.",
                         )
                     } else {
                         LazyColumn(
@@ -240,12 +282,47 @@ fun EventsScreen(
 @Composable
 private fun EventsFilterSheet(
     state: EventsFilter,
+    availableModes: List<String>,
     availableTriggerTypes: List<String>,
     availableSources: List<String>,
     availableLabels: List<String>,
+    cameraMap: Map<String, String>,
     onDismiss: () -> Unit,
     viewModel: EventsViewModel
 ) {
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    if (showDatePicker) {
+        val pickerState = rememberDateRangePickerState(
+            initialSelectedStartDateMillis = state.dateStart?.atStartOfDay(ZoneId.systemDefault())?.toInstant()?.toEpochMilli(),
+            initialSelectedEndDateMillis = state.dateEnd?.atStartOfDay(ZoneId.systemDefault())?.toInstant()?.toEpochMilli(),
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val start = pickerState.selectedStartDateMillis?.let {
+                        Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                    }
+                    val end = pickerState.selectedEndDateMillis?.let {
+                        Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                    }
+                    viewModel.setDateRange(start, end)
+                    showDatePicker = false
+                }) {
+                    Text("Apply")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Cancel")
+                }
+            },
+        ) {
+            DateRangePicker(state = pickerState)
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -265,7 +342,26 @@ private fun EventsFilterSheet(
             ) {
                 Text("Filters", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 TextButton(onClick = { viewModel.clearFilters(); onDismiss() }) {
-                    Text("Clear all")
+                    Text("Clear All")
+                }
+            }
+
+            // Sort By
+            FilterSection(title = "Sort By", icon = Icons.AutoMirrored.Filled.Sort) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    EventsSortOrder.entries.forEach { sort ->
+                        FilterChip(
+                            selected = state.sortOrder == sort,
+                            onClick = { viewModel.setSortOrder(sort) },
+                            label = { Text(sort.label) },
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
                 }
             }
 
@@ -274,14 +370,43 @@ private fun EventsFilterSheet(
                 FilterChip(
                     selected = state.alertedOnly,
                     onClick = { viewModel.setAlertedOnly(!state.alertedOnly) },
-                    label = { Text("Only show alerts") },
+                    label = { Text("Only Show Alerts") },
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+
+            // Type (Object vs Sound)
+            FilterSection(title = "Detection Type", icon = Icons.Filled.History) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    availableModes.forEach { mode ->
+                        FilterChip(
+                            selected = mode in state.selectedModes,
+                            onClick = { viewModel.toggleMode(mode) },
+                            label = { Text(mode) },
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                }
+            }
+
+            // Date Range
+            FilterSection(title = "Time Period", icon = Icons.Filled.CalendarMonth) {
+                AssistChip(
+                    onClick = { showDatePicker = true },
+                    label = { Text(dateRangeLabel(state.dateStart, state.dateEnd)) },
+                    leadingIcon = { Icon(Icons.Filled.CalendarMonth, null, Modifier.size(18.dp)) },
                     shape = RoundedCornerShape(12.dp)
                 )
             }
 
             // Trigger Types
             if (availableTriggerTypes.isNotEmpty()) {
-                FilterSection(title = "Trigger type", icon = Icons.Filled.History) {
+                FilterSection(title = "Specific Trigger", icon = Icons.Filled.History) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -311,9 +436,9 @@ private fun EventsFilterSheet(
                     ) {
                         availableSources.forEach { source ->
                             FilterChip(
-                                selected = source in state.selectedSources,
-                                onClick = { viewModel.toggleSource(source) },
-                                label = { Text(formatEventLabel(source)) },
+                                selected = source in state.selectedCameras,
+                                onClick = { viewModel.toggleCamera(source) },
+                                label = { Text(cameraMap[source] ?: formatEventLabel(source)) },
                                 shape = RoundedCornerShape(12.dp)
                             )
                         }
@@ -372,10 +497,25 @@ private fun EventsFilter.activeCount(): Int {
     var count = 0
     if (query.isNotBlank()) count++
     if (alertedOnly) count++
-    count += selectedSources.size
+    if (dateStart != null || dateEnd != null) count++
+    count += selectedModes.size
+    count += selectedCameras.size
     count += selectedTriggerTypes.size
     count += selectedLabels.size
     return count
+}
+
+private fun getDateFormatter(): DateTimeFormatter =
+    DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
+        .withLocale(Locale.getDefault())
+
+private fun dateRangeLabel(start: LocalDate?, end: LocalDate?): String {
+    if (start == null && end == null) return "Any Time"
+    val formatter = getDateFormatter()
+    if (start != null && end != null) {
+        return "${start.format(formatter)} - ${end.format(formatter)}"
+    }
+    return if (start != null) "From ${start.format(formatter)}" else "Until ${end!!.format(formatter)}"
 }
 
 @Composable
@@ -394,14 +534,24 @@ private fun EventRow(event: Event) {
                 )
             },
             supportingContent = {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val isSound = event.source?.lowercase() == "sound"
+                        Icon(
+                            imageVector = if (isSound) Icons.Filled.GraphicEq else Icons.Filled.Videocam,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                        )
                         Text(
                             formatTimestamp(event.createdAt),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        if (event.source != null) {
+                        if (event.source != null && event.source != "sound" && event.source != "rtsp") {
                             Text(
                                 formatEventLabel(event.source),
                                 style = MaterialTheme.typography.bodySmall,
@@ -436,17 +586,22 @@ private fun EventRow(event: Event) {
                 }
             },
             leadingContent = {
+                val isSound = event.source?.lowercase() == "sound"
                 Box(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
+                        .background(
+                            if (isSound) MaterialTheme.colorScheme.secondaryContainer 
+                            else MaterialTheme.colorScheme.primaryContainer
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = if (event.source == "sound") Icons.Filled.Sensors else Icons.Filled.NotificationsActive,
+                        imageVector = if (isSound) Icons.Filled.GraphicEq else Icons.Filled.NotificationsActive,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        tint = if (isSound) MaterialTheme.colorScheme.onSecondaryContainer
+                               else MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.size(24.dp)
                     )
                 }

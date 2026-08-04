@@ -7,7 +7,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
 
-private val displayFormatter: DateTimeFormatter =
+private fun getDisplayFormatter(): DateTimeFormatter =
     DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
         .withLocale(Locale.getDefault())
 
@@ -17,7 +17,7 @@ fun formatTimestamp(iso: String?): String {
     return try {
         OffsetDateTime.parse(iso)
             .atZoneSameInstant(ZoneId.systemDefault())
-            .format(displayFormatter)
+            .format(getDisplayFormatter())
     } catch (_: Exception) {
         iso
     }

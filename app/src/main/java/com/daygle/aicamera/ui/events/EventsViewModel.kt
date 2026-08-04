@@ -3,6 +3,7 @@ package com.daygle.aicamera.ui.events
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
+import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.ui.dashboard.friendlyMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -11,28 +12,42 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.OffsetDateTime
+import java.time.ZoneId
 import javax.inject.Inject
+
+enum class EventsSortOrder(val label: String) {
+    NEWEST("Newest"),
+    OLDEST("Oldest"),
+}
 
 data class EventsFilter(
     val query: String = "",
-    val selectedSources: Set<String> = emptySet(),
+    val dateStart: LocalDate? = null,
+    val dateEnd: LocalDate? = null,
+    val selectedModes: Set<String> = emptySet(),
+    val selectedCameras: Set<String> = emptySet(),
     val selectedTriggerTypes: Set<String> = emptySet(),
     val selectedLabels: Set<String> = emptySet(),
     val alertedOnly: Boolean = false,
+    val sortOrder: EventsSortOrder = EventsSortOrder.NEWEST,
 )
 
 data class EventsReady(
     val events: List<Event>,
     val filtered: List<Event>,
+    val cameras: List<Camera> = emptyList(),
     val filter: EventsFilter = EventsFilter(),
     val refreshing: Boolean = false,
 ) {
+    val availableModes: List<String> = listOf("Object", "Sound")
+
     val availableSources: List<String> =
-        events.mapNotNull { it.source }.filter { it != "sound" }.distinct().sorted()
+        events.mapNotNull { it.source }.filter { it != "sound" && it != "rtsp" }.distinct().sorted()
 
     val availableTriggerTypes: List<String> =
-        (events.mapNotNull { it.triggerType } + events.filter { it.source == "sound" }.map { "sound" })
-            .distinct().sorted()
+        events.mapNotNull { it.triggerType }.distinct().sorted()
 
     val availableLabels: List<String> =
         events.flatMap { it.detections.map { d -> d.label } + listOfNotNull(it.triggerLabel) }
@@ -65,19 +80,26 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
             EventsUiState.Loading
 
         viewModelScope.launch {
-            repository.events()
-                .onSuccess { events ->
-                    allEvents = events
-                    val currentFilter = (_state.value as? EventsUiState.Ready)?.data?.filter ?: EventsFilter()
-                    _state.value = EventsUiState.Ready(
-                        EventsReady(
-                            events = events,
-                            filtered = applyFilters(events, currentFilter),
-                            filter = currentFilter,
-                        )
+            val eventsRes = repository.events()
+            val camerasRes = repository.cameras()
+
+            if (eventsRes.isSuccess && camerasRes.isSuccess) {
+                val events = eventsRes.getOrThrow()
+                val cameras = camerasRes.getOrThrow()
+                allEvents = events
+                val currentFilter = (_state.value as? EventsUiState.Ready)?.data?.filter ?: EventsFilter()
+                _state.value = EventsUiState.Ready(
+                    EventsReady(
+                        events = events,
+                        filtered = applyFilters(events, currentFilter),
+                        cameras = cameras,
+                        filter = currentFilter,
                     )
-                }
-                .onFailure { _state.value = EventsUiState.Error(it.friendlyMessage()) }
+                )
+            } else {
+                val error = eventsRes.exceptionOrNull() ?: camerasRes.exceptionOrNull()
+                _state.value = EventsUiState.Error(error?.friendlyMessage() ?: "Unknown error")
+            }
         }
     }
 
@@ -85,11 +107,23 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
         updateFilter { it.copy(query = query) }
     }
 
-    fun toggleSource(source: String) {
+    fun setDateRange(start: LocalDate?, end: LocalDate?) {
+        updateFilter { it.copy(dateStart = start, dateEnd = end) }
+    }
+
+    fun toggleCamera(cameraId: String) {
         updateFilter { current ->
-            val selected = current.selectedSources.toMutableSet()
-            if (!selected.add(source)) selected.remove(source)
-            current.copy(selectedSources = selected)
+            val selected = current.selectedCameras.toMutableSet()
+            if (!selected.add(cameraId)) selected.remove(cameraId)
+            current.copy(selectedCameras = selected)
+        }
+    }
+
+    fun toggleMode(mode: String) {
+        updateFilter { current ->
+            val selected = current.selectedModes.toMutableSet()
+            if (!selected.add(mode)) selected.remove(mode)
+            current.copy(selectedModes = selected)
         }
     }
 
@@ -111,6 +145,10 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
 
     fun setAlertedOnly(value: Boolean) {
         updateFilter { it.copy(alertedOnly = value) }
+    }
+
+    fun setSortOrder(sortOrder: EventsSortOrder) {
+        updateFilter { it.copy(sortOrder = sortOrder) }
     }
 
     fun clearFilters() {
@@ -140,17 +178,36 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
             }
         }
 
-        // Source filter
-        if (filter.selectedSources.isNotEmpty()) {
-            result = result.filter { e -> e.source in filter.selectedSources }
+        // Date range filter
+        if (filter.dateStart != null || filter.dateEnd != null) {
+            val start = filter.dateStart?.atStartOfDay(ZoneId.systemDefault())?.toOffsetDateTime()
+            val end = filter.dateEnd?.plusDays(1)?.atStartOfDay(ZoneId.systemDefault())?.toOffsetDateTime()
+            result = result.filter { e ->
+                val ts = e.createdAt?.let {
+                    try { OffsetDateTime.parse(it) } catch (_: Exception) { null }
+                } ?: return@filter true
+                if (start != null && ts.isBefore(start)) return@filter false
+                if (end != null && !ts.isBefore(end)) return@filter false
+                true
+            }
         }
 
-        // Trigger type filter (includes 'sound' which is in the source field)
-        if (filter.selectedTriggerTypes.isNotEmpty()) {
-            result = result.filter { e -> 
-                e.triggerType in filter.selectedTriggerTypes || 
-                (e.source == "sound" && "sound" in filter.selectedTriggerTypes)
+        // Mode filter
+        if (filter.selectedModes.isNotEmpty()) {
+            result = result.filter { e ->
+                val mode = if (e.source?.lowercase() == "sound") "Sound" else "Object"
+                mode in filter.selectedModes
             }
+        }
+
+        // Camera filter
+        if (filter.selectedCameras.isNotEmpty()) {
+            result = result.filter { e -> e.source in filter.selectedCameras }
+        }
+
+        // Trigger type filter
+        if (filter.selectedTriggerTypes.isNotEmpty()) {
+            result = result.filter { e -> e.triggerType in filter.selectedTriggerTypes }
         }
 
         // Label filter
@@ -166,6 +223,12 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
         // Alerted only
         if (filter.alertedOnly) {
             result = result.filter { it.alerted }
+        }
+
+        // Sort
+        result = when (filter.sortOrder) {
+            EventsSortOrder.NEWEST -> result.sortedByDescending { it.id }
+            EventsSortOrder.OLDEST -> result.sortedBy { it.id }
         }
 
         return result
