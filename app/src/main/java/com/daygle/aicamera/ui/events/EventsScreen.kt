@@ -545,7 +545,9 @@ private fun dateRangeLabel(start: LocalDate?, end: LocalDate?): String {
 
 @Composable
 private fun EventRow(event: Event, onPlayRecording: (Int) -> Unit = {}) {
-    val firstRecordingId = event.recordings.firstOrNull()?.id
+    // Prefer the explicit recording link (recording : events = 1:many); fall
+    // back to the embedded recordings list for older server payloads.
+    val firstRecordingId = event.recordingId ?: event.recordings.firstOrNull()?.id
     Card(
         onClick = {
             if (firstRecordingId != null) onPlayRecording(firstRecordingId)
@@ -649,7 +651,7 @@ private fun EventRow(event: Event, onPlayRecording: (Int) -> Unit = {}) {
             },
             trailingContent = {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (event.recordings.isNotEmpty()) {
+                    if (firstRecordingId != null) {
                         Icon(
                             Icons.Filled.PlayCircle,
                             contentDescription = "Play recording",

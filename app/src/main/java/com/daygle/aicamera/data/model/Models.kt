@@ -71,6 +71,22 @@ data class Detection(
     val confidence: Double = 0.0,
 )
 
+/**
+ * An alert is the notification fired for an event (alert : event = 1:1). The
+ * server embeds the strongest alert for an event as [Event.alert].
+ */
+@Serializable
+data class Alert(
+    val id: Int = 0,
+    @SerialName("event_id") val eventId: Int? = null,
+    @SerialName("recording_id") val recordingId: Int? = null,
+    @SerialName("rule_name") val ruleName: String? = null,
+    val label: String? = null,
+    val confidence: Double = 0.0,
+    val message: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+)
+
 @Serializable
 data class Event(
     val id: Int = 0,
@@ -84,9 +100,13 @@ data class Event(
     val detections: List<Detection> = emptyList(),
     @SerialName("recording_status") val recordingStatus: String? = null,
     val recordings: List<Recording> = emptyList(),
+    // The clip this event belongs to (recording : events = 1:many) and the
+    // strongest alert fired for it (alert : event = 1:1), if any.
+    @SerialName("recording_id") val recordingId: Int? = null,
+    val alert: Alert? = null,
     val metadata: Map<String, JsonElement> = emptyMap(),
 ) {
-    val alerted: Boolean get() = alertTriggered != 0
+    val alerted: Boolean get() = alertTriggered != 0 || alert != null
     val topLabel: String? get() = triggerLabel ?: triggerType
         ?: detections.maxByOrNull { it.confidence }?.label
         ?: (metadata["label"] as? JsonPrimitive)?.contentOrNull
@@ -121,6 +141,8 @@ data class Recording(
     val labels: List<String> = emptyList(),
     val detections: List<Detection> = emptyList(),
     @SerialName("label_confidences") val labelConfidences: Map<String, Double> = emptyMap(),
+    // Every event that occurred during this clip (recording : events = 1:many).
+    val events: List<Event> = emptyList(),
 ) {
     val topLabel: String? get() = triggerLabel ?: triggerType ?: detections.maxByOrNull { it.confidence }?.label ?: labels.firstOrNull()
 }
