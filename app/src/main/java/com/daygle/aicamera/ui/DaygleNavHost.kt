@@ -69,7 +69,13 @@ fun DaygleNavHost(
                             onOpenRecording = { id -> navController.navigate(Routes.player(id)) },
                             onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
                             onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                            onDisconnect = {
+                        )
+                    }
+                    composable(Routes.SETTINGS) {
+                        SettingsScreen(
+                            onBack = { navController.popBackStack() },
+                            onOpenVpn = { navController.navigate(Routes.VPN) },
+                            onSignOut = {
                                 com.daygle.aicamera.push.PushController.stop(appContext)
                                 rootViewModel.disconnect {
                                     navController.navigate(Routes.CONNECT) {
@@ -77,12 +83,6 @@ fun DaygleNavHost(
                                     }
                                 }
                             },
-                        )
-                    }
-                    composable(Routes.SETTINGS) {
-                        SettingsScreen(
-                            onBack = { navController.popBackStack() },
-                            onOpenVpn = { navController.navigate(Routes.VPN) },
                         )
                     }
                     composable(Routes.VPN) {

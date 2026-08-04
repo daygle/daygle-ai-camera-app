@@ -3,7 +3,6 @@ package com.daygle.aicamera.ui
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -45,7 +44,6 @@ fun HomeScreen(
     onOpenRecording: (Int) -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenSettings: () -> Unit,
-    onDisconnect: () -> Unit,
 ) {
     var selectedTab by remember { mutableStateOf(HomeTab.Cameras) }
     var refreshTrigger by remember { mutableIntStateOf(0) }
@@ -66,9 +64,6 @@ fun HomeScreen(
                     }
                     IconButton(onClick = onOpenNotifications) {
                         Icon(Icons.Filled.NotificationsNone, contentDescription = "Alert notifications")
-                    }
-                    IconButton(onClick = onDisconnect) {
-                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Disconnect")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

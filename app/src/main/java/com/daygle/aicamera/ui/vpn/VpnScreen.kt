@@ -20,11 +20,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,7 +38,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -46,6 +48,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -91,45 +95,17 @@ fun VpnScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            // Header
-            Card(
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
-                ),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            Icons.Filled.Lock,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                    Text(
-                        "Route this app through your own WireGuard tunnel. Only this " +
-                            "app's traffic uses the VPN; other apps are unaffected. When " +
-                            "VPN-only mode is on, the app refuses to connect unless the " +
-                            "tunnel is up.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                }
-            }
+            // Prominent, colour-coded live status.
+            TunnelStatusCard(status = state.status)
 
-            // VPN-only toggle + status
+            // What VPN-only mode does.
+            InfoCard(
+                "Route this app through your own WireGuard tunnel. Only this app's " +
+                    "traffic uses the VPN; other apps are unaffected. When VPN-only " +
+                    "mode is on, the app refuses to connect unless the tunnel is up.",
+            )
+
+            // VPN-only toggle.
             Card(
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(
@@ -139,11 +115,19 @@ fun VpnScreen(
             ) {
                 ListItem(
                     headlineContent = { Text("VPN-Only Mode", fontWeight = FontWeight.Bold) },
-                    supportingContent = { Text(statusLabel(state.status)) },
+                    supportingContent = {
+                        Text(
+                            if (state.vpnOnly) {
+                                "On — the app only connects while the tunnel is up."
+                            } else {
+                                "Off — the app connects over your normal network."
+                            },
+                        )
+                    },
                     trailingContent = {
                         Switch(
                             checked = state.vpnOnly,
-                            enabled = state.hasConfig || state.vpnOnly,
+                            enabled = state.isValid || state.vpnOnly,
                             onCheckedChange = { checked ->
                                 if (checked) {
                                     viewModel.enableVpnOnly { intent -> consentLauncher.launch(intent) }
@@ -157,7 +141,7 @@ fun VpnScreen(
                 )
             }
 
-            // Config editor
+            // Config editor.
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     "WireGuard Configuration",
@@ -174,14 +158,25 @@ fun VpnScreen(
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
+                        val showInlineError = state.hasConfig && state.validationError != null
                         OutlinedTextField(
                             value = state.configText,
                             onValueChange = viewModel::onConfigChange,
                             label = { Text("Paste your .conf") },
-                            placeholder = { Text("[Interface]\nPrivateKey = ...\nAddress = ...\n\n[Peer]\nPublicKey = ...\nEndpoint = host:51820\nAllowedIPs = 0.0.0.0/0\nPersistentKeepalive = 25") },
+                            placeholder = {
+                                Text(
+                                    "[Interface]\nPrivateKey = ...\nAddress = ...\n\n[Peer]\n" +
+                                        "PublicKey = ...\nEndpoint = host:51820\n" +
+                                        "AllowedIPs = 0.0.0.0/0\nPersistentKeepalive = 25",
+                                )
+                            },
+                            isError = showInlineError,
                             minLines = 8,
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                fontFamily = FontFamily.Monospace,
+                            ),
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
@@ -190,53 +185,63 @@ fun VpnScreen(
                             ),
                         )
 
-                        state.endpoint?.let { endpoint ->
-                            Text(
-                                "Peer: $endpoint",
+                        when {
+                            showInlineError -> Text(
+                                state.validationError.orEmpty(),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                            state.endpoint != null -> Text(
+                                "Peer: ${state.endpoint}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
 
-                        state.message?.let { msg ->
-                            Surface(
-                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                                shape = RoundedCornerShape(8.dp),
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    Icon(Icons.Filled.Info, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                                    Text(msg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                                }
-                            }
-                        }
+                        state.message?.let { MessageBanner(it) }
 
-                        Button(
-                            onClick = viewModel::saveConfig,
-                            enabled = state.hasConfig,
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
                         ) {
-                            Text("Save Configuration")
+                            OutlinedButton(
+                                onClick = viewModel::clearConfig,
+                                enabled = state.hasConfig,
+                                shape = RoundedCornerShape(16.dp),
+                            ) { Text("Clear") }
+                            Button(
+                                onClick = viewModel::saveConfig,
+                                enabled = state.isValid,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(16.dp),
+                            ) { Text("Save Configuration") }
                         }
                     }
                 }
             }
 
-            // Manual connect / disconnect
+            // Manual connect / disconnect.
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                val connecting = state.status == TunnelManager.Status.CONNECTING
+                val isUp = state.status == TunnelManager.Status.UP
                 OutlinedButton(
                     onClick = { viewModel.connect { intent -> consentLauncher.launch(intent) } },
-                    enabled = state.hasConfig && state.status != TunnelManager.Status.UP,
+                    enabled = state.isValid && !isUp && !connecting,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(16.dp),
-                ) { Text("Connect") }
+                ) {
+                    if (connecting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Text("Connect")
+                    }
+                }
                 OutlinedButton(
                     onClick = viewModel::disconnect,
-                    enabled = state.status == TunnelManager.Status.UP || state.status == TunnelManager.Status.CONNECTING,
+                    enabled = isUp || connecting,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(16.dp),
                 ) { Text("Disconnect") }
@@ -247,9 +252,153 @@ fun VpnScreen(
     }
 }
 
-private fun statusLabel(status: TunnelManager.Status): String = when (status) {
-    TunnelManager.Status.UP -> "Tunnel connected"
-    TunnelManager.Status.CONNECTING -> "Connecting…"
-    TunnelManager.Status.ERROR -> "Tunnel error - check the configuration"
-    TunnelManager.Status.DOWN -> "Tunnel disconnected"
+@Composable
+private fun TunnelStatusCard(status: TunnelManager.Status) {
+    val container: Color
+    val accent: Color
+    val onContainer: Color
+    val title: String
+    val description: String
+    val icon: ImageVector?
+
+    when (status) {
+        TunnelManager.Status.UP -> {
+            container = MaterialTheme.colorScheme.primaryContainer
+            accent = MaterialTheme.colorScheme.primary
+            onContainer = MaterialTheme.colorScheme.onPrimaryContainer
+            title = "Connected"
+            description = "This app's traffic is routed through your tunnel."
+            icon = Icons.Filled.CheckCircle
+        }
+        TunnelManager.Status.CONNECTING -> {
+            container = MaterialTheme.colorScheme.tertiaryContainer
+            accent = MaterialTheme.colorScheme.tertiary
+            onContainer = MaterialTheme.colorScheme.onTertiaryContainer
+            title = "Connecting…"
+            description = "Bringing the WireGuard tunnel up."
+            icon = null // show a spinner instead
+        }
+        TunnelManager.Status.ERROR -> {
+            container = MaterialTheme.colorScheme.errorContainer
+            accent = MaterialTheme.colorScheme.error
+            onContainer = MaterialTheme.colorScheme.onErrorContainer
+            title = "Tunnel error"
+            description = "Couldn't bring the tunnel up. Check your configuration and try again."
+            icon = Icons.Filled.Error
+        }
+        TunnelManager.Status.DOWN -> {
+            container = MaterialTheme.colorScheme.surfaceContainerHigh
+            accent = MaterialTheme.colorScheme.outline
+            onContainer = MaterialTheme.colorScheme.onSurface
+            title = "Disconnected"
+            description = "The tunnel is down. Connect below or turn on VPN-only mode."
+            icon = Icons.Filled.Lock
+        }
+    }
+
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = container),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(accent),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (icon != null) {
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.surface,
+                        modifier = Modifier.size(26.dp),
+                    )
+                } else {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.5.dp,
+                        color = MaterialTheme.colorScheme.surface,
+                    )
+                }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = onContainer,
+                )
+                Text(
+                    description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = onContainer,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InfoCard(text: String) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Icon(
+                Icons.Filled.Info,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp),
+            )
+            Text(
+                text,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun MessageBanner(message: VpnMessage) {
+    val container = if (message.isError) {
+        MaterialTheme.colorScheme.errorContainer
+    } else {
+        MaterialTheme.colorScheme.primaryContainer
+    }
+    val content = if (message.isError) {
+        MaterialTheme.colorScheme.onErrorContainer
+    } else {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    }
+    val icon = if (message.isError) Icons.Filled.Error else Icons.Filled.CheckCircle
+
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = container),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(18.dp))
+            Text(message.text, style = MaterialTheme.typography.bodySmall, color = content)
+        }
+    }
 }

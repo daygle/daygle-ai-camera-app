@@ -13,13 +13,23 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/** A transient banner shown under the configuration editor. */
+data class VpnMessage(val text: String, val isError: Boolean)
+
 data class VpnUiState(
     val vpnOnly: Boolean = false,
     val configText: String = "",
     val status: TunnelManager.Status = TunnelManager.Status.DOWN,
-    val message: String? = null,
+    val message: VpnMessage? = null,
 ) {
     val hasConfig: Boolean get() = configText.isNotBlank()
+
+    /** Inline validation error for the current text, or null when it looks valid. */
+    val validationError: String? get() = validateWireGuardConfig(configText)
+
+    /** True when the text is present and passes basic structural validation. */
+    val isValid: Boolean get() = hasConfig && validationError == null
+
     val endpoint: String? get() = configText.lineSequence()
         .map { it.trim() }
         .firstOrNull { it.startsWith("Endpoint", ignoreCase = true) }
@@ -48,23 +58,32 @@ class VpnViewModel @Inject constructor(
 
     fun onConfigChange(text: String) = _state.update { it.copy(configText = text, message = null) }
 
+    fun clearConfig() = _state.update { it.copy(configText = "", message = null) }
+
+    /** The reason the config can't be used yet, or null when it's ready. */
+    private fun blockingProblem(s: VpnUiState): String? =
+        if (!s.hasConfig) "Paste a WireGuard configuration first." else s.validationError
+
+    private fun reportProblem(problem: String) {
+        _state.update { it.copy(message = VpnMessage(problem, isError = true)) }
+    }
+
     fun saveConfig() {
+        val current = _state.value
+        blockingProblem(current)?.let { reportProblem(it); return }
         viewModelScope.launch {
-            tunnelManager.saveConfig(_state.value.configText)
-            _state.update { it.copy(message = "Configuration saved.") }
+            tunnelManager.saveConfig(current.configText)
+            _state.update { it.copy(message = VpnMessage("Configuration saved.", isError = false)) }
         }
     }
 
     /** Turn on VPN-only mode: persist the config, then connect (asking for the
      *  one-time system consent via [onNeedConsent] if it hasn't been granted). */
     fun enableVpnOnly(onNeedConsent: (Intent) -> Unit) {
-        val text = _state.value.configText
-        if (text.isBlank()) {
-            _state.update { it.copy(message = "Paste a WireGuard configuration first.") }
-            return
-        }
+        val current = _state.value
+        blockingProblem(current)?.let { reportProblem(it); return }
         viewModelScope.launch {
-            tunnelManager.saveConfig(text)
+            tunnelManager.saveConfig(current.configText)
             tunnelManager.setVpnOnly(true)
             _state.update { it.copy(vpnOnly = true) }
             val consent = tunnelManager.consentIntent()
@@ -75,11 +94,18 @@ class VpnViewModel @Inject constructor(
     fun disableVpnOnly() {
         viewModelScope.launch {
             tunnelManager.setVpnOnly(false)
-            _state.update { it.copy(vpnOnly = false, message = "VPN-only mode turned off.") }
+            _state.update {
+                it.copy(
+                    vpnOnly = false,
+                    message = VpnMessage("VPN-only mode turned off.", isError = false),
+                )
+            }
         }
     }
 
     fun connect(onNeedConsent: (Intent) -> Unit) {
+        val current = _state.value
+        blockingProblem(current)?.let { reportProblem(it); return }
         val consent = tunnelManager.consentIntent()
         if (consent != null) onNeedConsent(consent) else viewModelScope.launch { connectInternal() }
     }
@@ -92,13 +118,45 @@ class VpnViewModel @Inject constructor(
         if (granted) {
             viewModelScope.launch { connectInternal() }
         } else {
-            _state.update { it.copy(message = "VPN permission denied. VPN-only mode needs it to connect.") }
+            _state.update {
+                it.copy(
+                    message = VpnMessage(
+                        "VPN permission denied. VPN-only mode needs it to connect.",
+                        isError = true,
+                    ),
+                )
+            }
         }
     }
 
     private suspend fun connectInternal() {
         tunnelManager.connect()
-            .onSuccess { _state.update { it.copy(message = "Tunnel connected.") } }
-            .onFailure { e -> _state.update { it.copy(message = e.toUserFriendlyMessage()) } }
+            .onSuccess {
+                _state.update { it.copy(message = VpnMessage("Tunnel connected.", isError = false)) }
+            }
+            .onFailure { e ->
+                _state.update { it.copy(message = VpnMessage(e.toUserFriendlyMessage(), isError = true)) }
+            }
+    }
+}
+
+/**
+ * Lightweight structural check so users get a clear, specific reason before we
+ * ever hand the text to the WireGuard parser. Returns null when the text looks
+ * like a usable tunnel configuration, otherwise a short human-readable reason.
+ */
+private fun validateWireGuardConfig(text: String): String? {
+    if (text.isBlank()) return null // nothing entered yet; not an error to surface
+    val lower = text.lowercase()
+    fun hasKey(key: String) = Regex("(?im)^\\s*$key\\s*=\\s*\\S").containsMatchIn(text)
+
+    return when {
+        "[interface]" !in lower -> "Missing the [Interface] section."
+        "[peer]" !in lower -> "Missing the [Peer] section."
+        !hasKey("privatekey") -> "The [Interface] section needs a PrivateKey."
+        !hasKey("address") -> "The [Interface] section needs an Address."
+        !hasKey("publickey") -> "The [Peer] section needs a PublicKey."
+        !hasKey("endpoint") -> "The [Peer] section needs an Endpoint (host:port)."
+        else -> null
     }
 }
