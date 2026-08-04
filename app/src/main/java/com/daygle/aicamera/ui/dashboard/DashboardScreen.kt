@@ -46,9 +46,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImagePainter
-import coil.compose.SubcomposeAsyncImage
-import coil.request.ImageRequest
+import coil3.compose.AsyncImagePainter
+import coil3.compose.SubcomposeAsyncImage
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import com.daygle.aicamera.ui.LifecycleResumeEffect
 import com.daygle.aicamera.ui.components.EmptyState
 import com.daygle.aicamera.ui.components.ErrorState
@@ -167,8 +168,8 @@ private fun LiveThumbnail(snapshotUrl: String?) {
         model = ImageRequest.Builder(context)
             .data(snapshotUrl)
             .crossfade(true)
-            .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
-            .diskCachePolicy(coil.request.CachePolicy.DISABLED)
+            .memoryCachePolicy(coil3.request.CachePolicy.DISABLED)
+            .diskCachePolicy(coil3.request.CachePolicy.DISABLED)
             .build(),
         contentDescription = "Live camera view",
         onState = { coilState ->
@@ -178,7 +179,7 @@ private fun LiveThumbnail(snapshotUrl: String?) {
         },
         modifier = Modifier.fillMaxSize(),
     ) {
-        val painterState = painter.state
+        val painterState by painter.state.collectAsStateWithLifecycle()
         val displayPainter = if (painterState is AsyncImagePainter.State.Success) {
             painterState.painter
         } else {
