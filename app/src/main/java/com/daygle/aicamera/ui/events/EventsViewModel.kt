@@ -28,10 +28,11 @@ data class EventsReady(
     val refreshing: Boolean = false,
 ) {
     val availableSources: List<String> =
-        events.mapNotNull { it.source }.distinct().sorted()
+        events.mapNotNull { it.source }.filter { it != "sound" }.distinct().sorted()
 
     val availableTriggerTypes: List<String> =
-        events.mapNotNull { it.triggerType }.distinct().sorted()
+        (events.mapNotNull { it.triggerType } + events.filter { it.source == "sound" }.map { "sound" })
+            .distinct().sorted()
 
     val availableLabels: List<String> =
         events.flatMap { it.detections.map { d -> d.label } + listOfNotNull(it.triggerLabel) }
@@ -144,9 +145,12 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
             result = result.filter { e -> e.source in filter.selectedSources }
         }
 
-        // Trigger type filter
+        // Trigger type filter (includes 'sound' which is in the source field)
         if (filter.selectedTriggerTypes.isNotEmpty()) {
-            result = result.filter { e -> e.triggerType in filter.selectedTriggerTypes }
+            result = result.filter { e -> 
+                e.triggerType in filter.selectedTriggerTypes || 
+                (e.source == "sound" && "sound" in filter.selectedTriggerTypes)
+            }
         }
 
         // Label filter

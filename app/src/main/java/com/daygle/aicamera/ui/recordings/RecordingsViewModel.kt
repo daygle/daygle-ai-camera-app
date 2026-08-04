@@ -39,7 +39,8 @@ data class RecordingsReady(
     val refreshing: Boolean = false,
 ) {
     val availableTriggerTypes: List<String> =
-        recordings.mapNotNull { it.triggerType }.distinct().sorted()
+        (recordings.mapNotNull { it.triggerType } + recordings.filter { it.source == "sound" }.map { "sound" })
+            .distinct().sorted()
 
     val availableLabels: List<String> =
         recordings
@@ -48,7 +49,7 @@ data class RecordingsReady(
             .sorted()
 
     val availableSources: List<String> =
-        recordings.mapNotNull { it.source }.distinct().sorted()
+        recordings.mapNotNull { it.source }.filter { it != "sound" }.distinct().sorted()
 }
 
 sealed interface RecordingsUiState {
@@ -193,9 +194,12 @@ class RecordingsViewModel @Inject constructor(private val repository: CameraRepo
             result = result.filter { r -> r.source in filter.selectedSources }
         }
 
-        // Trigger type filter
+        // Trigger type filter (includes 'sound' which might be in the source field)
         if (filter.selectedTriggerTypes.isNotEmpty()) {
-            result = result.filter { r -> r.triggerType in filter.selectedTriggerTypes }
+            result = result.filter { r -> 
+                r.triggerType in filter.selectedTriggerTypes || 
+                (r.source == "sound" && "sound" in filter.selectedTriggerTypes)
+            }
         }
 
         // Label filter
