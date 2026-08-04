@@ -2,6 +2,9 @@ package com.daygle.aicamera.data.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 /**
  * Data models mirroring the JSON returned by the `daygle-ai-camera` FastAPI
@@ -80,9 +83,12 @@ data class Event(
     @SerialName("trigger_label") val triggerLabel: String? = null,
     val detections: List<Detection> = emptyList(),
     @SerialName("recording_status") val recordingStatus: String? = null,
+    val metadata: Map<String, JsonElement> = emptyMap(),
 ) {
     val alerted: Boolean get() = alertTriggered != 0
-    val topLabel: String? get() = triggerLabel ?: triggerType ?: detections.maxByOrNull { it.confidence }?.label
+    val topLabel: String? get() = triggerLabel ?: triggerType 
+        ?: detections.maxByOrNull { it.confidence }?.label 
+        ?: (metadata["label"] as? JsonPrimitive)?.contentOrNull
 }
 
 /**
@@ -113,6 +119,7 @@ data class Recording(
     @SerialName("media_ready") val mediaReady: Boolean = false,
     val labels: List<String> = emptyList(),
     val detections: List<Detection> = emptyList(),
+    @SerialName("label_confidences") val labelConfidences: Map<String, Double> = emptyMap(),
 ) {
     val topLabel: String? get() = triggerLabel ?: triggerType ?: detections.maxByOrNull { it.confidence }?.label ?: labels.firstOrNull()
 }

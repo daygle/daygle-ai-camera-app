@@ -13,10 +13,11 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import com.daygle.aicamera.DaygleApp
 import com.daygle.aicamera.MainActivity
 import com.daygle.aicamera.R
 import com.daygle.aicamera.data.NotificationConfig
+import com.daygle.aicamera.data.NotificationSettingsStore
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,6 +32,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import javax.inject.Inject
 
 /**
  * A foreground service that keeps a live connection to the ntfy topic the
@@ -43,7 +45,11 @@ import java.util.concurrent.atomic.AtomicInteger
  * automatic reconnect. It delivers while the app is backgrounded; it does not
  * require Google Play Services or a cloud push project.
  */
+@AndroidEntryPoint
 class NtfyService : Service() {
+
+    @Inject
+    lateinit var notificationSettings: NotificationSettingsStore
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val alertId = AtomicInteger(2000)
@@ -80,10 +86,9 @@ class NtfyService : Service() {
     }
 
     private suspend fun runLoop() {
-        val settings = (application as DaygleApp).container.notificationSettings
         var backoffMs = 2_000L
         while (scope.isActive) {
-            val config = settings.current()
+            val config = notificationSettings.current()
             if (!config.isSubscribable) {
                 stopSelfSafely()
                 return

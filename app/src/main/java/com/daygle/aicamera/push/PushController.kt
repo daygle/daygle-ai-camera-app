@@ -4,7 +4,11 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.core.content.ContextCompat
-import com.daygle.aicamera.DaygleApp
+import com.daygle.aicamera.data.NotificationSettingsStore
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
 
 /**
  * Starts/stops the [NtfyService] to match the persisted notification config.
@@ -13,6 +17,12 @@ import com.daygle.aicamera.DaygleApp
  * — the user does not need to reopen the app to restore push delivery.
  */
 object PushController {
+
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface PushControllerEntryPoint {
+        fun notificationSettings(): NotificationSettingsStore
+    }
 
     fun start(context: Context) {
         val intent = Intent(context, NtfyService::class.java)
@@ -29,8 +39,11 @@ object PushController {
 
     /** Start or stop the listener to match the saved config. */
     suspend fun sync(context: Context) {
-        val app = context.applicationContext as DaygleApp
-        val config = app.container.notificationSettings.current()
+        val entryPoint = EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            PushControllerEntryPoint::class.java
+        )
+        val config = entryPoint.notificationSettings().current()
         if (config.isSubscribable) start(context) else stop(context)
     }
 

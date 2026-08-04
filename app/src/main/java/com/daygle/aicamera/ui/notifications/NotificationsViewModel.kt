@@ -3,17 +3,17 @@ package com.daygle.aicamera.ui.notifications
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
-import androidx.lifecycle.ViewModelProvider
-import com.daygle.aicamera.DaygleApp
+import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.NotificationConfig
+import com.daygle.aicamera.data.NotificationSettingsStore
 import com.daygle.aicamera.push.PushController
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class NotificationsUiState(
     val enabled: Boolean = false,
@@ -27,10 +27,12 @@ data class NotificationsUiState(
     val canEnable: Boolean get() = serverUrl.isNotBlank() && topic.isNotBlank()
 }
 
-class NotificationsViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val container = (application as DaygleApp).container
-    private val store = container.notificationSettings
+@HiltViewModel
+class NotificationsViewModel @Inject constructor(
+    application: Application,
+    private val repository: CameraRepository,
+    private val store: NotificationSettingsStore
+) : AndroidViewModel(application) {
 
     private val _state = MutableStateFlow(NotificationsUiState())
     val state: StateFlow<NotificationsUiState> = _state.asStateFlow()
@@ -59,7 +61,7 @@ class NotificationsViewModel(application: Application) : AndroidViewModel(applic
     fun autofillFromServer() {
         _state.update { it.copy(discovering = true, message = null) }
         viewModelScope.launch {
-            container.repository.pushSettings()
+            repository.pushSettings()
                 .onSuccess { push ->
                     _state.update {
                         it.copy(
@@ -100,15 +102,6 @@ class NotificationsViewModel(application: Application) : AndroidViewModel(applic
             store.save(config)
             PushController.sync(getApplication<Application>())
             onSaved(config.enabled)
-        }
-    }
-
-    companion object {
-        val Factory = viewModelFactory {
-            initializer {
-                val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as Application
-                NotificationsViewModel(app)
-            }
         }
     }
 }

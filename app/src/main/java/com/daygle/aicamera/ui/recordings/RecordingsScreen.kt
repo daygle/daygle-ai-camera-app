@@ -56,7 +56,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.daygle.aicamera.data.model.Detection
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.ui.components.EmptyState
 import com.daygle.aicamera.ui.components.ErrorState
@@ -77,7 +78,7 @@ fun RecordingsScreen(
     onPlay: (Int) -> Unit,
     modifier: Modifier = Modifier,
     refreshTrigger: Int = 0,
-    viewModel: RecordingsViewModel = viewModel(factory = RecordingsViewModel.Factory),
+    viewModel: RecordingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showDatePicker by remember { mutableStateOf(false) }
@@ -340,9 +341,17 @@ private fun RecordingRow(recording: Recording, onPlay: () -> Unit) {
                         recording.subtitle(),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    if (recording.detections.isNotEmpty()) {
+                    val detectionsToShow = if (recording.detections.isEmpty() && recording.labelConfidences.isNotEmpty()) {
+                        recording.labelConfidences.map { (label, confidence) ->
+                            Detection(label, confidence)
+                        }
+                    } else {
+                        recording.detections
+                    }
+
+                    if (detectionsToShow.isNotEmpty()) {
                         Text(
-                            recording.detections.joinToString(", ") {
+                            detectionsToShow.joinToString(", ") {
                                 "${formatEventLabel(it.label)} (${(it.confidence * 100).toInt()}%)"
                             },
                             style = MaterialTheme.typography.bodySmall,

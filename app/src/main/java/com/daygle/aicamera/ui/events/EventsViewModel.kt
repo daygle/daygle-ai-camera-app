@@ -2,17 +2,16 @@ package com.daygle.aicamera.ui.events
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.ui.dashboard.friendlyMessage
-import com.daygle.aicamera.ui.repository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class EventsFilter(
     val query: String = "",
@@ -41,7 +40,8 @@ sealed interface EventsUiState {
     data class Ready(val data: EventsReady) : EventsUiState
 }
 
-class EventsViewModel(private val repository: CameraRepository) : ViewModel() {
+@HiltViewModel
+class EventsViewModel @Inject constructor(private val repository: CameraRepository) : ViewModel() {
 
     private val _state = MutableStateFlow<EventsUiState>(EventsUiState.Loading)
     val state: StateFlow<EventsUiState> = _state.asStateFlow()
@@ -149,11 +149,5 @@ class EventsViewModel(private val repository: CameraRepository) : ViewModel() {
         }
 
         return result
-    }
-
-    companion object {
-        val Factory = viewModelFactory {
-            initializer { EventsViewModel(repository()) }
-        }
     }
 }

@@ -2,18 +2,17 @@ package com.daygle.aicamera.ui.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.CameraHealthSummary
 import com.daygle.aicamera.data.model.StatusResponse
-import com.daygle.aicamera.ui.repository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class CameraCard(
     val camera: Camera,
@@ -31,7 +30,8 @@ sealed interface DashboardUiState {
     ) : DashboardUiState
 }
 
-class DashboardViewModel(private val repository: CameraRepository) : ViewModel() {
+@HiltViewModel
+class DashboardViewModel @Inject constructor(private val repository: CameraRepository) : ViewModel() {
 
     private val _state = MutableStateFlow<DashboardUiState>(DashboardUiState.Loading)
     val state: StateFlow<DashboardUiState> = _state.asStateFlow()
@@ -70,12 +70,6 @@ class DashboardViewModel(private val repository: CameraRepository) : ViewModel()
                 summary = health?.summary ?: CameraHealthSummary(total = cameras.size, online = cameras.size),
                 status = status,
             )
-        }
-    }
-
-    companion object {
-        val Factory = viewModelFactory {
-            initializer { DashboardViewModel(repository()) }
         }
     }
 }

@@ -2,12 +2,10 @@ package com.daygle.aicamera.ui.recordings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.ui.dashboard.friendlyMessage
-import com.daygle.aicamera.ui.repository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,6 +14,7 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
+import javax.inject.Inject
 
 enum class SortOrder(val label: String) {
     NEWEST("Newest"),
@@ -54,7 +53,8 @@ sealed interface RecordingsUiState {
     data class Ready(val data: RecordingsReady) : RecordingsUiState
 }
 
-class RecordingsViewModel(private val repository: CameraRepository) : ViewModel() {
+@HiltViewModel
+class RecordingsViewModel @Inject constructor(private val repository: CameraRepository) : ViewModel() {
 
     private val _state = MutableStateFlow<RecordingsUiState>(RecordingsUiState.Loading)
     val state: StateFlow<RecordingsUiState> = _state.asStateFlow()
@@ -195,11 +195,5 @@ class RecordingsViewModel(private val repository: CameraRepository) : ViewModel(
         }
 
         return result
-    }
-
-    companion object {
-        val Factory = viewModelFactory {
-            initializer { RecordingsViewModel(repository()) }
-        }
     }
 }

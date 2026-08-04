@@ -2,20 +2,17 @@ package com.daygle.aicamera.ui.live
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.model.StatusResponse
-import com.daygle.aicamera.ui.repository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class LiveUiState(
     val cameraId: String,
@@ -31,7 +28,8 @@ data class LiveUiState(
  * [REFRESH_INTERVAL_MS] provides a near-live feed while staying easy on the
  * server. Playback pauses automatically when the screen leaves the foreground.
  */
-class LiveViewModel(
+@HiltViewModel
+class LiveViewModel @Inject constructor(
     private val repository: CameraRepository,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
@@ -98,9 +96,5 @@ class LiveViewModel(
     companion object {
         const val ARG_CAMERA_ID = "cameraId"
         private const val REFRESH_INTERVAL_MS = 700L
-
-        val Factory = viewModelFactory {
-            initializer { LiveViewModel(repository(), createSavedStateHandle()) }
-        }
     }
 }

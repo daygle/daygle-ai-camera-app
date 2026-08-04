@@ -1,5 +1,6 @@
 package com.daygle.aicamera.ui.live
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -28,23 +30,26 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.window.core.layout.WindowWidthSizeClass
 import coil.compose.AsyncImagePainter
 import coil.compose.SubcomposeAsyncImage
-import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.foundation.Image
 import coil.request.ImageRequest
 import com.daygle.aicamera.ui.LifecycleResumeEffect
 
@@ -53,12 +58,15 @@ import com.daygle.aicamera.ui.LifecycleResumeEffect
 fun LiveScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: LiveViewModel = viewModel(factory = LiveViewModel.Factory),
+    viewModel: LiveViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     // Stop polling while backgrounded; resume on return.
     LifecycleResumeEffect(onPause = viewModel::pause, onResume = viewModel::resume)
+
+    val adaptiveInfo = currentWindowAdaptiveInfo()
+    val isExpanded = adaptiveInfo.windowSizeClass.windowWidthSizeClass == WindowWidthSizeClass.EXPANDED
 
     Scaffold(
         modifier = modifier,
@@ -84,80 +92,137 @@ fun LiveScreen(
             )
         },
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-        ) {
-            Surface(
+        if (isExpanded) {
+            Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .aspectRatio(16f / 9f),
-                color = Color.Black
+                    .fillMaxSize()
+                    .padding(padding)
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    val context = androidx.compose.ui.platform.LocalContext.current
-                    if (state.frameUrl != null) {
-                        var lastSuccessPainter by androidx.compose.runtime.remember { 
-                            androidx.compose.runtime.mutableStateOf<Painter?>(null) 
+                Box(
+                    modifier = Modifier
+                        .weight(1.5f)
+                        .padding(16.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .aspectRatio(16f / 9f)
+                        .background(Color.Black),
+                    contentAlignment = Alignment.Center
+                ) {
+                    LiveVideoFrame(state, viewModel)
+                }
+                
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .padding(top = 16.dp, end = 16.dp, bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    ControlBar(
+                        playing = state.playing,
+                        resolution = state.status?.resolution?.let { r ->
+                            if (r.width > 0 && r.height > 0) "${r.width}×${r.height}" else null
+                        },
+                        onTogglePlay = viewModel::togglePlayback,
+                    )
+                    
+                    // placeholder for additional camera details or event log in expanded view
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(24.dp)
+                    ) {
+                        Column(Modifier.padding(24.dp)) {
+                            Text("Camera Details", style = MaterialTheme.typography.titleMedium)
+                            Spacer(Modifier.size(8.dp))
+                            Text("ID: ${state.cameraId}", style = MaterialTheme.typography.bodyMedium)
                         }
-                        
-                        SubcomposeAsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(state.frameUrl)
-                                .crossfade(false)
-                                .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
-                                .diskCachePolicy(coil.request.CachePolicy.DISABLED)
-                                .build(),
-                            contentDescription = "Live view",
-                            onState = { coilState ->
-                                if (coilState is AsyncImagePainter.State.Success) {
-                                    lastSuccessPainter = coilState.painter
-                                    viewModel.fetchNextFrame()
-                                } else if (coilState is AsyncImagePainter.State.Error) {
-                                    viewModel.fetchNextFrame()
-                                }
-                            },
-                            modifier = Modifier.fillMaxSize(),
-                        ) {
-                            val painterState = painter.state
-                            val displayPainter = if (painterState is AsyncImagePainter.State.Success) {
-                                painterState.painter
-                            } else {
-                                lastSuccessPainter
-                            }
-
-                            if (displayPainter != null) {
-                                Image(
-                                    painter = displayPainter,
-                                    contentDescription = "Live view",
-                                    contentScale = ContentScale.Fit,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            } else {
-                                CircularProgressIndicator(color = Color.White)
-                            }
-                        }
-                    }
-                    if (state.frameUrl == null) {
-                        CircularProgressIndicator(color = Color.White)
-                    }
-                    if (!state.playing) {
-                        PausedOverlay()
                     }
                 }
             }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .aspectRatio(16f / 9f),
+                    color = Color.Black
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        LiveVideoFrame(state, viewModel)
+                    }
+                }
 
-            ControlBar(
-                playing = state.playing,
-                resolution = state.status?.resolution?.let { r ->
-                    if (r.width > 0 && r.height > 0) "${r.width}×${r.height}" else null
-                },
-                onTogglePlay = viewModel::togglePlayback,
-            )
+                ControlBar(
+                    playing = state.playing,
+                    resolution = state.status?.resolution?.let { r ->
+                        if (r.width > 0 && r.height > 0) "${r.width}×${r.height}" else null
+                    },
+                    onTogglePlay = viewModel::togglePlayback,
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun LiveVideoFrame(
+    state: LiveUiState,
+    viewModel: LiveViewModel
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    if (state.frameUrl != null) {
+        var lastSuccessPainter by remember { 
+            mutableStateOf<Painter?>(null) 
+        }
+        
+        SubcomposeAsyncImage(
+            model = ImageRequest.Builder(context)
+                .data(state.frameUrl)
+                .crossfade(false)
+                .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
+                .diskCachePolicy(coil.request.CachePolicy.DISABLED)
+                .build(),
+            contentDescription = "Live view",
+            onState = { coilState ->
+                if (coilState is AsyncImagePainter.State.Success) {
+                    lastSuccessPainter = coilState.painter
+                    viewModel.fetchNextFrame()
+                } else if (coilState is AsyncImagePainter.State.Error) {
+                    viewModel.fetchNextFrame()
+                }
+            },
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            val painterState = painter.state
+            val displayPainter = if (painterState is AsyncImagePainter.State.Success) {
+                painterState.painter
+            } else {
+                lastSuccessPainter
+            }
+
+            if (displayPainter != null) {
+                Image(
+                    painter = displayPainter,
+                    contentDescription = "Live view",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                CircularProgressIndicator(color = Color.White)
+            }
+        }
+    }
+    if (state.frameUrl == null) {
+        CircularProgressIndicator(color = Color.White)
+    }
+    if (!state.playing) {
+        PausedOverlay()
     }
 }
 

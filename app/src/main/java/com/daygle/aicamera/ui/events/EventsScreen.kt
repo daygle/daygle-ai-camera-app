@@ -48,20 +48,24 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.daygle.aicamera.data.model.Detection
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.ui.components.EmptyState
 import com.daygle.aicamera.ui.components.ErrorState
 import com.daygle.aicamera.ui.components.LoadingState
 import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatTimestamp
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventsScreen(
     modifier: Modifier = Modifier,
     refreshTrigger: Int = 0,
-    viewModel: EventsViewModel = viewModel(factory = EventsViewModel.Factory),
+    viewModel: EventsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -244,9 +248,21 @@ private fun EventRow(event: Event) {
                             )
                         }
                     }
-                    if (event.detections.isNotEmpty()) {
+                    val detectionsToShow = if (event.detections.isEmpty() && event.source == "sound") {
+                        val confidence = (event.metadata["confidence"] as? JsonPrimitive)?.doubleOrNull
+                        val label = (event.metadata["label"] as? JsonPrimitive)?.contentOrNull
+                        if (confidence != null && label != null) {
+                            listOf(Detection(label, confidence))
+                        } else {
+                            emptyList()
+                        }
+                    } else {
+                        event.detections
+                    }
+
+                    if (detectionsToShow.isNotEmpty()) {
                         Text(
-                            event.detections.joinToString(", ") {
+                            detectionsToShow.joinToString(", ") {
                                 "${formatEventLabel(it.label)} (${(it.confidence * 100).toInt()}%)"
                             },
                             style = MaterialTheme.typography.bodySmall,

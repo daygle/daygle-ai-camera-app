@@ -2,17 +2,16 @@ package com.daygle.aicamera.ui.connect
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.Connection
 import com.daygle.aicamera.data.LoginResult
-import com.daygle.aicamera.ui.repository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class ConnectUiState(
     val baseUrl: String = "",
@@ -24,7 +23,8 @@ data class ConnectUiState(
     val canSubmit: Boolean get() = baseUrl.isNotBlank() && username.isNotBlank() && !connecting
 }
 
-class ConnectViewModel(private val repository: CameraRepository) : ViewModel() {
+@HiltViewModel
+class ConnectViewModel @Inject constructor(private val repository: CameraRepository) : ViewModel() {
 
     private val _state = MutableStateFlow(ConnectUiState())
     val state: StateFlow<ConnectUiState> = _state.asStateFlow()
@@ -68,12 +68,6 @@ class ConnectViewModel(private val repository: CameraRepository) : ViewModel() {
                 is LoginResult.Error ->
                     _state.update { it.copy(connecting = false, error = result.message) }
             }
-        }
-    }
-
-    companion object {
-        val Factory = viewModelFactory {
-            initializer { ConnectViewModel(repository()) }
         }
     }
 }

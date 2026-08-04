@@ -20,7 +20,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -32,13 +31,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.media3.common.MediaItem
-import androidx.media3.datasource.okhttp.OkHttpDataSource
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.DefaultRenderersFactory
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.ui.PlayerView
-import com.daygle.aicamera.DaygleApp
 import com.daygle.aicamera.ui.components.ErrorState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,13 +42,10 @@ fun PlayerScreen(
     recordingId: Int,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    viewModel: PlayerViewModel = hiltViewModel()
 ) {
-    val context = LocalContext.current
-    val repository = (context.applicationContext as DaygleApp).container.repository
-    val streamUrl = repository.recordingStreamUrl(recordingId)
-    
-    var error by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
-    var retryKey by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    val error by viewModel.error.collectAsStateWithLifecycle()
+    val player = viewModel.player
 
     Scaffold(
         modifier = modifier,
@@ -79,24 +71,13 @@ fun PlayerScreen(
             )
         },
     ) { padding ->
-        if (streamUrl == null) {
-            ErrorState("This recording can't be played right now.", modifier = Modifier.padding(padding))
-            return@Scaffold
-        }
-
         if (error != null) {
             ErrorState(
                 message = error!!,
-                onRetry = { 
-                    error = null
-                    retryKey++
-                },
+                onRetry = viewModel::retry,
                 modifier = Modifier.padding(padding)
             )
         } else {
-            val player = rememberExoPlayer(streamUrl, retryKey) { playbackError ->
-                error = playbackError
-            }
             Surface(
                 modifier = Modifier
                     .fillMaxSize()
@@ -135,72 +116,4 @@ fun PlayerScreen(
             }
         }
     }
-}
-
-@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-@Composable
-private fun rememberExoPlayer(
-    streamUrl: String, 
-    retryKey: Int, 
-    onError: (String) -> Unit
-): ExoPlayer {
-    val context = LocalContext.current
-    val repository = (context.applicationContext as DaygleApp).container.repository
-
-    val player = androidx.compose.runtime.remember<ExoPlayer>(retryKey) {
-        val dataSourceFactory = OkHttpDataSource.Factory(repository.httpClient())
-        // Configure renderers to be more resilient on emulators/constrained devices
-        val renderersFactory = DefaultRenderersFactory(context)
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
-            .setEnableDecoderFallback(true)
-            .forceDisableMediaCodecAsynchronousQueueing()
-            
-        ExoPlayer.Builder(context, renderersFactory)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
-            .setLooper(android.os.Looper.getMainLooper()) // Explicitly use main looper for DeliQueue stability
-            .build()
-            .apply {
-                // Ensure we use the main looper for all events
-                addListener(object : androidx.media3.common.Player.Listener {
-                    override fun onPlayerError(playbackError: androidx.media3.common.PlaybackException) {
-                        val message = when (playbackError.errorCode) {
-                            androidx.media3.common.PlaybackException.ERROR_CODE_DECODING_FAILED -> 
-                                "Video decoding failed. The resolution might be too high for this device."
-                            androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
-                            androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ->
-                                "Network connection failed. Check your server address."
-                            else -> "Playback error: ${playbackError.localizedMessage}"
-                        }
-                        onError(message)
-                    }
-                })
-            }
-    }
-
-    // Move media setup and preparation to a LaunchedEffect to ensure they happen 
-    // after construction and are re-run if the stream URL changes without a full rebuild.
-    androidx.compose.runtime.LaunchedEffect(player, streamUrl) {
-        // If the player is already playing something, stop it first to ensure a clean transition
-        // of MediaCodec states on Android 17.
-        if (player.playbackState != androidx.media3.common.Player.STATE_IDLE) {
-            player.stop()
-            player.clearMediaItems()
-        }
-        player.setMediaItem(MediaItem.fromUri(streamUrl))
-        player.prepare()
-        player.playWhenReady = true
-    }
-
-    DisposableEffect(player) {
-        onDispose { 
-            // For Android 17 (API 37) DeliQueue stability, we must detach the surface
-            // and stop playback before releasing the player. This ensures MediaCodec
-            // doesn't attempt to post callbacks to the playback thread after it quits.
-            player.setVideoSurface(null)
-            player.stop()
-            player.clearMediaItems()
-            player.release() 
-        }
-    }
-    return player
 }

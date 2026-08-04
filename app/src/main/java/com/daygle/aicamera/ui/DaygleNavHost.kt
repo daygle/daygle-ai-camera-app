@@ -6,8 +6,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -35,7 +35,7 @@ private object Routes {
 
 @Composable
 fun DaygleNavHost(
-    rootViewModel: RootViewModel = viewModel(factory = RootViewModel.Factory),
+    rootViewModel: RootViewModel = hiltViewModel(),
 ) {
     val start by rootViewModel.start.collectAsStateWithLifecycle()
 

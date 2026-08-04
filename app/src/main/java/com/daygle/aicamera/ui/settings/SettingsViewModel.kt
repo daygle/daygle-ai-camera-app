@@ -3,16 +3,15 @@ package com.daygle.aicamera.ui.settings
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
-import androidx.lifecycle.ViewModelProvider
-import com.daygle.aicamera.DaygleApp
+import com.daygle.aicamera.data.AppPreferencesStore
 import com.daygle.aicamera.data.ThemeMode
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class SettingsUiState(
     val themeMode: String = "system",
@@ -26,9 +25,11 @@ data class SettingsUiState(
     }
 }
 
-class SettingsViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val prefs = (application as DaygleApp).container.appPrefs
+@HiltViewModel
+class SettingsViewModel @Inject constructor(
+    application: Application,
+    private val prefs: AppPreferencesStore
+) : AndroidViewModel(application) {
 
     private val _state = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
@@ -58,14 +59,5 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setRefreshInterval(ms: Long) {
         _state.update { it.copy(refreshIntervalMs = ms) }
         viewModelScope.launch { prefs.setRefreshIntervalMs(ms) }
-    }
-
-    companion object {
-        val Factory = viewModelFactory {
-            initializer {
-                val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as Application
-                SettingsViewModel(app)
-            }
-        }
     }
 }

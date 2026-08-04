@@ -2,17 +2,18 @@ package com.daygle.aicamera.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.daygle.aicamera.data.CameraRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 enum class StartDestination { LOADING, ONBOARDING, CONNECT, HOME }
 
-class RootViewModel(private val repository: CameraRepository) : ViewModel() {
+@HiltViewModel
+class RootViewModel @Inject constructor(private val repository: CameraRepository) : ViewModel() {
 
     private val _start = MutableStateFlow(StartDestination.LOADING)
     val start: StateFlow<StartDestination> = _start.asStateFlow()
@@ -40,12 +41,6 @@ class RootViewModel(private val repository: CameraRepository) : ViewModel() {
         viewModelScope.launch {
             repository.disconnect()
             onDone()
-        }
-    }
-
-    companion object {
-        val Factory = viewModelFactory {
-            initializer { RootViewModel(repository()) }
         }
     }
 }

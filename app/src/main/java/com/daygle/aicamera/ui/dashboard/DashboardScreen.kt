@@ -42,7 +42,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.daygle.aicamera.data.model.CameraHealthSummary
@@ -51,13 +50,14 @@ import com.daygle.aicamera.ui.components.EmptyState
 import com.daygle.aicamera.ui.components.ErrorState
 import com.daygle.aicamera.ui.components.LoadingState
 import com.daygle.aicamera.ui.formatUptime
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 
 @Composable
 fun DashboardScreen(
     onOpenCamera: (String) -> Unit,
     modifier: Modifier = Modifier,
     refreshTrigger: Int = 0,
-    viewModel: DashboardViewModel = viewModel(factory = DashboardViewModel.Factory),
+    viewModel: DashboardViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 

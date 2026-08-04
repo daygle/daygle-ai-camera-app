@@ -11,8 +11,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
-import com.daygle.aicamera.DaygleApp
+import com.daygle.aicamera.data.AppPreferencesStore
 import com.daygle.aicamera.data.ThemeMode
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.runBlocking
 
 private val Accent = Color(0xFF3DDC97)
@@ -40,6 +44,12 @@ private val LightColors = lightColorScheme(
     error = Color(0xFFC62828),
 )
 
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface ThemeEntryPoint {
+    fun appPreferences(): AppPreferencesStore
+}
+
 @Composable
 fun DaygleTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -47,8 +57,11 @@ fun DaygleTheme(
 ) {
     val view = LocalView.current
     val effectiveDark = if (view.isInEditMode) darkTheme else {
-        val app = (view.context.applicationContext as DaygleApp)
-        val mode = runBlocking { app.container.appPrefs.currentThemeMode() }
+        val entryPoint = EntryPointAccessors.fromApplication(
+            view.context.applicationContext,
+            ThemeEntryPoint::class.java
+        )
+        val mode = runBlocking { entryPoint.appPreferences().currentThemeMode() }
         when (mode) {
             ThemeMode.SYSTEM -> darkTheme
             ThemeMode.DARK -> true
