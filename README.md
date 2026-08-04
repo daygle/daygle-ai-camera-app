@@ -24,7 +24,7 @@ setup stays in the server's web dashboard. This client focuses on watching.
   (e.g., **Person**, **Dog Bark**) and confidence levels. Fully filterable
   by source, label, or alerts only.
 - **Recordings** - browse saved clips and play them back in-app with a full
-  video scrubber.
+  video scrubber, pinch-to-zoom (up to 5x), and an immersive full-screen mode.
 - **Push alerts** - real notifications when your cameras detect an object or
   sound, delivered while the app is backgrounded (see below).
 
@@ -185,7 +185,7 @@ app/src/main/java/com/daygle/aicamera/
     │   ├── NotificationsScreen.kt  # Push-alert settings
     │   └── NotificationsViewModel.kt
     ├── player/
-    │   └── PlayerScreen.kt      # ExoPlayer playback with scrubber
+    │   └── PlayerScreen.kt      # ExoPlayer playback: scrubber, zoom, full screen
     ├── recordings/
     │   ├── RecordingsScreen.kt  # Saved clip list
     │   └── RecordingsViewModel.kt
