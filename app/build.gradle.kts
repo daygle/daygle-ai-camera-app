@@ -8,6 +8,10 @@ plugins {
 
 android {
     namespace = "com.daygle.aicamera"
+
+    lint {
+        lintConfig = file("lint.xml")
+    }
     compileSdk = 37
 
     defaultConfig {

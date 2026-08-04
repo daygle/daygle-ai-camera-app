@@ -97,7 +97,6 @@ class PlayerViewModel @Inject constructor(
     }
 
     override fun onCleared() {
-        super.onCleared()
         mediaSession.release()
         player.release()
     }
