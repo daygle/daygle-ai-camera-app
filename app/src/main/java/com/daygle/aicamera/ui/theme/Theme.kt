@@ -33,6 +33,12 @@ private val DarkColors = darkColorScheme(
     onSecondary = Color(0xFFE6EDF0),
     secondaryContainer = Color(0xFF21262D),
     onSecondaryContainer = Color(0xFFC9D1D9),
+    // Distinct accent (violet) used to set sound detections apart from the
+    // blue object detections in the Events/Recordings lists.
+    tertiary = Color(0xFFB69DF8),
+    onTertiary = Color(0xFF20124D),
+    tertiaryContainer = Color(0xFF3B2C63),
+    onTertiaryContainer = Color(0xFFE7DEFF),
     background = Color(0xFF0D1117),
     onBackground = Color(0xFFF0F6FC),
     surface = Color(0xFF0D1117),
@@ -56,6 +62,12 @@ private val LightColors = lightColorScheme(
     onSecondary = Color.White,
     secondaryContainer = Color(0xFFE6EDF0),
     onSecondaryContainer = Color(0xFF1F2328),
+    // Distinct accent (violet) used to set sound detections apart from the
+    // blue object detections in the Events/Recordings lists.
+    tertiary = Color(0xFF6750A4),
+    onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFE9DDFF),
+    onTertiaryContainer = Color(0xFF22005D),
     background = Color(0xFFF6F8FA),
     onBackground = Color(0xFF1F2328),
     surface = Color(0xFFFFFFFF),

@@ -590,7 +590,7 @@ private fun RecordingRow(recording: Recording, onPlay: () -> Unit) {
                         .size(48.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(
-                            if (isSound) MaterialTheme.colorScheme.secondaryContainer 
+                            if (isSound) MaterialTheme.colorScheme.tertiaryContainer
                             else MaterialTheme.colorScheme.primaryContainer
                         ),
                     contentAlignment = Alignment.Center,
@@ -603,7 +603,7 @@ private fun RecordingRow(recording: Recording, onPlay: () -> Unit) {
                         },
                         contentDescription = null,
                         tint = if (recording.mediaReady) {
-                            if (isSound) MaterialTheme.colorScheme.onSecondaryContainer
+                            if (isSound) MaterialTheme.colorScheme.onTertiaryContainer
                             else MaterialTheme.colorScheme.onPrimaryContainer
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
