@@ -123,10 +123,12 @@ so servers not behind Access are unaffected.
 - Android 8.0 (API 26) or newer
 - A reachable Daygle AI Camera server (LAN or a public HTTPS host)
 
-> **Cleartext HTTP** is allowed because these servers are commonly hosted on a
-> LAN address over plain HTTP (e.g. `http://192.168.1.20:8080`). Prefer HTTPS
-> whenever your server is reachable over TLS. See
-> `app/src/main/res/xml/network_security_config.xml`.
+> **Release builds require HTTPS**. The release network security config blocks
+> cleartext HTTP so credentials and camera media are not sent in plaintext.
+> Debug builds permit explicitly configured LAN HTTP/local certificates for
+> development (`http://192.168.1.20:8080`); do not use that mode for an
+> internet-facing deployment. See `app/src/main/res/xml/network_security_config.xml`
+> and `network_security_config_debug.xml`.
 
 ## Building
 

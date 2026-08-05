@@ -29,6 +29,7 @@ class CameraRepository(
 
     /** Re-apply the persisted connection to the session (e.g. on app launch). */
     suspend fun restore(): Boolean {
+        settings.migrateLegacyCredentials()
         val connection = settings.current()
         session.update(connection)
         return connection.isConfigured

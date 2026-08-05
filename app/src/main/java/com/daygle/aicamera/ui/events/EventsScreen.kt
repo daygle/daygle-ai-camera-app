@@ -39,6 +39,7 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePickerDialog
@@ -587,11 +588,13 @@ private fun EventRow(
     ) {
         ListItem(
             headlineContent = {
-                Text(
-                    formatEventLabel(event.topLabel ?: event.source),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    EventTypeBadge(isSound = isSoundEvent(event))
+                    if (event.alerted) AlertBadge()
+                }
             },
             supportingContent = {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -599,10 +602,7 @@ private fun EventRow(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val isSound = event.source?.lowercase() == "sound" ||
-                                event.triggerType?.lowercase() == "sound" ||
-                                isSoundLabel(event.triggerLabel) ||
-                                event.detections.any { isSoundLabel(it.label) }
+                        val isSound = isSoundEvent(event)
                         Icon(
                             imageVector = if (isSound) Icons.Filled.GraphicEq else Icons.Filled.Videocam,
                             contentDescription = null,
@@ -614,14 +614,12 @@ private fun EventRow(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        if (event.source != null && event.source != "sound" && event.source != "rtsp") {
-                            Text(
-                                formatEventLabel(event.source),
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
+                        Text(
+                            "Event #${event.id}",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
                     }
                     val detectionsToShow = if (event.detections.isEmpty() && event.source == "sound") {
                         val confidence = (event.metadata["confidence"] as? JsonPrimitive)?.doubleOrNull
@@ -649,10 +647,7 @@ private fun EventRow(
                 }
             },
             leadingContent = {
-                val isSound = event.source?.lowercase() == "sound" ||
-                        event.triggerType?.lowercase() == "sound" ||
-                        isSoundLabel(event.triggerLabel) ||
-                        event.detections.any { isSoundLabel(it.label) }
+                val isSound = isSoundEvent(event)
                 Box(
                     modifier = Modifier
                         .size(48.dp)
@@ -675,34 +670,101 @@ private fun EventRow(
             trailingContent = {
                 // Two explicit actions per event: open the annotated snapshot
                 // (green detection boxes) and/or open the related recording.
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (event.alerted) {
-                        AlertBadge()
-                    }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     if (event.hasSnapshot) {
-                        IconButton(onClick = { onOpenSnapshot(event.id) }, modifier = Modifier.size(40.dp)) {
-                            Icon(
-                                Icons.Filled.Image,
-                                contentDescription = "Open snapshot",
-                                modifier = Modifier.size(22.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
+                        FilledActionButton(
+                            label = "Snapshot",
+                            icon = Icons.Filled.Image,
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            onClick = { onOpenSnapshot(event.id) },
+                        )
                     }
                     if (firstRecordingId != null) {
-                        IconButton(onClick = { onPlayRecording(firstRecordingId) }, modifier = Modifier.size(40.dp)) {
-                            Icon(
-                                Icons.Filled.PlayCircle,
-                                contentDescription = "Open recording",
-                                modifier = Modifier.size(24.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
+                        FilledActionButton(
+                            label = "Recording",
+                            icon = Icons.Filled.PlayCircle,
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            onClick = { onPlayRecording(firstRecordingId) },
+                        )
                     }
                 }
             },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
         )
+    }
+}
+
+private fun isSoundEvent(event: Event): Boolean =
+    event.source?.lowercase() == "sound" ||
+        event.triggerType?.lowercase() == "sound" ||
+        isSoundLabel(event.triggerLabel) ||
+        event.detections.any { isSoundLabel(it.label) }
+
+@Composable
+private fun EventTypeBadge(isSound: Boolean) {
+    Surface(
+        color = if (isSound) {
+            MaterialTheme.colorScheme.tertiaryContainer
+        } else {
+            MaterialTheme.colorScheme.primaryContainer
+        },
+        shape = RoundedCornerShape(50),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Icon(
+                imageVector = if (isSound) Icons.Filled.GraphicEq else Icons.Filled.Videocam,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = if (isSound) {
+                    MaterialTheme.colorScheme.onTertiaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                },
+            )
+            Text(
+                if (isSound) "Sound" else "Object",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (isSound) {
+                    MaterialTheme.colorScheme.onTertiaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun FilledActionButton(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    containerColor: Color,
+    contentColor: Color,
+    onClick: () -> Unit,
+) {
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = containerColor,
+            contentColor = contentColor,
+        ),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.height(40.dp),
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(17.dp))
+        Spacer(Modifier.width(5.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
     }
 }
 

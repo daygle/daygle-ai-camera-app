@@ -2,8 +2,10 @@
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="file" path="datastore/" />
+        <exclude domain="sharedpref" path="connection_secrets.xml" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="file" path="datastore/" />
+        <exclude domain="sharedpref" path="connection_secrets.xml" />
     </device-transfer>
 </data-extraction-rules>

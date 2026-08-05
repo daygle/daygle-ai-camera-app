@@ -107,7 +107,7 @@ class SessionManager {
     }
 
     /**
-     * True when the (already-followed) response was intercepted by a Cloudflare
+     * True when a response was intercepted by a Cloudflare
      * Access login page: either the request ended up on a *.cloudflareaccess.com
      * address, or the server answered with an Access rejection header.
      */
@@ -124,6 +124,11 @@ class SessionManager {
         .cookieJar(cookieJar)
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
+        // Do not forward session or service-token credentials to an arbitrary
+        // host via a server-side redirect. Same-origin redirects are handled
+        // explicitly by the login flow where required.
+        .followRedirects(false)
+        .followSslRedirects(false)
         .addInterceptor(cloudflareAccessInterceptor())
         .addInterceptor(logging)
         .build()
@@ -137,6 +142,11 @@ class SessionManager {
         .cookieJar(cookieJar)
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
+        // Do not forward session or service-token credentials to an arbitrary
+        // host via a server-side redirect. Same-origin redirects are handled
+        // explicitly by the login flow where required.
+        .followRedirects(false)
+        .followSslRedirects(false)
         .addInterceptor(cloudflareAccessInterceptor())
         .addInterceptor(logging)
         .addInterceptor(authInterceptor())

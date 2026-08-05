@@ -1,11 +1,12 @@
 package com.daygle.aicamera.ui
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.NotificationsNone
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material.icons.outlined.VideoLibrary
@@ -16,6 +17,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -30,11 +33,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.daygle.aicamera.ui.dashboard.DashboardScreen
 import com.daygle.aicamera.ui.events.EventsScreen
 import com.daygle.aicamera.ui.recordings.RecordingsScreen
+import com.daygle.aicamera.ui.snapshots.SnapshotsScreen
 
 private enum class HomeTab(val label: String, val icon: ImageVector) {
     Cameras("Cameras", Icons.Outlined.Videocam),
     Events("Events", Icons.Outlined.Notifications),
-    Recordings("Recordings", Icons.Outlined.VideoLibrary),
+    Clips("Clips", Icons.Outlined.VideoLibrary),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,7 +51,6 @@ fun HomeScreen(
     var selectedTab by remember { mutableStateOf(HomeTab.Cameras) }
     var refreshTrigger by remember { mutableIntStateOf(0) }
 
-    // Resume the alert listener whenever the user is signed in and on this screen.
     val context = androidx.compose.ui.platform.LocalContext.current
     androidx.compose.runtime.LaunchedEffect(Unit) {
         com.daygle.aicamera.push.PushController.sync(context)
@@ -96,11 +99,49 @@ fun HomeScreen(
                 modifier = contentModifier,
                 refreshTrigger = refreshTrigger,
             )
-            HomeTab.Recordings -> RecordingsScreen(
-                onPlay = onOpenRecording,
+            HomeTab.Clips -> ClipsScreen(
+                onOpenRecording = onOpenRecording,
                 modifier = contentModifier,
                 refreshTrigger = refreshTrigger,
             )
         }
     }
+}
+
+@Composable
+private fun ClipsScreen(
+    onOpenRecording: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    refreshTrigger: Int = 0,
+) {
+    var selectedClipsTab by remember { mutableStateOf(ClipsTab.Recordings) }
+
+    Column(modifier) {
+        TabRow(selectedTabIndex = selectedClipsTab.ordinal) {
+            ClipsTab.entries.forEach { tab ->
+                Tab(
+                    selected = selectedClipsTab == tab,
+                    onClick = { selectedClipsTab = tab },
+                    text = { Text(tab.label) },
+                    icon = { Icon(tab.icon, contentDescription = tab.label) },
+                )
+            }
+        }
+        when (selectedClipsTab) {
+            ClipsTab.Recordings -> RecordingsScreen(
+                onPlay = onOpenRecording,
+                modifier = Modifier.fillMaxSize(),
+                refreshTrigger = refreshTrigger,
+            )
+            ClipsTab.Snapshots -> SnapshotsScreen(
+                modifier = Modifier.fillMaxSize(),
+                refreshTrigger = refreshTrigger,
+            )
+        }
+    }
+}
+
+private enum class ClipsTab(val label: String, val icon: ImageVector) {
+    Recordings("Recordings", Icons.Outlined.VideoLibrary),
+    Snapshots("Snapshots", Icons.Outlined.Image),
 }

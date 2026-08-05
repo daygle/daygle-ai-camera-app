@@ -13,6 +13,9 @@ import kotlinx.coroutines.flow.map
 
 private val Context.notificationDataStore: DataStore<Preferences> by preferencesDataStore(name = "notifications")
 
+private const val NTFY_USERNAME_SECRET_KEY = "ntfy_username"
+private const val NTFY_PASSWORD_SECRET_KEY = "ntfy_password"
+
 /**
  * The ntfy subscription the app listens to for detection alerts. The server
  * publishes alerts to `{serverUrl}/{topic}`; the app subscribes to the same
@@ -34,10 +37,13 @@ data class NotificationConfig(
 
 class NotificationSettingsStore(private val context: Context) {
 
+    private val secrets = SecretStore(context)
+
     private object Keys {
         val ENABLED = booleanPreferencesKey("push_enabled")
         val SERVER_URL = stringPreferencesKey("ntfy_server_url")
         val TOPIC = stringPreferencesKey("ntfy_topic")
+        // Retained only to migrate existing installations.
         val USERNAME = stringPreferencesKey("ntfy_username")
         val PASSWORD = stringPreferencesKey("ntfy_password")
     }
@@ -47,20 +53,39 @@ class NotificationSettingsStore(private val context: Context) {
             enabled = prefs[Keys.ENABLED] ?: false,
             serverUrl = prefs[Keys.SERVER_URL].orEmpty(),
             topic = prefs[Keys.TOPIC].orEmpty(),
-            username = prefs[Keys.USERNAME].orEmpty(),
-            password = prefs[Keys.PASSWORD].orEmpty(),
+            username = secrets.read(NTFY_USERNAME_SECRET_KEY) ?: prefs[Keys.USERNAME].orEmpty(),
+            password = secrets.read(NTFY_PASSWORD_SECRET_KEY) ?: prefs[Keys.PASSWORD].orEmpty(),
         )
     }
 
-    suspend fun current(): NotificationConfig = config.first()
+    suspend fun current(): NotificationConfig {
+        migrateLegacyCredentials()
+        return config.first()
+    }
+
+    private suspend fun migrateLegacyCredentials() {
+        val legacy = context.notificationDataStore.data.first()
+        val username = legacy[Keys.USERNAME]
+        val password = legacy[Keys.PASSWORD]
+        if (username == null && password == null) return
+
+        if (username != null) secrets.write(NTFY_USERNAME_SECRET_KEY, username)
+        if (password != null) secrets.write(NTFY_PASSWORD_SECRET_KEY, password)
+        context.notificationDataStore.edit { prefs ->
+            prefs.remove(Keys.USERNAME)
+            prefs.remove(Keys.PASSWORD)
+        }
+    }
 
     suspend fun save(config: NotificationConfig) {
+        secrets.write(NTFY_USERNAME_SECRET_KEY, config.username.trim())
+        secrets.write(NTFY_PASSWORD_SECRET_KEY, config.password)
         context.notificationDataStore.edit { prefs ->
             prefs[Keys.ENABLED] = config.enabled
             prefs[Keys.SERVER_URL] = config.serverUrl.trim()
             prefs[Keys.TOPIC] = config.topic.trim()
-            prefs[Keys.USERNAME] = config.username.trim()
-            prefs[Keys.PASSWORD] = config.password
+            prefs.remove(Keys.USERNAME)
+            prefs.remove(Keys.PASSWORD)
         }
     }
 
@@ -70,5 +95,7 @@ class NotificationSettingsStore(private val context: Context) {
 
     suspend fun clear() {
         context.notificationDataStore.edit { it.clear() }
+        secrets.remove(NTFY_USERNAME_SECRET_KEY)
+        secrets.remove(NTFY_PASSWORD_SECRET_KEY)
     }
 }
