@@ -24,7 +24,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.VideocamOff
@@ -281,11 +281,17 @@ private fun FullscreenCameraView(
                 .padding(start = 8.dp, end = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onClose) {
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+            ) {
                 Icon(
-                    imageVector = Icons.Filled.Close,
-                    contentDescription = "Close",
-                    tint = Color.White
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.White,
+                    modifier = Modifier.size(26.dp),
                 )
             }
             Text(

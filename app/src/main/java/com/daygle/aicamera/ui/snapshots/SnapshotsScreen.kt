@@ -681,6 +681,7 @@ private fun SnapshotDialog(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(16.dp)
+                        .background(Color.Black.copy(alpha = 0.3f), CircleShape)
                 ) {
                     Icon(
                         Icons.Filled.Close,
