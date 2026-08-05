@@ -3,7 +3,6 @@ package com.daygle.aicamera.ui.snapshots
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
-import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.ui.dashboard.friendlyMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,7 +20,6 @@ data class SnapshotsFilter(
 data class SnapshotsReady(
     val snapshots: List<Event>,
     val filtered: List<Event>,
-    val cameras: List<Camera> = emptyList(),
     val filter: SnapshotsFilter = SnapshotsFilter(),
     val refreshing: Boolean = false,
 )
@@ -55,23 +53,20 @@ class SnapshotsViewModel @Inject constructor(
 
         viewModelScope.launch {
             val eventsResult = repository.events()
-            val camerasResult = repository.cameras()
-            if (eventsResult.isSuccess && camerasResult.isSuccess) {
+            if (eventsResult.isSuccess) {
                 allSnapshots = eventsResult.getOrThrow()
-                    .filter { it.hasSnapshot }
+                    .filter { it.hasSnapshot || !it.snapshotPath.isNullOrBlank() }
                     .sortedByDescending { it.id }
-                val cameras = camerasResult.getOrThrow()
                 val filter = (_state.value as? SnapshotsUiState.Ready)?.data?.filter ?: SnapshotsFilter()
                 _state.value = SnapshotsUiState.Ready(
                     SnapshotsReady(
                         snapshots = allSnapshots,
                         filtered = applyFilter(filter),
-                        cameras = cameras,
                         filter = filter,
                     ),
                 )
             } else {
-                val error = eventsResult.exceptionOrNull() ?: camerasResult.exceptionOrNull()
+                val error = eventsResult.exceptionOrNull()
                 _state.value = SnapshotsUiState.Error(error?.friendlyMessage() ?: "Unknown error")
             }
         }

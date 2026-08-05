@@ -18,7 +18,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -117,7 +117,7 @@ private fun ClipsScreen(
     var selectedClipsTab by remember { mutableStateOf(ClipsTab.Recordings) }
 
     Column(modifier) {
-        TabRow(selectedTabIndex = selectedClipsTab.ordinal) {
+        PrimaryTabRow(selectedTabIndex = selectedClipsTab.ordinal) {
             ClipsTab.entries.forEach { tab ->
                 Tab(
                     selected = selectedClipsTab == tab,
