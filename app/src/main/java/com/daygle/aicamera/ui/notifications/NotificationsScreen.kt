@@ -35,6 +35,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.daygle.aicamera.ui.components.SettingsDivider
 import com.daygle.aicamera.ui.components.SettingsSection
 import com.daygle.aicamera.ui.components.SettingsSwitchRow
+import com.daygle.aicamera.ui.permissions.TestNotificationButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -255,6 +256,8 @@ fun NotificationsScreen(
             }
 
             Spacer(Modifier.height(8.dp))
+
+            TestNotificationButton()
 
             Spacer(Modifier.height(16.dp))
         }

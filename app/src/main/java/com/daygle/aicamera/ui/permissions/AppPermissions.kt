@@ -54,7 +54,7 @@ import com.daygle.aicamera.ui.LifecycleResumeEffect
 
 /**
  * Runtime-permission checks and the intents that let the user grant them, plus
- * a reusable [PermissionsChecklist] composable. The app needs three things to
+ * reusable [PermissionsChecklist] and [TestNotificationButton] composables. The app needs three things to
  * deliver camera alerts reliably:
  *
  *  - **Notifications** (POST_NOTIFICATIONS on Android 13+) so alerts can show.
@@ -127,7 +127,6 @@ object AppPermissions {
 @Composable
 fun PermissionsChecklist(
     modifier: Modifier = Modifier,
-    showTestButton: Boolean = true,
 ) {
     val context = LocalContext.current
     var refreshTick by remember { mutableIntStateOf(0) }
@@ -178,23 +177,34 @@ fun PermissionsChecklist(
             actionLabel = null,
             onAction = {},
         )
-        if (showTestButton) {
-            OutlinedButton(
-                onClick = {
-                    val posted = AppPermissions.sendTestNotification(context)
-                    Toast.makeText(
-                        context,
-                        if (posted) "Test notification sent." else "Enable notifications first, then try again.",
-                        Toast.LENGTH_SHORT,
-                    ).show()
-                },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Send test notification")
-            }
-        }
+    }
+}
+
+/**
+ * A standalone button that posts a sample alert so the user can confirm
+ * notifications are being delivered. Deliberately separate from
+ * [PermissionsChecklist] - it verifies delivery rather than granting a
+ * permission - and shared by every screen that offers it.
+ */
+@Composable
+fun TestNotificationButton(
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    OutlinedButton(
+        onClick = {
+            val posted = AppPermissions.sendTestNotification(context)
+            Toast.makeText(
+                context,
+                if (posted) "Test notification sent." else "Enable notifications first, then try again.",
+                Toast.LENGTH_SHORT,
+            ).show()
+        },
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Send test notification")
     }
 }
 

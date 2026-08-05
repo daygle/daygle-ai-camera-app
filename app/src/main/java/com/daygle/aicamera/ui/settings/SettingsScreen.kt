@@ -27,6 +27,7 @@ import com.daygle.aicamera.ui.components.SettingsRow
 import com.daygle.aicamera.ui.components.SettingsSection
 import com.daygle.aicamera.ui.components.SettingsSwitchRow
 import com.daygle.aicamera.ui.permissions.PermissionsChecklist
+import com.daygle.aicamera.ui.permissions.TestNotificationButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -175,10 +176,9 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                PermissionsChecklist(
-                    showTestButton = false,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
+                PermissionsChecklist(modifier = Modifier.padding(top = 8.dp))
+                Spacer(Modifier.height(12.dp))
+                TestNotificationButton()
             }
         }
 
