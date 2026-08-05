@@ -20,12 +20,19 @@ setup stays in the server's web dashboard. This client focuses on watching.
   play/pause. Pinch to zoom (up to 5x, pan, double-tap to reset). Polling
   pauses automatically when the app is backgrounded.
 - **Events** - a detailed detection/alert log showing specific event types
-  (e.g., **Person**, **Dog Bark**) and confidence levels. Fully filterable
-  by source, label, or alerts only.
-- **Recordings** - browse saved clips and play them back in-app with a full
+  (e.g., **Person**, **Dog Bark**) and confidence levels. Search, sort, and
+  filter by detection type, date range, camera, trigger, label, or alerts
+  only. Tap an event to open its annotated snapshot (detection boxes) or jump
+  straight to the recording it triggered.
+- **Recordings** - browse saved clips - each shown as a single entry even
+  when it spans many detection events - and play them back in-app with a full
   video scrubber, pinch-to-zoom (up to 5x), and an immersive full-screen mode.
+  Search and filter by camera, date range, trigger, or label.
 - **Push alerts** - real notifications when your cameras detect an object or
   sound, delivered while the app is backgrounded (see below).
+- **Settings** - theme (system/dark/light), 24-hour time format, live-view
+  refresh rate, a permissions checklist, and sign-out (disconnects the server
+  and forgets it on this device).
 
 ## How it connects
 
@@ -70,6 +77,12 @@ To turn it on: tap the **bell** icon on the home screen → **Auto-fill from
 server** (reads the ntfy server/topic from your server's push settings) →
 enable the switch and grant the notification permission.
 
+The same screen (and Settings) includes a **permissions checklist** that walks
+you through what alerts need - the notification permission and a
+battery-optimization exemption so the listener isn't killed - plus a
+**send test** button that posts a sample alert so you can confirm delivery
+end to end.
+
 A lightweight **foreground service** holds the streaming connection open and
 raises a notification for each alert, with automatic reconnect and restart on
 boot.
@@ -88,7 +101,9 @@ boot.
 - On Android 13+ the app requests the notification permission the first time
   you enable alerts.
 
-### Remote access via Cloudflare TunnelInstead of exposing the server directly with port forwarding, you can put the
+### Remote access via Cloudflare Tunnel
+
+Instead of exposing the server directly with port forwarding, you can put the
 server behind a **Cloudflare Tunnel**: the server
 
 dials *out* to Cloudflare, so no ports are opened and the server never gets a
@@ -133,57 +148,71 @@ CI runs on every push to `main` via GitHub Actions (`.github/workflows/android-b
 | Layer | Libraries |
 | --- | --- |
 | Language | Kotlin 2.4.10 |
-| UI | Jetpack Compose (BOM 2026.06), **Material 3 (ListItem, CenterAlignedTopAppBar)** |
+| UI | Jetpack Compose (BOM 2026.06.01), Material 3 + material-icons-extended |
 | Build | AGP 9.3.1, **Gradle 9.6.1**, JDK 17 |
 | Performance | Configuration Cache, Parallel Sync |
-| Navigation | Navigation Compose 2.9 |
+| Navigation | Navigation Compose 2.9.8 |
+| DI | Hilt 2.60 (KSP), hilt-navigation-compose |
 | Networking | OkHttp 5.4, Retrofit 3.0, kotlinx.serialization 1.11 |
-| Images | Coil 2.7 |
-| Video | Media3 / ExoPlayer 1.10 |
-| Storage | DataStore 1.2 |
+| Images | Coil 3.5 (shares the authenticated OkHttp client) |
+| Video | Media3 / ExoPlayer 1.10.1 |
+| Storage | DataStore 1.2.1 |
+| Background | WorkManager 2.11 (push keep-alive) |
 | Architecture | MVVM, Hilt DI |
 
 ## Project layout
 
 ```
 app/src/main/java/com/daygle/aicamera/
-├── DaygleApp.kt                 # Application + service locator + Coil wiring
+├── DaygleApp.kt                 # @HiltAndroidApp + Coil wiring (auth'ed OkHttp)
 ├── MainActivity.kt
 ├── data/
+│   ├── AppPreferencesStore.kt   # Persisted app-level preferences (DataStore)
 │   ├── CameraRepository.kt      # Domain layer
 │   ├── DaygleApi.kt             # Retrofit endpoints
+│   ├── NetworkExtensions.kt     # OkHttp/Media3 helpers
 │   ├── NotificationSettingsStore.kt  # Persisted ntfy push config (DataStore)
 │   ├── SessionManager.kt        # Cookie/CSRF login, OkHttp/Retrofit stack
 │   ├── SettingsStore.kt         # Persisted server URL + credentials (DataStore)
 │   └── model/Models.kt          # Serializable API models
+├── di/
+│   └── DataModule.kt            # Hilt DI bindings
 ├── push/
 │   ├── BootReceiver.kt          # Resume the listener after reboot
 │   ├── NtfyService.kt           # Foreground ntfy stream -> notifications
-│   └── PushController.kt        # Start/stop the listener from the saved config
+│   ├── PushController.kt        # Start/stop the listener from the saved config
+│   └── PushKeepAliveWorker.kt   # WorkManager keep-alive for the listener
 └── ui/
     ├── DaygleNavHost.kt         # Navigation graph + auth gating
     ├── Format.kt                # Timestamp/duration/uptime formatters
     ├── HomeScreen.kt            # Bottom-nav shell (cameras, events, recordings)
     ├── LifecycleEffects.kt      # Lifecycle-aware pause/resume helper
     ├── RootViewModel.kt         # Session restore -> start destination
-    ├── VmFactory.kt             # Shared ViewModel factory helper
     ├── components/Common.kt     # LoadingState, ErrorState, EmptyState
     ├── connect/
-    │   ├── ConnectScreen.kt     # Server URL + credentials form
+    │   ├── ConnectScreen.kt     # Server URL + credentials (+ Cloudflare Access)
     │   └── ConnectViewModel.kt
     ├── dashboard/
     │   ├── DashboardScreen.kt   # Camera list + in-place full-screen live view
     │   └── DashboardViewModel.kt
     ├── events/
-    │   ├── EventsScreen.kt      # Detection / alert log
+    │   ├── EventsScreen.kt      # Detection log + snapshot/recording links
     │   └── EventsViewModel.kt
     ├── notifications/
-    │   ├── NotificationsScreen.kt  # Push-alert settings
+    │   ├── NotificationsScreen.kt  # Push-alert settings + permission checklist
     │   └── NotificationsViewModel.kt
+    ├── onboarding/
+    │   └── OnboardingScreen.kt  # First-run intro before connect
+    ├── permissions/
+    │   └── AppPermissions.kt    # Permission checks + PermissionsChecklist
     ├── player/
-    │   └── PlayerScreen.kt      # ExoPlayer playback: scrubber, zoom, full screen
+    │   ├── PlayerScreen.kt      # ExoPlayer playback: scrubber, zoom, full screen
+    │   └── PlayerViewModel.kt
     ├── recordings/
-    │   ├── RecordingsScreen.kt  # Saved clip list
+    │   ├── RecordingsScreen.kt  # Clip list (one entry spans many events)
     │   └── RecordingsViewModel.kt
+    ├── settings/
+    │   ├── SettingsScreen.kt    # Theme, time format, refresh rate, sign out
+    │   └── SettingsViewModel.kt
     └── theme/Theme.kt           # Material 3 color scheme + status bar
 ```
