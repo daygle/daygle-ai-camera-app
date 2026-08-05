@@ -1,13 +1,17 @@
 package com.daygle.aicamera.ui.recordings
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.model.Camera
+import com.daygle.aicamera.data.model.Detection
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.ui.dashboard.friendlyMessage
 import com.daygle.aicamera.ui.isSoundLabel
+import com.daygle.aicamera.util.FileDownloader
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,7 +25,6 @@ import javax.inject.Inject
 enum class SortOrder(val label: String) {
     NEWEST("Newest"),
     OLDEST("Oldest"),
-    LONGEST("Longest"),
 }
 
 data class RecordingsFilter(
@@ -33,7 +36,18 @@ data class RecordingsFilter(
     val selectedTriggerTypes: Set<String> = emptySet(),
     val selectedLabels: Set<String> = emptySet(),
     val sortOrder: SortOrder = SortOrder.NEWEST,
-)
+) {
+    fun activeCount(): Int {
+        var count = 0
+        if (query.isNotBlank()) count++
+        if (dateStart != null || dateEnd != null) count++
+        count += selectedModes.size
+        count += selectedCameras.size
+        count += selectedTriggerTypes.size
+        count += selectedLabels.size
+        return count
+    }
+}
 
 data class RecordingsReady(
     val recordings: List<Recording>,
@@ -45,16 +59,13 @@ data class RecordingsReady(
     val availableModes: List<String> = listOf("Object", "Sound")
 
     val availableCameras: List<String> =
-        recordings.mapNotNull { it.cameraId ?: it.source }.filter { it != "sound" && it != "rtsp" }.distinct().sorted()
+        recordings.mapNotNull { it.source }.filter { it != "sound" && it != "rtsp" }.distinct().sorted()
 
     val availableTriggerTypes: List<String> =
-        recordings.mapNotNull { it.triggerType }.filter { it.lowercase() != "alert" }.distinct().sorted()
+        recordings.mapNotNull { it.triggerType }.distinct().sorted()
 
     val availableLabels: List<String> =
-        recordings
-            .flatMap { r -> r.labels + r.detections.map { it.label } + listOfNotNull(r.triggerLabel) }
-            .distinct()
-            .sorted()
+        recordings.flatMap { it.labels }.distinct().sorted()
 
     val availableObjectLabels: List<String> = availableLabels.filter { !isSoundLabel(it) }
     val availableSoundLabels: List<String> = availableLabels.filter { isSoundLabel(it) }
@@ -67,10 +78,15 @@ sealed interface RecordingsUiState {
 }
 
 @HiltViewModel
-class RecordingsViewModel @Inject constructor(private val repository: CameraRepository) : ViewModel() {
+class RecordingsViewModel @Inject constructor(
+    private val repository: CameraRepository,
+    @ApplicationContext private val context: Context,
+) : ViewModel() {
 
     private val _state = MutableStateFlow<RecordingsUiState>(RecordingsUiState.Loading)
     val state: StateFlow<RecordingsUiState> = _state.asStateFlow()
+
+    private val downloader = FileDownloader(context, repository.httpClient())
 
     private var allRecordings: List<Recording> = emptyList()
 
@@ -80,125 +96,112 @@ class RecordingsViewModel @Inject constructor(private val repository: CameraRepo
 
     fun load() {
         val current = _state.value
-        if (current is RecordingsUiState.Ready) {
-            _state.value = RecordingsUiState.Ready(current.data.copy(refreshing = true))
-        } else {
-            _state.value = RecordingsUiState.Loading
-        }
+        _state.value = if (current is RecordingsUiState.Ready)
+            RecordingsUiState.Ready(current.data.copy(refreshing = true))
+        else
+            RecordingsUiState.Loading
+
         viewModelScope.launch {
-            val recordingsRes = repository.recordings()
+            val recsRes = repository.recordings()
             val camerasRes = repository.cameras()
 
-            if (recordingsRes.isSuccess && camerasRes.isSuccess) {
-                val recordings = recordingsRes.getOrThrow()
+            if (recsRes.isSuccess && camerasRes.isSuccess) {
+                val recordings = recsRes.getOrThrow()
                 val cameras = camerasRes.getOrThrow()
                 allRecordings = recordings
-                
                 val currentFilter = (_state.value as? RecordingsUiState.Ready)?.data?.filter ?: RecordingsFilter()
                 _state.value = RecordingsUiState.Ready(
                     RecordingsReady(
                         recordings = recordings,
-                        filtered = applyFilters(currentFilter),
+                        filtered = applyFilters(recordings, currentFilter),
                         cameras = cameras,
                         filter = currentFilter,
                     )
                 )
             } else {
-                val error = recordingsRes.exceptionOrNull() ?: camerasRes.exceptionOrNull()
+                val error = recsRes.exceptionOrNull() ?: camerasRes.exceptionOrNull()
                 _state.value = RecordingsUiState.Error(error?.friendlyMessage() ?: "Unknown error")
             }
         }
     }
 
     fun setQuery(query: String) {
-        _state.update { current ->
-            if (current is RecordingsUiState.Ready) {
-                val filter = current.data.filter.copy(query = query)
-                RecordingsUiState.Ready(current.data.copy(filter = filter, filtered = applyFilters(filter)))
-            } else current
-        }
+        updateFilter { it.copy(query = query) }
     }
 
     fun setDateRange(start: LocalDate?, end: LocalDate?) {
-        _state.update { current ->
-            if (current is RecordingsUiState.Ready) {
-                val filter = current.data.filter.copy(dateStart = start, dateEnd = end)
-                RecordingsUiState.Ready(current.data.copy(filter = filter, filtered = applyFilters(filter)))
-            } else current
-        }
+        updateFilter { it.copy(dateStart = start, dateEnd = end) }
     }
 
     fun toggleCamera(cameraId: String) {
-        _state.update { current ->
-            if (current is RecordingsUiState.Ready) {
-                val selected = current.data.filter.selectedCameras.toMutableSet()
-                if (!selected.add(cameraId)) selected.remove(cameraId)
-                val filter = current.data.filter.copy(selectedCameras = selected)
-                RecordingsUiState.Ready(current.data.copy(filter = filter, filtered = applyFilters(filter)))
-            } else current
+        updateFilter { current ->
+            val selected = current.selectedCameras.toMutableSet()
+            if (!selected.add(cameraId)) selected.remove(cameraId)
+            current.copy(selectedCameras = selected)
         }
     }
 
     fun toggleMode(mode: String) {
-        _state.update { current ->
-            if (current is RecordingsUiState.Ready) {
-                val selected = current.data.filter.selectedModes.toMutableSet()
-                if (!selected.add(mode)) selected.remove(mode)
-                val filter = current.data.filter.copy(selectedModes = selected)
-                RecordingsUiState.Ready(current.data.copy(filter = filter, filtered = applyFilters(filter)))
-            } else current
+        updateFilter { current ->
+            val selected = current.selectedModes.toMutableSet()
+            if (!selected.add(mode)) selected.remove(mode)
+            current.copy(selectedModes = selected)
         }
     }
 
     fun toggleTriggerType(type: String) {
-        _state.update { current ->
-            if (current is RecordingsUiState.Ready) {
-                val selected = current.data.filter.selectedTriggerTypes.toMutableSet()
-                if (!selected.add(type)) selected.remove(type)
-                val filter = current.data.filter.copy(selectedTriggerTypes = selected)
-                RecordingsUiState.Ready(current.data.copy(filter = filter, filtered = applyFilters(filter)))
-            } else current
+        updateFilter { current ->
+            val selected = current.selectedTriggerTypes.toMutableSet()
+            if (!selected.add(type)) selected.remove(type)
+            current.copy(selectedTriggerTypes = selected)
         }
     }
 
     fun toggleLabel(label: String) {
-        _state.update { current ->
-            if (current is RecordingsUiState.Ready) {
-                val selected = current.data.filter.selectedLabels.toMutableSet()
-                if (!selected.add(label)) selected.remove(label)
-                val filter = current.data.filter.copy(selectedLabels = selected)
-                RecordingsUiState.Ready(current.data.copy(filter = filter, filtered = applyFilters(filter)))
-            } else current
+        updateFilter { current ->
+            val selected = current.selectedLabels.toMutableSet()
+            if (!selected.add(label)) selected.remove(label)
+            current.copy(selectedLabels = selected)
         }
     }
 
     fun setSortOrder(sortOrder: SortOrder) {
-        _state.update { current ->
-            if (current is RecordingsUiState.Ready) {
-                val filter = current.data.filter.copy(sortOrder = sortOrder)
-                RecordingsUiState.Ready(current.data.copy(filter = filter, filtered = applyFilters(filter)))
-            } else current
-        }
+        updateFilter { it.copy(sortOrder = sortOrder) }
     }
 
     fun clearFilters() {
+        updateFilter { RecordingsFilter() }
+    }
+
+    /** Absolute URL for streaming or downloading a recording's MP4. */
+    fun streamUrl(recordingId: Int): String? = repository.recordingStreamUrl(recordingId)
+
+    fun download(recording: Recording) {
+        val url = repository.recordingStreamUrl(recording.id) ?: return
+        val fileName = "recording-${recording.id}.mp4"
+        viewModelScope.launch {
+            downloader.downloadFile(url, fileName, "video/mp4")
+        }
+    }
+
+    private fun updateFilter(transform: (RecordingsFilter) -> RecordingsFilter) {
         _state.update { current ->
             if (current is RecordingsUiState.Ready) {
-                val filter = RecordingsFilter()
-                RecordingsUiState.Ready(current.data.copy(filter = filter, filtered = applyFilters(filter)))
+                val filter = transform(current.data.filter)
+                RecordingsUiState.Ready(current.data.copy(filter = filter, filtered = applyFilters(allRecordings, filter)))
             } else current
         }
     }
 
-    private fun applyFilters(filter: RecordingsFilter): List<Recording> {
-        var result = allRecordings
+    private fun applyFilters(recordings: List<Recording>, filter: RecordingsFilter): List<Recording> {
+        var result = recordings
 
-        // Text search on labels, triggerLabel, triggerType
+        // Text search on labels, source
         if (filter.query.isNotBlank()) {
             val q = filter.query.lowercase()
             result = result.filter { r ->
                 r.labels.any { it.lowercase().contains(q) } ||
-                    r.detections.any { it.label.lowercase().contains(q) } ||
+                    r.source?.lowercase()?.contains(q) == true ||
                     r.triggerLabel?.lowercase()?.contains(q) == true ||
                     r.triggerType?.lowercase()?.contains(q) == true
             }
@@ -211,20 +214,20 @@ class RecordingsViewModel @Inject constructor(private val repository: CameraRepo
             result = result.filter { r ->
                 val ts = r.startedAt?.let {
                     try { OffsetDateTime.parse(it) } catch (_: Exception) { null }
-                } ?: return@filter true // keep if no timestamp
+                } ?: return@filter true
                 if (start != null && ts.isBefore(start)) return@filter false
                 if (end != null && !ts.isBefore(end)) return@filter false
                 true
             }
         }
 
-        // Mode filter (Object vs Sound)
+        // Mode filter
         if (filter.selectedModes.isNotEmpty()) {
-            result = result.filter { r -> 
+            result = result.filter { r ->
                 val isSound = r.source?.lowercase() == "sound" || 
-                    r.triggerType?.lowercase() == "sound" || 
-                    isSoundLabel(r.triggerLabel) || 
-                    r.labels.any { isSoundLabel(it) }
+                        r.triggerType?.lowercase() == "sound" || 
+                        isSoundLabel(r.triggerLabel) || 
+                        r.labels.any { isSoundLabel(it) }
                 val mode = if (isSound) "Sound" else "Object"
                 mode in filter.selectedModes
             }
@@ -232,7 +235,7 @@ class RecordingsViewModel @Inject constructor(private val repository: CameraRepo
 
         // Camera filter
         if (filter.selectedCameras.isNotEmpty()) {
-            result = result.filter { r -> (r.cameraId ?: r.source) in filter.selectedCameras }
+            result = result.filter { r -> r.source in filter.selectedCameras }
         }
 
         // Trigger type filter
@@ -243,9 +246,7 @@ class RecordingsViewModel @Inject constructor(private val repository: CameraRepo
         // Label filter
         if (filter.selectedLabels.isNotEmpty()) {
             result = result.filter { r ->
-                filter.selectedLabels.any { sel ->
-                    sel in r.labels || r.detections.any { it.label == sel } || sel == r.triggerLabel
-                }
+                filter.selectedLabels.any { it in r.labels }
             }
         }
 
@@ -253,7 +254,6 @@ class RecordingsViewModel @Inject constructor(private val repository: CameraRepo
         result = when (filter.sortOrder) {
             SortOrder.NEWEST -> result.sortedByDescending { it.id }
             SortOrder.OLDEST -> result.sortedBy { it.id }
-            SortOrder.LONGEST -> result.sortedByDescending { it.durationSeconds }
         }
 
         return result

@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlayCircle
@@ -255,7 +256,11 @@ fun RecordingsScreen(
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             items(data.filtered, key = { it.id }) { recording ->
-                                RecordingRow(recording, onPlay = { onPlay(recording.id) })
+                                RecordingRow(
+                                    recording = recording,
+                                    onPlay = { onPlay(recording.id) },
+                                    onDownload = { viewModel.download(recording) }
+                                )
                             }
                         }
                     }
@@ -517,7 +522,11 @@ private fun dateRangeLabel(start: LocalDate?, end: LocalDate?): String {
 }
 
 @Composable
-private fun RecordingRow(recording: Recording, onPlay: () -> Unit) {
+private fun RecordingRow(
+    recording: Recording,
+    onPlay: () -> Unit,
+    onDownload: () -> Unit
+) {
     Card(
         onClick = onPlay,
         enabled = recording.mediaReady,
@@ -622,13 +631,27 @@ private fun RecordingRow(recording: Recording, onPlay: () -> Unit) {
                 }
             },
             trailingContent = {
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        if (recording.mediaReady) formatDuration(recording.durationSeconds) else "Processing",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            if (recording.mediaReady) formatDuration(recording.durationSeconds) else "Processing",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    if (recording.mediaReady) {
+                        IconButton(onClick = onDownload) {
+                            Icon(
+                                Icons.Filled.Download,
+                                contentDescription = "Download",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                 }
             },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent)

@@ -13,10 +13,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Videocam
@@ -28,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,6 +51,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.daygle.aicamera.data.model.Detection
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.ui.components.EmptyState
 import com.daygle.aicamera.ui.components.ErrorState
@@ -55,6 +59,9 @@ import com.daygle.aicamera.ui.components.LoadingState
 import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatTimestamp
 import com.daygle.aicamera.ui.isSoundLabel
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
 
 @Composable
 fun SnapshotsScreen(
@@ -71,7 +78,16 @@ fun SnapshotsScreen(
 
     openEventId?.let { eventId ->
         val url = viewModel.snapshotUrl(eventId)
-        SnapshotDialog(url = url, onDismiss = { openEventId = null })
+        SnapshotDialog(
+            url = url,
+            onDismiss = { openEventId = null },
+            onDownload = {
+                url?.let {
+                    val fileName = "snapshot-$eventId.jpg"
+                    viewModel.download(it, fileName)
+                }
+            }
+        )
     }
 
     when (val current = state) {
@@ -173,21 +189,25 @@ private fun SnapshotRow(
                 }
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(
-                    "Event #${event.id}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    formatEventLabel(event.topLabel ?: "Snapshot"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        formatEventLabel(event.topLabel ?: "Snapshot"),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    EventTypeBadge(isSound = isSoundEvent(event))
+                }
+                
                 Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
+                    val isSound = isSoundEvent(event)
                     Icon(
-                        if (isSoundEvent(event)) Icons.Filled.CalendarToday else Icons.Filled.Videocam,
+                        if (isSound) Icons.Filled.GraphicEq else Icons.Filled.Videocam,
                         contentDescription = null,
                         modifier = Modifier.size(14.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -198,10 +218,59 @@ private fun SnapshotRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+
+                val detectionsToShow = if (event.detections.isEmpty() && event.source == "sound") {
+                    val confidence = (event.metadata["confidence"] as? JsonPrimitive)?.doubleOrNull
+                    val label = (event.metadata["label"] as? JsonPrimitive)?.contentOrNull
+                    if (confidence != null && label != null) {
+                        listOf(Detection(label, confidence))
+                    } else {
+                        emptyList()
+                    }
+                } else {
+                    event.detections
+                }
+
+                if (detectionsToShow.isNotEmpty()) {
+                    Text(
+                        detectionsToShow.joinToString(", ") {
+                            "${formatEventLabel(it.label)} (${(it.confidence * 100).toInt()}%)"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }
 }
+
+@Composable
+private fun EventTypeBadge(isSound: Boolean) {
+    Surface(
+        color = if (isSound) {
+            MaterialTheme.colorScheme.tertiaryContainer
+        } else {
+            MaterialTheme.colorScheme.primaryContainer
+        },
+        shape = RoundedCornerShape(50),
+    ) {
+        Text(
+            if (isSound) "Sound" else "Object",
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = if (isSound) {
+                MaterialTheme.colorScheme.onTertiaryContainer
+            } else {
+                MaterialTheme.colorScheme.onPrimaryContainer
+            },
+        )
+    }
+}
+
 
 private fun isSoundEvent(event: Event): Boolean =
     event.source?.lowercase() == "sound" ||
@@ -210,7 +279,11 @@ private fun isSoundEvent(event: Event): Boolean =
         event.detections.any { isSoundLabel(it.label) }
 
 @Composable
-private fun SnapshotDialog(url: String?, onDismiss: () -> Unit) {
+private fun SnapshotDialog(
+    url: String?,
+    onDismiss: () -> Unit,
+    onDownload: () -> Unit
+) {
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -229,6 +302,19 @@ private fun SnapshotDialog(url: String?, onDismiss: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                     contentScale = ContentScale.Fit,
                 )
+                IconButton(
+                    onClick = onDownload,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(24.dp)
+                        .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+                ) {
+                    Icon(
+                        Icons.Filled.Download,
+                        contentDescription = "Download",
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             } else {
                 Text("Snapshot unavailable", color = Color.White)
             }

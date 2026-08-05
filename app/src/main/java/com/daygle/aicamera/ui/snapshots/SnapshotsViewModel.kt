@@ -1,11 +1,14 @@
 package com.daygle.aicamera.ui.snapshots
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.ui.dashboard.friendlyMessage
+import com.daygle.aicamera.util.FileDownloader
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,9 +36,12 @@ sealed interface SnapshotsUiState {
 @HiltViewModel
 class SnapshotsViewModel @Inject constructor(
     private val repository: CameraRepository,
+    @ApplicationContext private val context: Context,
 ) : ViewModel() {
     private val _state = MutableStateFlow<SnapshotsUiState>(SnapshotsUiState.Loading)
     val state: StateFlow<SnapshotsUiState> = _state.asStateFlow()
+
+    private val downloader = FileDownloader(context, repository.httpClient())
 
     private var allSnapshots: List<Event> = emptyList()
 
@@ -82,6 +88,12 @@ class SnapshotsViewModel @Inject constructor(
             } else {
                 current
             }
+        }
+    }
+
+    fun download(url: String, fileName: String) {
+        viewModelScope.launch {
+            downloader.downloadFile(url, fileName, "image/jpeg")
         }
     }
 

@@ -3,20 +3,17 @@ package com.daygle.aicamera.ui.settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Info
@@ -25,21 +22,14 @@ import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,7 +38,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -62,8 +51,9 @@ import com.daygle.aicamera.ui.components.SettingsSwitchRow
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onBack: () -> Unit,
     onSignOut: () -> Unit,
+    onOpenNotifications: () -> Unit,
+    onOpenServerDetails: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -111,105 +101,99 @@ fun SettingsScreen(
         )
     }
 
-    Scaffold(
-        modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text("Settings", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        SettingsCard(title = "Appearance", icon = Icons.Filled.Palette) {
+            SettingsRow(
+                title = "Theme",
+                value = state.themeLabel,
+                onClick = { showThemeDialog = true }
             )
-        },
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            SettingsCard(title = "Appearance", icon = Icons.Filled.Palette) {
-                SettingsRow(
-                    title = "Theme",
-                    value = state.themeLabel,
-                    onClick = { showThemeDialog = true }
-                )
-            }
+        }
 
-            SettingsCard(title = "Display Options", icon = Icons.Filled.Schedule) {
-                SettingsSwitchRow(
-                    title = "Use 24-Hour Format",
-                    checked = state.use24Hour,
-                    onCheckedChange = { viewModel.setUse24Hour(it) }
-                )
-            }
+        SettingsCard(title = "Display Options", icon = Icons.Filled.Schedule) {
+            SettingsSwitchRow(
+                title = "Use 24-Hour Format",
+                checked = state.use24Hour,
+                onCheckedChange = { viewModel.setUse24Hour(it) }
+            )
+        }
 
-            SettingsCard(title = "Live View Refresh", icon = Icons.Filled.Speed) {
-                SettingsRow(
-                    title = "Refresh Rate",
-                    value = state.refreshLabel,
-                    onClick = { showRefreshDialog = true }
-                )
-            }
+        SettingsCard(title = "Live View Refresh", icon = Icons.Filled.Speed) {
+            SettingsRow(
+                title = "Refresh Rate",
+                value = state.refreshLabel,
+                onClick = { showRefreshDialog = true }
+            )
+        }
 
-            SettingsCard(title = "Permissions", icon = Icons.Filled.NotificationsActive) {
-                Text(
-                    "Required for camera alerts to reach this device.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(16.dp),
-                )
-                PermissionsChecklist(
-                    showTestButton = false,
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
-                )
-            }
+        SettingsCard(title = "Notifications", icon = Icons.Filled.NotificationsActive) {
+            SettingsRow(
+                title = "Push Notifications",
+                subtitle = "Configure alerts and server connection",
+                onClick = onOpenNotifications
+            )
+            SettingsDivider()
+            Text(
+                "Device permissions required for alerts to reach you:",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+            PermissionsChecklist(
+                showTestButton = false,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
+            )
+        }
 
-            SettingsCard(title = "Account", icon = Icons.Filled.Dns) {
-                ListItem(
-                    headlineContent = { Text("Server", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold) },
-                    supportingContent = {
-                        Text(state.serverLabel.ifBlank { "Not connected" })
-                    },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                )
-                SettingsDivider()
-                SignOutButton(onClick = { showSignOutDialog = true })
-            }
+        SettingsCard(title = "Server Details", icon = Icons.Filled.Dns) {
+            SettingsRow(
+                title = "Connection Settings",
+                subtitle = "Manage server address and credentials",
+                onClick = onOpenServerDetails
+            )
+            SettingsDivider()
+            ListItem(
+                headlineContent = { Text("Server Status", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold) },
+                supportingContent = {
+                    Text(state.serverLabel.ifBlank { "Not connected" })
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            )
+            SettingsDivider()
+            SignOutButton(onClick = { showSignOutDialog = true })
+        }
 
-            SettingsCard(title = "About", icon = Icons.Filled.Info) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column {
-                        Text("Daygle AI Camera", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            "Version 1.0.0",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            "Android client for self-hosted Daygle AI Camera",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+        SettingsCard(title = "About", icon = Icons.Filled.Info) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text("Daygle AI Camera", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        "Version 1.0.0",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Android client for self-hosted Daygle AI Camera",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
-            Spacer(Modifier.height(24.dp))
         }
+        Spacer(Modifier.height(24.dp))
     }
 }
 

@@ -18,13 +18,12 @@ import com.daygle.aicamera.ui.connect.ConnectScreen
 import com.daygle.aicamera.ui.notifications.NotificationsScreen
 import com.daygle.aicamera.ui.onboarding.OnboardingScreen
 import com.daygle.aicamera.ui.player.PlayerScreen
-import com.daygle.aicamera.ui.settings.SettingsScreen
 
 private object Routes {
     const val CONNECT = "connect"
     const val HOME = "home"
     const val NOTIFICATIONS = "notifications"
-    const val SETTINGS = "settings"
+    const val SERVER_DETAILS = "server_details"
     const val PLAYER = "player/{recordingId}"
 
     fun player(recordingId: Int) = "player/$recordingId"
@@ -61,12 +60,7 @@ fun DaygleNavHost(
                         HomeScreen(
                             onOpenRecording = { id -> navController.navigate(Routes.player(id)) },
                             onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
-                            onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                        )
-                    }
-                    composable(Routes.SETTINGS) {
-                        SettingsScreen(
-                            onBack = { navController.popBackStack() },
+                            onOpenServerDetails = { navController.navigate(Routes.SERVER_DETAILS) },
                             onSignOut = {
                                 com.daygle.aicamera.push.PushController.stop(appContext)
                                 rootViewModel.disconnect {
@@ -75,6 +69,19 @@ fun DaygleNavHost(
                                     }
                                 }
                             },
+                        )
+                    }
+                    composable(Routes.SERVER_DETAILS) {
+                        com.daygle.aicamera.ui.settings.ServerDetailsScreen(
+                            onBack = { navController.popBackStack() },
+                            onSignOut = {
+                                com.daygle.aicamera.push.PushController.stop(appContext)
+                                rootViewModel.disconnect {
+                                    navController.navigate(Routes.CONNECT) {
+                                        popUpTo(Routes.HOME) { inclusive = true }
+                                    }
+                                }
+                            }
                         )
                     }
                     composable(Routes.NOTIFICATIONS) {

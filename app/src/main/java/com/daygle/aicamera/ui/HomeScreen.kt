@@ -4,10 +4,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,6 +39,7 @@ private enum class HomeTab(val label: String, val icon: ImageVector) {
     Cameras("Cameras", Icons.Outlined.Videocam),
     Events("Events", Icons.Outlined.Notifications),
     Clips("Clips", Icons.Outlined.VideoLibrary),
+    Settings("Settings", Icons.Outlined.Settings),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -46,7 +47,8 @@ private enum class HomeTab(val label: String, val icon: ImageVector) {
 fun HomeScreen(
     onOpenRecording: (Int) -> Unit,
     onOpenNotifications: () -> Unit,
-    onOpenSettings: () -> Unit,
+    onOpenServerDetails: () -> Unit,
+    onSignOut: () -> Unit,
 ) {
     var selectedTab by remember { mutableStateOf(HomeTab.Cameras) }
     var refreshTrigger by remember { mutableIntStateOf(0) }
@@ -60,14 +62,6 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 title = { Text(selectedTab.label) },
-                actions = {
-                    IconButton(onClick = onOpenNotifications) {
-                        Icon(Icons.Filled.NotificationsNone, contentDescription = "Alert notifications")
-                    }
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Filled.Settings, contentDescription = "Settings")
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
@@ -103,6 +97,12 @@ fun HomeScreen(
                 onOpenRecording = onOpenRecording,
                 modifier = contentModifier,
                 refreshTrigger = refreshTrigger,
+            )
+            HomeTab.Settings -> com.daygle.aicamera.ui.settings.SettingsScreen(
+                onOpenNotifications = onOpenNotifications,
+                onOpenServerDetails = onOpenServerDetails,
+                onSignOut = onSignOut,
+                modifier = contentModifier,
             )
         }
     }
