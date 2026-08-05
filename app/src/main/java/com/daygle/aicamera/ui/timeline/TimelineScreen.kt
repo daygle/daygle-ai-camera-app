@@ -3,10 +3,12 @@ package com.daygle.aicamera.ui.timeline
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -21,11 +23,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,11 +46,13 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -67,9 +74,10 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
 
-private const val MINUTE_WIDTH = 4f // Pixels per minute
+private const val DEFAULT_MINUTE_WIDTH = 4f
+private const val MIN_MINUTE_WIDTH = 1f
+private const val MAX_MINUTE_WIDTH = 40f
 private const val TOTAL_MINUTES = 24 * 60
-private val TIMELINE_WIDTH = (TOTAL_MINUTES * MINUTE_WIDTH).dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,6 +90,7 @@ fun TimelineScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf<String?>(null) } // "start" or "end"
+    var minuteWidth by remember { mutableFloatStateOf(DEFAULT_MINUTE_WIDTH) }
 
     androidx.compose.runtime.LaunchedEffect(refreshTrigger) {
         if (refreshTrigger > 0) viewModel.load()
@@ -189,24 +198,44 @@ fun TimelineScreen(
                             )
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 val timeFormatter = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale)
-                                Text(
-                                    "${data.startTime.format(timeFormatter)} - ${data.endTime.format(timeFormatter)}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                TextButton(onClick = { viewModel.setTimeRange(LocalTime.MIN, LocalTime.MAX) }) {
-                                    Text("Reset", style = MaterialTheme.typography.labelSmall)
+                                Surface(
+                                    onClick = { showTimePicker = "start" },
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        data.startTime.format(timeFormatter),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Text(" - ", style = MaterialTheme.typography.bodySmall)
+                                Surface(
+                                    onClick = { showTimePicker = "end" },
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        data.endTime.format(timeFormatter),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Spacer(Modifier.width(12.dp))
+                                if (data.startTime != LocalTime.MIN || data.endTime != LocalTime.MAX) {
+                                    TextButton(
+                                        onClick = { viewModel.setTimeRange(LocalTime.MIN, LocalTime.MAX) },
+                                        contentPadding = PaddingValues(0.dp),
+                                        modifier = Modifier.height(32.dp)
+                                    ) {
+                                        Text("Reset", style = MaterialTheme.typography.labelSmall)
+                                    }
                                 }
                             }
                         }
                         Row {
-                            IconButton(onClick = { showTimePicker = "start" }) {
-                                Icon(Icons.Filled.AccessTime, contentDescription = "Start Time")
-                            }
-                            IconButton(onClick = { showTimePicker = "end" }) {
-                                Icon(Icons.Filled.AccessTime, contentDescription = "End Time")
-                            }
                             IconButton(onClick = { showDatePicker = true }) {
                                 Icon(Icons.Filled.CalendarMonth, contentDescription = "Change Date")
                             }
@@ -232,6 +261,8 @@ fun TimelineScreen(
                             segments = data.objectSegments,
                             color = MaterialTheme.colorScheme.primary,
                             locale = locale,
+                            minuteWidth = minuteWidth,
+                            onMinuteWidthChange = { minuteWidth = it.coerceIn(MIN_MINUTE_WIDTH, MAX_MINUTE_WIDTH) },
                             onSegmentClick = onOpenRecording
                         )
 
@@ -241,6 +272,8 @@ fun TimelineScreen(
                             segments = data.soundSegments,
                             color = MaterialTheme.colorScheme.tertiary,
                             locale = locale,
+                            minuteWidth = minuteWidth,
+                            onMinuteWidthChange = { minuteWidth = it.coerceIn(MIN_MINUTE_WIDTH, MAX_MINUTE_WIDTH) },
                             onSegmentClick = onOpenRecording
                         )
                     }
@@ -257,6 +290,8 @@ private fun TimelineLane(
     segments: List<TimelineSegment>,
     color: Color,
     locale: Locale,
+    minuteWidth: Float,
+    onMinuteWidthChange: (Float) -> Unit,
     onSegmentClick: (Int) -> Unit
 ) {
     val scrollState = rememberScrollState()
@@ -277,6 +312,11 @@ private fun TimelineLane(
                 .height(140.dp)
                 .horizontalScroll(scrollState)
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                .pointerInput(Unit) {
+                    detectTransformGestures { _, _, zoom, _ ->
+                        onMinuteWidthChange(minuteWidth * zoom)
+                    }
+                }
         ) {
             val textPaint = remember {
                 android.graphics.Paint().apply {
@@ -289,10 +329,10 @@ private fun TimelineLane(
             Canvas(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .width(TIMELINE_WIDTH)
-                    .pointerInput(segments) {
+                    .width((TOTAL_MINUTES * minuteWidth).dp)
+                    .pointerInput(segments, minuteWidth) {
                         detectTapGestures { offset ->
-                            val minute = offset.x / MINUTE_WIDTH
+                            val minute = offset.x / minuteWidth
                             val segment = segments.find { 
                                 minute >= it.startMinute && minute <= (it.startMinute + it.durationMinutes)
                             }
@@ -302,7 +342,7 @@ private fun TimelineLane(
             ) {
                 // Draw hour markers
                 for (hour in 0..24) {
-                    val x = hour * 60 * MINUTE_WIDTH
+                    val x = hour * 60 * minuteWidth
                     drawLine(
                         color = Color.Gray.copy(alpha = 0.4f),
                         start = Offset(x, 0f),
@@ -314,7 +354,7 @@ private fun TimelineLane(
                         drawIntoCanvas { canvas ->
                             canvas.nativeCanvas.drawText(
                                 String.format(locale, "%02d:00", hour),
-                                x + (30 * MINUTE_WIDTH),
+                                x + (30 * minuteWidth),
                                 size.height - 10f,
                                 textPaint
                             )
@@ -324,8 +364,8 @@ private fun TimelineLane(
 
                 // Draw segments
                 segments.forEach { segment ->
-                    val x = segment.startMinute * MINUTE_WIDTH
-                    val width = segment.durationMinutes * MINUTE_WIDTH
+                    val x = segment.startMinute * minuteWidth
+                    val width = segment.durationMinutes * minuteWidth
                     
                     drawRoundRect(
                         color = color,
