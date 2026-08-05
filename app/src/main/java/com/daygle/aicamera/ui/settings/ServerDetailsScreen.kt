@@ -136,7 +136,7 @@ fun ServerDetailsScreen(
                 onClick = { showCloudflare = !showCloudflare },
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Cloudflare Access (optional)")
+                Text("Cloudflare Access (Optional)")
                 Icon(
                     imageVector = if (showCloudflare) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
                     contentDescription = null,

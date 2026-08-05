@@ -9,14 +9,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Schedule
@@ -24,10 +29,12 @@ import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.daygle.aicamera.ui.HomeTab
 import com.daygle.aicamera.ui.permissions.PermissionsChecklist
 import com.daygle.aicamera.ui.components.SettingsCard
 import com.daygle.aicamera.ui.components.SettingsDivider
@@ -130,6 +138,50 @@ fun SettingsScreen(
                 value = state.refreshLabel,
                 onClick = { showRefreshDialog = true }
             )
+        }
+
+        SettingsCard(title = "Navigation Menu", icon = Icons.Filled.Menu) {
+            Text(
+                "Configure the bottom navigation bar. Toggle visibility or change order.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(16.dp),
+            )
+            
+            HomeTab.entries.forEachIndexed { index, tab ->
+                val isActive = state.navItems.contains(tab)
+                val currentIndex = state.navItems.indexOf(tab)
+                
+                ListItem(
+                    headlineContent = { Text(tab.label) },
+                    leadingContent = { Icon(tab.icon, null) },
+                    trailingContent = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (isActive) {
+                                IconButton(
+                                    onClick = { viewModel.moveNavItem(currentIndex, true) },
+                                    enabled = currentIndex > 0
+                                ) {
+                                    Icon(Icons.Filled.ArrowUpward, "Move Up", modifier = Modifier.size(20.dp))
+                                }
+                                IconButton(
+                                    onClick = { viewModel.moveNavItem(currentIndex, false) },
+                                    enabled = currentIndex < state.navItems.size - 1
+                                ) {
+                                    Icon(Icons.Filled.ArrowDownward, "Move Down", modifier = Modifier.size(20.dp))
+                                }
+                            }
+                            Switch(
+                                checked = isActive,
+                                onCheckedChange = { viewModel.toggleNavItem(tab) },
+                                enabled = !isActive || state.navItems.size > 1
+                            )
+                        }
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+                if (index < HomeTab.entries.size - 1) SettingsDivider()
+            }
         }
 
         SettingsCard(title = "Notifications", icon = Icons.Filled.NotificationsActive) {

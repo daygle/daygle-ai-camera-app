@@ -497,16 +497,6 @@ private fun FilterSection(
     }
 }
 
-private fun RecordingsFilter.activeCount(): Int {
-    var count = 0
-    if (query.isNotBlank()) count++
-    if (dateStart != null || dateEnd != null) count++
-    count += selectedModes.size
-    count += selectedCameras.size
-    count += selectedTriggerTypes.size
-    count += selectedLabels.size
-    return count
-}
 
 private fun getDateFormatter(): DateTimeFormatter =
     DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)

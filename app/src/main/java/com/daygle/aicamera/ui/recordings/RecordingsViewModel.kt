@@ -29,8 +29,8 @@ enum class SortOrder(val label: String) {
 
 data class RecordingsFilter(
     val query: String = "",
-    val dateStart: LocalDate? = null,
-    val dateEnd: LocalDate? = null,
+    val dateStart: LocalDate? = LocalDate.now(),
+    val dateEnd: LocalDate? = LocalDate.now(),
     val selectedModes: Set<String> = emptySet(),
     val selectedCameras: Set<String> = emptySet(),
     val selectedTriggerTypes: Set<String> = emptySet(),
@@ -170,7 +170,7 @@ class RecordingsViewModel @Inject constructor(
     }
 
     fun clearFilters() {
-        updateFilter { RecordingsFilter() }
+        updateFilter { RecordingsFilter(dateStart = null, dateEnd = null) }
     }
 
     /** Absolute URL for streaming or downloading a recording's MP4. */

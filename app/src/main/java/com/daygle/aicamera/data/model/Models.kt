@@ -109,7 +109,7 @@ data class Event(
     @SerialName("has_snapshot") val hasSnapshot: Boolean = false,
     val metadata: Map<String, JsonElement> = emptyMap(),
 ) {
-    val alerted: Boolean get() = alertTriggered != 0 || alert != null
+    val alerted: Boolean get() = alert != null
     val topLabel: String? get() = triggerLabel ?: triggerType
         ?: detections.maxByOrNull { it.confidence }?.label
         ?: (metadata["label"] as? JsonPrimitive)?.contentOrNull

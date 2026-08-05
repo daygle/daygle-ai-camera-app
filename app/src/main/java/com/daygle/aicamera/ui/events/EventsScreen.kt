@@ -538,17 +538,6 @@ private fun FilterSection(
     }
 }
 
-private fun EventsFilter.activeCount(): Int {
-    var count = 0
-    if (query.isNotBlank()) count++
-    if (alertedOnly) count++
-    if (dateStart != null || dateEnd != null) count++
-    count += selectedModes.size
-    count += selectedCameras.size
-    count += selectedTriggerTypes.size
-    count += selectedLabels.size
-    return count
-}
 
 private fun getDateFormatter(): DateTimeFormatter =
     DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)

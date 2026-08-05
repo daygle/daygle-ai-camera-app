@@ -30,6 +30,7 @@ class AppPreferencesStore(private val context: Context) {
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val USE_24H = booleanPreferencesKey("use_24h")
         val REFRESH_INTERVAL_MS = longPreferencesKey("refresh_interval_ms")
+        val NAV_ITEMS = stringPreferencesKey("nav_items")
     }
 
     val themeMode: Flow<ThemeMode> = context.appPrefsDataStore.data.map { prefs ->
@@ -46,9 +47,14 @@ class AppPreferencesStore(private val context: Context) {
         prefs[Keys.REFRESH_INTERVAL_MS] ?: 1000L
     }
 
+    val navItems: Flow<String?> = context.appPrefsDataStore.data.map { prefs ->
+        prefs[Keys.NAV_ITEMS]
+    }
+
     suspend fun currentThemeMode(): ThemeMode = themeMode.first()
     suspend fun currentUse24Hour(): Boolean = use24Hour.first()
     suspend fun currentRefreshIntervalMs(): Long = refreshIntervalMs.first()
+    suspend fun currentNavItems(): String? = navItems.first()
 
     suspend fun setThemeMode(mode: ThemeMode) {
         context.appPrefsDataStore.edit { it[Keys.THEME_MODE] = mode.key }
@@ -60,5 +66,9 @@ class AppPreferencesStore(private val context: Context) {
 
     suspend fun setRefreshIntervalMs(value: Long) {
         context.appPrefsDataStore.edit { it[Keys.REFRESH_INTERVAL_MS] = value }
+    }
+
+    suspend fun setNavItems(value: String) {
+        context.appPrefsDataStore.edit { it[Keys.NAV_ITEMS] = value }
     }
 }

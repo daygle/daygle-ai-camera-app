@@ -1,5 +1,6 @@
 package com.daygle.aicamera.ui
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -8,6 +9,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.ViewTimeline
 import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,17 +32,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.daygle.aicamera.ui.dashboard.DashboardScreen
 import com.daygle.aicamera.ui.events.EventsScreen
 import com.daygle.aicamera.ui.recordings.RecordingsScreen
 import com.daygle.aicamera.ui.snapshots.SnapshotsScreen
-
-private enum class HomeTab(val label: String, val icon: ImageVector) {
-    Cameras("Cameras", Icons.Outlined.Videocam),
-    Events("Events", Icons.Outlined.Notifications),
-    Clips("Clips", Icons.Outlined.VideoLibrary),
-    Settings("Settings", Icons.Outlined.Settings),
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,8 +46,14 @@ fun HomeScreen(
     onOpenNotifications: () -> Unit,
     onOpenServerDetails: () -> Unit,
     onSignOut: () -> Unit,
+    viewModel: HomeViewModel = hiltViewModel(),
 ) {
-    var selectedTab by remember { mutableStateOf(HomeTab.Cameras) }
+    val navItems by viewModel.navItems.collectAsStateWithLifecycle()
+    var selectedTab by remember { mutableStateOf<HomeTab?>(null) }
+    
+    // Ensure selectedTab is valid for the current navItems
+    val effectiveSelectedTab = selectedTab?.takeIf { it in navItems } ?: navItems.firstOrNull()
+    
     var refreshTrigger by remember { mutableIntStateOf(0) }
 
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -61,21 +64,23 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(selectedTab.label) },
+                title = { Text(effectiveSelectedTab?.label ?: "") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
             )
         },
         bottomBar = {
-            NavigationBar {
-                HomeTab.entries.forEach { tab ->
-                    NavigationBarItem(
-                        selected = selectedTab == tab,
-                        onClick = { selectedTab = tab },
-                        icon = { Icon(tab.icon, contentDescription = tab.label) },
-                        label = { Text(tab.label) },
-                    )
+            if (navItems.isNotEmpty()) {
+                NavigationBar {
+                    navItems.forEach { tab ->
+                        NavigationBarItem(
+                            selected = effectiveSelectedTab == tab,
+                            onClick = { selectedTab = tab },
+                            icon = { Icon(tab.icon, contentDescription = tab.label) },
+                            label = { Text(tab.label) },
+                        )
+                    }
                 }
             }
         },
@@ -83,8 +88,14 @@ fun HomeScreen(
         val contentModifier = Modifier
             .fillMaxSize()
             .padding(padding)
-        when (selectedTab) {
+        
+        when (effectiveSelectedTab) {
             HomeTab.Cameras -> DashboardScreen(
+                modifier = contentModifier,
+                refreshTrigger = refreshTrigger,
+            )
+            HomeTab.Timeline -> com.daygle.aicamera.ui.timeline.TimelineScreen(
+                onOpenRecording = onOpenRecording,
                 modifier = contentModifier,
                 refreshTrigger = refreshTrigger,
             )
@@ -104,6 +115,7 @@ fun HomeScreen(
                 onSignOut = onSignOut,
                 modifier = contentModifier,
             )
+            null -> Box(Modifier.fillMaxSize())
         }
     }
 }

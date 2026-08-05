@@ -111,7 +111,7 @@ public IP. The app simply points at the resulting `https://` hostname.
 
 If you protect the tunnel with **Cloudflare Access**, add a **service token**
 (Zero Trust → Access → Service Auth) and enter its **Client ID / Client Secret**
-in the app's connect screen under *Cloudflare Access (optional)*. The app then
+in the app's connect screen under *Cloudflare Access (Optional)*. The app then
 sends the `CF-Access-Client-Id` / `CF-Access-Client-Secret` headers on every
 request - including the login handshake and the push-alert stream - so
 Access lets the app through instead of redirecting it to a browser login page.

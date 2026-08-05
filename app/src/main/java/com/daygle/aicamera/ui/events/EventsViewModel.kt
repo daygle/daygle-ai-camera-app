@@ -27,15 +27,27 @@ enum class EventsSortOrder(val label: String) {
 
 data class EventsFilter(
     val query: String = "",
-    val dateStart: LocalDate? = null,
-    val dateEnd: LocalDate? = null,
+    val dateStart: LocalDate? = LocalDate.now(),
+    val dateEnd: LocalDate? = LocalDate.now(),
     val selectedModes: Set<String> = emptySet(),
     val selectedCameras: Set<String> = emptySet(),
     val selectedTriggerTypes: Set<String> = emptySet(),
     val selectedLabels: Set<String> = emptySet(),
     val alertedOnly: Boolean = false,
     val sortOrder: EventsSortOrder = EventsSortOrder.NEWEST,
-)
+) {
+    fun activeCount(): Int {
+        var count = 0
+        if (query.isNotBlank()) count++
+        if (alertedOnly) count++
+        if (dateStart != null || dateEnd != null) count++
+        count += selectedModes.size
+        count += selectedCameras.size
+        count += selectedTriggerTypes.size
+        count += selectedLabels.size
+        return count
+    }
+}
 
 data class EventsReady(
     val events: List<Event>,
@@ -160,7 +172,7 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
     }
 
     fun clearFilters() {
-        updateFilter { EventsFilter() }
+        updateFilter { EventsFilter(dateStart = null, dateEnd = null) }
     }
 
     /** Absolute URL for an event's annotated snapshot, or null if unconfigured. */
