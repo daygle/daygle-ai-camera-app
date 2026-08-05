@@ -54,6 +54,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.daygle.aicamera.ui.permissions.PermissionsChecklist
+import com.daygle.aicamera.ui.components.SettingsCard
+import com.daygle.aicamera.ui.components.SettingsDivider
+import com.daygle.aicamera.ui.components.SettingsRow
+import com.daygle.aicamera.ui.components.SettingsSwitchRow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,46 +105,79 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            SettingsGroup(title = "Appearance", icon = Icons.Filled.Palette) {
-                ThemeOption("System Default", state.themeMode == "system") { viewModel.setTheme("system") }
-                ThemeOption("Dark Mode", state.themeMode == "dark") { viewModel.setTheme("dark") }
-                ThemeOption("Light Mode", state.themeMode == "light") { viewModel.setTheme("light") }
+            SettingsCard(title = "Appearance", icon = Icons.Filled.Palette) {
+                SettingsRow(
+                    title = "System Default",
+                    value = if (state.themeMode == "system") "Selected" else null,
+                    onClick = { viewModel.setTheme("system") }
+                )
+                SettingsDivider()
+                SettingsRow(
+                    title = "Dark Mode",
+                    value = if (state.themeMode == "dark") "Selected" else null,
+                    onClick = { viewModel.setTheme("dark") }
+                )
+                SettingsDivider()
+                SettingsRow(
+                    title = "Light Mode",
+                    value = if (state.themeMode == "light") "Selected" else null,
+                    onClick = { viewModel.setTheme("light") }
+                )
             }
 
-            SettingsGroup(title = "Display Options", icon = Icons.Filled.Schedule) {
-                SwitchRow("Use 24-Hour Format", state.use24Hour) { viewModel.setUse24Hour(it) }
+            SettingsCard(title = "Display Options", icon = Icons.Filled.Schedule) {
+                SettingsSwitchRow(
+                    title = "Use 24-Hour Format",
+                    checked = state.use24Hour,
+                    onCheckedChange = { viewModel.setUse24Hour(it) }
+                )
             }
 
-            SettingsGroup(title = "Live View Refresh", icon = Icons.Filled.Speed) {
-                RefreshOption("Fast (500 ms)", state.refreshLabel == "Fast (500 ms)", 500L, viewModel)
-                RefreshOption("Balanced (1 s)", state.refreshLabel == "Balanced (1 s)", 1000L, viewModel)
-                RefreshOption("Smooth (2 s)", state.refreshLabel == "Smooth (2 s)", 2000L, viewModel)
+            SettingsCard(title = "Live View Refresh", icon = Icons.Filled.Speed) {
+                SettingsRow(
+                    title = "Fast (500 ms)",
+                    value = if (state.refreshLabel == "Fast (500 ms)") "Selected" else null,
+                    onClick = { viewModel.setRefreshInterval(500L) }
+                )
+                SettingsDivider()
+                SettingsRow(
+                    title = "Balanced (1 s)",
+                    value = if (state.refreshLabel == "Balanced (1 s)") "Selected" else null,
+                    onClick = { viewModel.setRefreshInterval(1000L) }
+                )
+                SettingsDivider()
+                SettingsRow(
+                    title = "Smooth (2 s)",
+                    value = if (state.refreshLabel == "Smooth (2 s)") "Selected" else null,
+                    onClick = { viewModel.setRefreshInterval(2000L) }
+                )
             }
 
-            SettingsGroup(title = "Permissions", icon = Icons.Filled.NotificationsActive) {
+            SettingsCard(title = "Permissions", icon = Icons.Filled.NotificationsActive) {
                 Text(
                     "Required for camera alerts to reach this device.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
+                    modifier = Modifier.padding(16.dp),
                 )
                 PermissionsChecklist(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
                 )
             }
 
-            SettingsGroup(title = "Account", icon = Icons.Filled.Dns) {
+            SettingsCard(title = "Account", icon = Icons.Filled.Dns) {
                 ListItem(
-                    headlineContent = { Text("Server", style = MaterialTheme.typography.bodyLarge) },
+                    headlineContent = { Text("Server", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold) },
                     supportingContent = {
                         Text(state.serverLabel.ifBlank { "Not connected" })
                     },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 )
+                SettingsDivider()
                 SignOutButton(onClick = { showSignOutDialog = true })
             }
 
-            SettingsGroup(title = "About", icon = Icons.Filled.Info) {
+            SettingsCard(title = "About", icon = Icons.Filled.Info) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -220,76 +257,5 @@ private fun SignOutDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
         },
-    )
-}
-
-@Composable
-private fun SettingsGroup(
-    title: String,
-    icon: ImageVector,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(horizontal = 4.dp)
-        ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-        }
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            ),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(content = content)
-        }
-    }
-}
-
-@Composable
-private fun ThemeOption(label: String, selected: Boolean, onClick: () -> Unit) {
-    ListItem(
-        headlineContent = { Text(label, style = MaterialTheme.typography.bodyLarge) },
-        leadingContent = { RadioButton(selected = selected, onClick = null) },
-        modifier = Modifier.clickable { onClick() },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-    )
-}
-
-@Composable
-private fun SwitchRow(label: String, checked: Boolean, onToggle: (Boolean) -> Unit) {
-    ListItem(
-        headlineContent = { Text(label, style = MaterialTheme.typography.bodyLarge) },
-        trailingContent = { Switch(checked = checked, onCheckedChange = onToggle) },
-        modifier = Modifier.clickable { onToggle(!checked) },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-    )
-}
-
-@Composable
-private fun RefreshOption(
-    label: String,
-    selected: Boolean,
-    intervalMs: Long,
-    viewModel: SettingsViewModel,
-) {
-    ListItem(
-        headlineContent = { Text(label, style = MaterialTheme.typography.bodyLarge) },
-        leadingContent = { RadioButton(selected = selected, onClick = null) },
-        modifier = Modifier.clickable { viewModel.setRefreshInterval(intervalMs) },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
     )
 }

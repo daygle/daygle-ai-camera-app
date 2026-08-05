@@ -58,11 +58,11 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text(selectedTab.label) },
                 actions = {
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Filled.Settings, contentDescription = "Settings")
-                    }
                     IconButton(onClick = onOpenNotifications) {
                         Icon(Icons.Filled.NotificationsNone, contentDescription = "Alert notifications")
+                    }
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Filled.Settings, contentDescription = "Settings")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
