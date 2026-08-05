@@ -48,7 +48,7 @@ data class RecordingsReady(
         recordings.mapNotNull { it.cameraId ?: it.source }.filter { it != "sound" && it != "rtsp" }.distinct().sorted()
 
     val availableTriggerTypes: List<String> =
-        recordings.mapNotNull { it.triggerType }.distinct().sorted()
+        recordings.mapNotNull { it.triggerType }.filter { it.lowercase() != "alert" }.distinct().sorted()
 
     val availableLabels: List<String> =
         recordings
