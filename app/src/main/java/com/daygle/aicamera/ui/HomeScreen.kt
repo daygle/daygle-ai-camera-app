@@ -30,6 +30,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -50,7 +51,8 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val navItems by viewModel.navItems.collectAsStateWithLifecycle()
-    var selectedTab by remember { mutableStateOf<HomeTab?>(null) }
+    // rememberSaveable so the tab survives navigating to the player and back
+    var selectedTab by rememberSaveable { mutableStateOf<HomeTab?>(null) }
     
     // Ensure selectedTab is valid for the current navItems
     val effectiveSelectedTab = selectedTab?.takeIf { it in navItems } ?: navItems.firstOrNull()
@@ -138,7 +140,7 @@ private fun ClipsScreen(
     modifier: Modifier = Modifier,
     refreshTrigger: Int = 0,
 ) {
-    var selectedClipsTab by remember { mutableStateOf(ClipsTab.Recordings) }
+    var selectedClipsTab by rememberSaveable { mutableStateOf(ClipsTab.Recordings) }
 
     Column(modifier) {
         PrimaryTabRow(selectedTabIndex = selectedClipsTab.ordinal) {
