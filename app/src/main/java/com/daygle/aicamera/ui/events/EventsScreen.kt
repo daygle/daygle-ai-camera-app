@@ -561,6 +561,15 @@ private fun EventRow(
     // Prefer the explicit recording link (recording : events = 1:many); fall
     // back to the embedded recordings list for older server payloads.
     val firstRecordingId = event.recordingId ?: event.recordings.firstOrNull()?.id
+    val isSound = isSoundEvent(event)
+    val detectionsToShow = if (event.detections.isEmpty() && event.source == "sound") {
+        val confidence = (event.metadata["confidence"] as? JsonPrimitive)?.doubleOrNull
+        val label = (event.metadata["label"] as? JsonPrimitive)?.contentOrNull
+        if (confidence != null && label != null) listOf(Detection(label, confidence)) else emptyList()
+    } else {
+        event.detections
+    }
+
     Card(
         onClick = {
             if (firstRecordingId != null) onPlayRecording(firstRecordingId)
@@ -575,102 +584,75 @@ private fun EventRow(
             disabledContentColor = MaterialTheme.colorScheme.onSurface,
         )
     ) {
-        Column {
-            ListItem(
-                headlineContent = {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            EventTypeBadge(isSound = isSoundEvent(event))
-                            if (event.alerted) AlertBadge()
-                        }
-                        Text(
-                            "Event #${event.id}",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                },
-                supportingContent = {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            val isSound = isSoundEvent(event)
-                            Icon(
-                                imageVector = if (isSound) Icons.Filled.GraphicEq else Icons.Filled.Videocam,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-                            )
-                            Text(
-                                formatTimestamp(event.createdAt),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                },
-                leadingContent = {
-                    val isSound = isSoundEvent(event)
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (isSound) MaterialTheme.colorScheme.tertiaryContainer
-                                else MaterialTheme.colorScheme.primaryContainer
-                            ),
-                        contentAlignment = Alignment.Center
+        ListItem(
+            headlineContent = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        formatEventLabel(event.topLabel ?: "Event"),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (event.alerted) AlertBadge()
+                }
+            },
+            supportingContent = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         Icon(
-                            imageVector = if (isSound) Icons.Filled.GraphicEq else Icons.Filled.NotificationsActive,
+                            imageVector = if (isSound) Icons.Filled.GraphicEq else Icons.Filled.Videocam,
                             contentDescription = null,
-                            tint = if (isSound) MaterialTheme.colorScheme.onTertiaryContainer
-                            else MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                        )
+                        Text(
+                            formatTimestamp(event.createdAt),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-            )
-
-            // Detections & Actions
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
-            ) {
-                // Detection Chips
-                Row(
-                    modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val detectionsToShow = if (event.detections.isEmpty() && event.source == "sound") {
-                        val confidence = (event.metadata["confidence"] as? JsonPrimitive)?.doubleOrNull
-                        val label = (event.metadata["label"] as? JsonPrimitive)?.contentOrNull
-                        if (confidence != null && label != null) {
-                            listOf(Detection(label, confidence))
-                        } else {
-                            emptyList()
-                        }
-                    } else {
-                        event.detections
-                    }
-
-                    detectionsToShow.take(3).forEach { detection ->
-                        DetectionChip(detection)
+                    if (detectionsToShow.isNotEmpty()) {
+                        Text(
+                            detectionsToShow.joinToString(", ") {
+                                "${formatEventLabel(it.label)} (${(it.confidence * 100).toInt()}%)"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
-
-                // Action Buttons
+            },
+            leadingContent = {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (isSound) MaterialTheme.colorScheme.tertiaryContainer
+                            else MaterialTheme.colorScheme.primaryContainer
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = if (isSound) Icons.Filled.GraphicEq else Icons.Filled.NotificationsActive,
+                        contentDescription = null,
+                        tint = if (isSound) MaterialTheme.colorScheme.onTertiaryContainer
+                        else MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+            },
+            trailingContent = {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -680,13 +662,13 @@ private fun EventRow(
                             onClick = { onOpenSnapshot(event.id) },
                             modifier = Modifier
                                 .size(40.dp)
-                                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
                         ) {
                             Icon(
                                 Icons.Filled.Image,
                                 contentDescription = "View Snapshot",
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(20.dp),
                             )
                         }
                     }
@@ -695,45 +677,20 @@ private fun EventRow(
                             onClick = { onPlayRecording(firstRecordingId) },
                             modifier = Modifier
                                 .size(40.dp)
-                                .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
+                                .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
                         ) {
                             Icon(
                                 Icons.Filled.PlayCircle,
                                 contentDescription = "Play Recording",
                                 tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(20.dp),
                             )
                         }
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun DetectionChip(detection: Detection) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        shape = RoundedCornerShape(8.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                formatEventLabel(detection.label),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                "${(detection.confidence * 100).toInt()}%",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold
-            )
-        }
+            },
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        )
     }
 }
 
