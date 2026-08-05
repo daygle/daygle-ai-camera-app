@@ -33,7 +33,6 @@ data class EventsFilter(
     val selectedCameras: Set<String> = emptySet(),
     val selectedTriggerTypes: Set<String> = emptySet(),
     val selectedLabels: Set<String> = emptySet(),
-    val alertedOnly: Boolean = false,
     val sortOrder: EventsSortOrder = EventsSortOrder.NEWEST,
 )
 
@@ -151,10 +150,6 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
         }
     }
 
-    fun setAlertedOnly(value: Boolean) {
-        updateFilter { it.copy(alertedOnly = value) }
-    }
-
     fun setSortOrder(sortOrder: EventsSortOrder) {
         updateFilter { it.copy(sortOrder = sortOrder) }
     }
@@ -235,11 +230,6 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
                         e.metadataLabel() == sel
                 }
             }
-        }
-
-        // Alerted only
-        if (filter.alertedOnly) {
-            result = result.filter { it.alerted }
         }
 
         // Sort

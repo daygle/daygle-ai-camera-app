@@ -508,7 +508,7 @@ private fun getDateFormatter(): DateTimeFormatter =
         .withLocale(Locale.getDefault())
 
 private fun dateRangeLabel(start: LocalDate?, end: LocalDate?): String {
-    if (start == null && end == null) return "Any Time"
+    if (start == null && end == null) return "Anytime"
     val formatter = getDateFormatter()
     if (start != null && end != null) {
         return "${start.format(formatter)} - ${end.format(formatter)}"

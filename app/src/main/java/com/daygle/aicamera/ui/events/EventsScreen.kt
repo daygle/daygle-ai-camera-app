@@ -212,18 +212,6 @@ fun EventsScreen(
                         shape = RoundedCornerShape(12.dp)
                     )
 
-                    FilterChip(
-                        selected = data.filter.alertedOnly,
-                        onClick = { viewModel.setAlertedOnly(!data.filter.alertedOnly) },
-                        label = { Text("Alerts Only") },
-                        leadingIcon = {
-                            if (data.filter.alertedOnly) {
-                                Icon(Icons.Filled.NotificationsActive, null, Modifier.size(18.dp))
-                            }
-                        },
-                        shape = RoundedCornerShape(12.dp)
-                    )
-
                     // Active modes (Sound/Object)
                     data.filter.selectedModes.forEach { mode ->
                         FilterChip(
@@ -389,16 +377,6 @@ private fun EventsFilterSheet(
                 }
             }
 
-            // High Priority Toggle
-            FilterSection(title = "Alerts", icon = Icons.Filled.NotificationsActive) {
-                FilterChip(
-                    selected = state.alertedOnly,
-                    onClick = { viewModel.setAlertedOnly(!state.alertedOnly) },
-                    label = { Text("Only Show Alerts") },
-                    shape = RoundedCornerShape(12.dp)
-                )
-            }
-
             // Type (Object vs Sound)
             FilterSection(title = "Detection Type", icon = Icons.Filled.History) {
                 Row(
@@ -540,7 +518,6 @@ private fun FilterSection(
 private fun EventsFilter.activeCount(): Int {
     var count = 0
     if (query.isNotBlank()) count++
-    if (alertedOnly) count++
     if (dateStart != null || dateEnd != null) count++
     count += selectedModes.size
     count += selectedCameras.size
@@ -554,7 +531,7 @@ private fun getDateFormatter(): DateTimeFormatter =
         .withLocale(Locale.getDefault())
 
 private fun dateRangeLabel(start: LocalDate?, end: LocalDate?): String {
-    if (start == null && end == null) return "Any Time"
+    if (start == null && end == null) return "Anytime"
     val formatter = getDateFormatter()
     if (start != null && end != null) {
         return "${start.format(formatter)} - ${end.format(formatter)}"
