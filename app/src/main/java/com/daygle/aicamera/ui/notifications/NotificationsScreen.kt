@@ -172,7 +172,7 @@ fun NotificationsScreen(
                     },
                     supportingContent = {
                         Text(
-                            if (state.enabled) "Currently active" else "Currently disabled",
+                            if (state.enabled) "Currently Active" else "Currently Disabled",
                             color = if (state.enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
@@ -238,7 +238,7 @@ fun NotificationsScreen(
                         OutlinedTextField(
                             value = state.serverUrl,
                             onValueChange = viewModel::onServerUrl,
-                            label = { Text("ntfy Server URL") },
+                            label = { Text("Ntfy Server URL") },
                             placeholder = { Text("https://ntfy.sh") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
@@ -346,7 +346,7 @@ fun NotificationsScreen(
             ) {
                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Send test notification")
+                Text("Send Test Notification")
             }
 
             Spacer(Modifier.height(16.dp))
