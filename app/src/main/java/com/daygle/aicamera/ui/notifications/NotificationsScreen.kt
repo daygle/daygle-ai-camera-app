@@ -61,6 +61,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.automirrored.filled.Send
+import com.daygle.aicamera.ui.permissions.AppPermissions
 import androidx.compose.ui.text.font.FontWeight
 import com.daygle.aicamera.ui.permissions.PermissionsChecklist
 import androidx.compose.ui.text.input.ImeAction
@@ -328,33 +330,25 @@ fun NotificationsScreen(
                 }
             }
 
-            Text(
-                "Permissions & test",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 4.dp),
-            )
-            Text(
-                "Alerts only arrive when these are enabled. Send a test to confirm.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp),
-            )
-            PermissionsChecklist()
+            Spacer(Modifier.height(8.dp))
 
             OutlinedButton(
                 onClick = {
-                    context.startActivity(
-                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:${context.packageName}".toUri())
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                    )
+                    val posted = AppPermissions.sendTestNotification(context)
+                    android.widget.Toast.makeText(
+                        context,
+                        if (posted) "Test notification sent." else "Enable alerts first, then try again.",
+                        android.widget.Toast.LENGTH_SHORT,
+                    ).show()
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp)
             ) {
-                Text("System Notification Settings")
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Send test notification")
             }
-            
+
             Spacer(Modifier.height(16.dp))
         }
     }
