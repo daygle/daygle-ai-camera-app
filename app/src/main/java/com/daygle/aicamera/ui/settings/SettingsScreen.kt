@@ -69,6 +69,8 @@ fun SettingsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showSignOutDialog by remember { mutableStateOf(false) }
+    var showThemeDialog by remember { mutableStateOf(false) }
+    var showRefreshDialog by remember { mutableStateOf(false) }
 
     if (showSignOutDialog) {
         SignOutDialog(
@@ -78,6 +80,34 @@ fun SettingsScreen(
                 onSignOut()
             },
             onDismiss = { showSignOutDialog = false },
+        )
+    }
+
+    if (showThemeDialog) {
+        SelectionDialog(
+            title = "Appearance",
+            options = listOf(
+                "system" to "System Default",
+                "dark" to "Dark Mode",
+                "light" to "Light Mode"
+            ),
+            selectedKey = state.themeMode,
+            onSelect = viewModel::setTheme,
+            onDismiss = { showThemeDialog = false }
+        )
+    }
+
+    if (showRefreshDialog) {
+        SelectionDialog(
+            title = "Live View Refresh",
+            options = listOf(
+                500L to "Fast (500 ms)",
+                1000L to "Balanced (1 s)",
+                2000L to "Smooth (2 s)"
+            ),
+            selectedKey = state.refreshIntervalMs,
+            onSelect = viewModel::setRefreshInterval,
+            onDismiss = { showRefreshDialog = false }
         )
     }
 
@@ -107,21 +137,9 @@ fun SettingsScreen(
         ) {
             SettingsCard(title = "Appearance", icon = Icons.Filled.Palette) {
                 SettingsRow(
-                    title = "System Default",
-                    value = if (state.themeMode == "system") "Selected" else null,
-                    onClick = { viewModel.setTheme("system") }
-                )
-                SettingsDivider()
-                SettingsRow(
-                    title = "Dark Mode",
-                    value = if (state.themeMode == "dark") "Selected" else null,
-                    onClick = { viewModel.setTheme("dark") }
-                )
-                SettingsDivider()
-                SettingsRow(
-                    title = "Light Mode",
-                    value = if (state.themeMode == "light") "Selected" else null,
-                    onClick = { viewModel.setTheme("light") }
+                    title = "Theme",
+                    value = state.themeLabel,
+                    onClick = { showThemeDialog = true }
                 )
             }
 
@@ -135,21 +153,9 @@ fun SettingsScreen(
 
             SettingsCard(title = "Live View Refresh", icon = Icons.Filled.Speed) {
                 SettingsRow(
-                    title = "Fast (500 ms)",
-                    value = if (state.refreshLabel == "Fast (500 ms)") "Selected" else null,
-                    onClick = { viewModel.setRefreshInterval(500L) }
-                )
-                SettingsDivider()
-                SettingsRow(
-                    title = "Balanced (1 s)",
-                    value = if (state.refreshLabel == "Balanced (1 s)") "Selected" else null,
-                    onClick = { viewModel.setRefreshInterval(1000L) }
-                )
-                SettingsDivider()
-                SettingsRow(
-                    title = "Smooth (2 s)",
-                    value = if (state.refreshLabel == "Smooth (2 s)") "Selected" else null,
-                    onClick = { viewModel.setRefreshInterval(2000L) }
+                    title = "Refresh Rate",
+                    value = state.refreshLabel,
+                    onClick = { showRefreshDialog = true }
                 )
             }
 
@@ -258,5 +264,42 @@ private fun SignOutDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
         },
+    )
+}
+
+@Composable
+private fun <T> SelectionDialog(
+    title: String,
+    options: List<Pair<T, String>>,
+    selectedKey: T,
+    onSelect: (T) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                options.forEach { (key, label) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelect(key); onDismiss() }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = (key == selectedKey),
+                            onClick = null
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(label, style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
     )
 }

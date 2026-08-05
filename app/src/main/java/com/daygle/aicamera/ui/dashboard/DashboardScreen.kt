@@ -152,6 +152,7 @@ private fun CameraTile(card: CameraCard, snapshotUrl: String?, onClick: () -> Un
             ) {
                 if (card.online) {
                     LiveThumbnail(snapshotUrl)
+                    LiveBadge(Modifier.align(Alignment.TopEnd))
                 } else {
                     Icon(
                         Icons.Filled.VideocamOff,
@@ -170,11 +171,6 @@ private fun CameraTile(card: CameraCard, snapshotUrl: String?, onClick: () -> Un
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                },
-                trailingContent = {
-                    if (card.online) {
-                        LiveBadge()
-                    }
                 },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)
             )

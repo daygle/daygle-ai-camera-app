@@ -21,6 +21,12 @@ data class SettingsUiState(
     /** The server this app is currently signed in to, shown in the Account card. */
     val serverLabel: String = "",
 ) {
+    val themeLabel: String get() = when (themeMode) {
+        "dark" -> "Dark Mode"
+        "light" -> "Light Mode"
+        else -> "System Default"
+    }
+
     val refreshLabel: String get() = when (refreshIntervalMs) {
         500L -> "Fast (500 ms)"
         1000L -> "Balanced (1 s)"
