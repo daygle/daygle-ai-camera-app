@@ -107,6 +107,12 @@ class NtfyService : Service() {
         // listener); only ever run one stream loop.
         if (running.compareAndSet(false, true)) {
             scope.launch { runLoop() }
+        } else {
+            // Re-syncing after a settings change reaches the running service
+            // through onStartCommand. Drop the old stream so runLoop reads the
+            // new server/topic/credentials immediately instead of waiting for
+            // the remote connection to time out.
+            currentCall?.cancel()
         }
         return START_STICKY
     }
