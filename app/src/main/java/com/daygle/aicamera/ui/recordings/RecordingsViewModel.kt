@@ -13,7 +13,7 @@ import com.daygle.aicamera.util.FileDownloader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -93,7 +93,7 @@ class RecordingsViewModel @Inject constructor(
     private var allRecordings: List<Recording> = emptyList()
 
     /** Saved scroll index so returning from PlayerScreen restores the list position. */
-    var scrollIndex by mutableStateOf(0)
+    var scrollIndex by mutableIntStateOf(0)
         private set
 
     fun saveScrollIndex(index: Int) {

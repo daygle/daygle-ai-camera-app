@@ -14,7 +14,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -96,7 +96,7 @@ class SnapshotsViewModel @Inject constructor(
     private var allSnapshots: List<Event> = emptyList()
 
     /** Saved scroll index so returning from PlayerScreen restores the list position. */
-    var scrollIndex by mutableStateOf(0)
+    var scrollIndex by mutableIntStateOf(0)
         private set
 
     fun saveScrollIndex(index: Int) {
