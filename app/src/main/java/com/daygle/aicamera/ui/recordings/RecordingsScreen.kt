@@ -572,13 +572,17 @@ private fun RecordingRow(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    val detectionsToShow = if (recording.detections.isEmpty() && recording.labelConfidences.isNotEmpty()) {
-                        recording.labelConfidences.map { (label, confidence) ->
-                            Detection(label, confidence)
-                        }
-                    } else {
-                        recording.detections
+                    // A recording can span several events, so combine detections from
+                    // the clip and its events into one deduplicated object list.
+                    val eventDetections = recording.events.flatMap { it.detections }
+                    val confidenceDetections = recording.labelConfidences.map { (label, confidence) ->
+                        Detection(label, confidence)
                     }
+                    val detectionsToShow = (recording.detections + eventDetections + confidenceDetections)
+                        .filter { it.label.isNotBlank() }
+                        .groupBy { it.label.lowercase() }
+                        .map { (_, detections) -> detections.maxBy { it.confidence } }
+                        .sortedByDescending { it.confidence }
 
                     if (detectionsToShow.isNotEmpty()) {
                         Text(
@@ -589,15 +593,6 @@ private fun RecordingRow(
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    // A recording spans many events: surface the count so one clip
-                    // with several detections reads as one entry, not duplicates.
-                    if (recording.events.size > 1) {
-                        Text(
-                            "${recording.events.size} events",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
