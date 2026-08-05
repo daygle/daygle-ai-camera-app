@@ -617,6 +617,20 @@ private fun SnapshotRow(
                     )
                 }
             }
+            // View snapshot button - matches Events screen style
+            IconButton(
+                onClick = onClick,
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+            ) {
+                Icon(
+                    Icons.Filled.Image,
+                    contentDescription = "View Snapshot",
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
     }
 }

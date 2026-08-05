@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -634,6 +635,19 @@ private fun RecordingRow(
                         )
                     }
                     if (recording.mediaReady) {
+                        IconButton(
+                            onClick = onPlay,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
+                        ) {
+                            Icon(
+                                Icons.Filled.PlayCircle,
+                                contentDescription = "Play Recording",
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                         IconButton(onClick = onDownload) {
                             Icon(
                                 Icons.Filled.Download,

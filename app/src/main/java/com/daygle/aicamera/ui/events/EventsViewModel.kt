@@ -40,7 +40,6 @@ data class EventsFilter(
         var count = 0
         if (query.isNotBlank()) count++
         if (alertedOnly) count++
-        if (dateStart != null || dateEnd != null) count++
         count += selectedModes.size
         count += selectedCameras.size
         count += selectedTriggerTypes.size

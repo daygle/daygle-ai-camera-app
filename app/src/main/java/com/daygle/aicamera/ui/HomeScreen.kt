@@ -27,6 +27,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -55,6 +56,8 @@ fun HomeScreen(
     val effectiveSelectedTab = selectedTab?.takeIf { it in navItems } ?: navItems.firstOrNull()
     
     var refreshTrigger by remember { mutableIntStateOf(0) }
+    var isDashboardFullscreen by remember { mutableStateOf(false) }
+    var fullscreenResetTrigger by remember { mutableIntStateOf(0) }
 
     val context = androidx.compose.ui.platform.LocalContext.current
     androidx.compose.runtime.LaunchedEffect(Unit) {
@@ -65,6 +68,13 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 title = { Text(effectiveSelectedTab?.label ?: "") },
+                navigationIcon = {
+                    if (isDashboardFullscreen) {
+                        IconButton(onClick = { fullscreenResetTrigger++ }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
@@ -93,6 +103,8 @@ fun HomeScreen(
             HomeTab.Cameras -> DashboardScreen(
                 modifier = contentModifier,
                 refreshTrigger = refreshTrigger,
+                resetTrigger = fullscreenResetTrigger,
+                onFullscreenChanged = { isDashboardFullscreen = it },
             )
             HomeTab.Timeline -> com.daygle.aicamera.ui.timeline.TimelineScreen(
                 onOpenRecording = onOpenRecording,

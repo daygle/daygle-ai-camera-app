@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -51,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
@@ -83,6 +83,8 @@ private const val MAX_ZOOM = 5f
 fun DashboardScreen(
     modifier: Modifier = Modifier,
     refreshTrigger: Int = 0,
+    resetTrigger: Int = 0,
+    onFullscreenChanged: (Boolean) -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -96,6 +98,12 @@ fun DashboardScreen(
 
     // The camera currently expanded into the full-screen live view (null = grid).
     var selectedCameraId by remember { mutableStateOf<String?>(null) }
+    androidx.compose.runtime.LaunchedEffect(selectedCameraId) {
+        onFullscreenChanged(selectedCameraId != null)
+    }
+    androidx.compose.runtime.LaunchedEffect(resetTrigger) {
+        if (resetTrigger > 0) selectedCameraId = null
+    }
 
     when (val s = state) {
         DashboardUiState.Loading -> LoadingState(modifier)
@@ -265,7 +273,7 @@ private fun FullscreenCameraView(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black),
+            .background(MaterialTheme.colorScheme.surface),
         contentAlignment = Alignment.Center,
     ) {
         LiveVideoFrame(snapshotUrl = snapshotUrl, playing = playing)
@@ -274,40 +282,55 @@ private fun FullscreenCameraView(
             PausedOverlay()
         }
 
-        Row(
+        // Gradient scrim so controls are always legible over any video frame
+        Box(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .safeDrawingPadding()
-                .padding(start = 8.dp, end = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0.8f),
+                            Color.Black.copy(alpha = 0.4f),
+                            Color.Transparent,
+                        ),
+                    )
+                )
+                .padding(top = 12.dp, bottom = 32.dp),
         ) {
-            IconButton(
-                onClick = onClose,
+            Row(
                 modifier = Modifier
-                    .size(48.dp)
-                    .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                    .fillMaxWidth()
+                    .padding(start = 8.dp, end = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.White,
-                    modifier = Modifier.size(26.dp),
+                IconButton(
+                    onClick = onClose,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(Color.White.copy(alpha = 0.15f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White,
+                        modifier = Modifier.size(26.dp),
+                    )
+                }
+                Text(
+                    card.camera.displayName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
-            Text(
-                card.camera.displayName,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
         }
 
         Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .safeDrawingPadding()
                 .padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
