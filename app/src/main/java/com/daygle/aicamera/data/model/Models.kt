@@ -31,38 +31,11 @@ data class Camera(
 @Serializable
 data class CameraHealthResponse(
     val cameras: Map<String, CameraHealthState> = emptyMap(),
-    val summary: CameraHealthSummary = CameraHealthSummary(),
 )
 
 @Serializable
 data class CameraHealthState(
     val online: Boolean = true,
-)
-
-@Serializable
-data class CameraHealthSummary(
-    val online: Int = 0,
-    val offline: Int = 0,
-    val total: Int = 0,
-)
-
-@Serializable
-data class StatusResponse(
-    val status: String? = null,
-    val mode: String? = null,
-    @SerialName("camera_id") val cameraId: String? = null,
-    @SerialName("camera_name") val cameraName: String? = null,
-    @SerialName("ai_backend") val aiBackend: String? = null,
-    @SerialName("ai_available") val aiAvailable: Boolean = false,
-    @SerialName("ai_error") val aiError: String? = null,
-    @SerialName("uptime_seconds") val uptimeSeconds: Double = 0.0,
-    val resolution: Resolution = Resolution(),
-)
-
-@Serializable
-data class Resolution(
-    val width: Int = 0,
-    val height: Int = 0,
 )
 
 @Serializable

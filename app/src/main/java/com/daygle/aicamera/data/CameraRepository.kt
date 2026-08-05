@@ -5,7 +5,6 @@ import com.daygle.aicamera.data.model.CameraHealthResponse
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.data.model.PushSettings
 import com.daygle.aicamera.data.model.Recording
-import com.daygle.aicamera.data.model.StatusResponse
 
 /**
  * Thin domain layer over [SessionManager]/[DaygleApi]. Each call returns a
@@ -47,9 +46,6 @@ class CameraRepository(
     suspend fun cameras(): Result<List<Camera>> = runCatching { session.api.cameras().cameras }
 
     suspend fun cameraHealth(): Result<CameraHealthResponse> = runCatching { session.api.cameraHealth() }
-
-    suspend fun status(cameraId: String?): Result<StatusResponse> =
-        runCatching { session.api.status(cameraId) }
 
     suspend fun events(alertedOnly: Boolean = false): Result<List<Event>> =
         runCatching { session.api.events(alertedOnly = alertedOnly) }

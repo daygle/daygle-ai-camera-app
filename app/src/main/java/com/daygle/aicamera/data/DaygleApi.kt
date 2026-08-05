@@ -6,7 +6,6 @@ import com.daygle.aicamera.data.model.CamerasResponse
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.data.model.PushSettings
 import com.daygle.aicamera.data.model.Recording
-import com.daygle.aicamera.data.model.StatusResponse
 import retrofit2.http.GET
 import retrofit2.http.Query
 
@@ -18,9 +17,6 @@ interface DaygleApi {
 
     @GET("api/cameras/health")
     suspend fun cameraHealth(): CameraHealthResponse
-
-    @GET("api/status")
-    suspend fun status(@Query("camera_id") cameraId: String? = null): StatusResponse
 
     @GET("api/events")
     suspend fun events(

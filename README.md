@@ -13,8 +13,7 @@ setup stays in the server's web dashboard. This client focuses on watching.
   Camera credentials. The connection is fault-tolerant, verified on sign-in,
   and remembered between launches.
 - **Cameras dashboard** - a clean, vertical list of every configured camera
-  with live snapshot thumbnails, online/offline status, and a system summary
-  showing cameras online and system uptime.
+  with live snapshot thumbnails and online/offline status.
 - **Live view** - tap a camera on the dashboard to expand its feed into an
   immersive, system-bar-free full-screen view right on the cameras page, with
   play/pause. Pinch to zoom (up to 5x, pan, double-tap to reset). Polling
@@ -59,7 +58,6 @@ silent re-login and one retry).
 | `POST /login` | Establish a session |
 | `GET /api/cameras` | List configured cameras |
 | `GET /api/cameras/health` | Per-camera online/offline state |
-| `GET /api/status` | System / AI / camera status |
 | `GET /api/live/snapshot?camera_id=` | Latest JPEG frame (live view) |
 | `GET /api/events` | Detection / alert log |
 | `GET /api/recordings` | Saved recordings |
@@ -186,7 +184,7 @@ app/src/main/java/com/daygle/aicamera/
 │   └── PushKeepAliveWorker.kt   # WorkManager keep-alive for the listener
 └── ui/
     ├── DaygleNavHost.kt         # Navigation graph + auth gating
-    ├── Format.kt                # Timestamp/duration/uptime formatters
+    ├── Format.kt                # Timestamp/duration formatters
     ├── HomeScreen.kt            # Bottom-nav shell (cameras, events, recordings)
     ├── LifecycleEffects.kt      # Lifecycle-aware pause/resume helper
     ├── RootViewModel.kt         # Session restore -> start destination
