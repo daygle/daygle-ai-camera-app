@@ -28,10 +28,6 @@ data class Connection(
     val cfAccessClientSecret: String = "",
 ) {
     val isConfigured: Boolean get() = baseUrl.isNotBlank() && username.isNotBlank()
-
-    /** True when a Cloudflare Access service token is configured. */
-    val hasCloudflareAccess: Boolean
-        get() = cfAccessClientId.isNotBlank() && cfAccessClientSecret.isNotBlank()
 }
 
 /**

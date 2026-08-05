@@ -702,46 +702,6 @@ private fun isSoundEvent(event: Event): Boolean =
         event.detections.any { isSoundLabel(it.label) }
 
 @Composable
-private fun EventTypeBadge(isSound: Boolean) {
-    Surface(
-        color = if (isSound) {
-            MaterialTheme.colorScheme.tertiaryContainer
-        } else {
-            MaterialTheme.colorScheme.primaryContainer
-        },
-        shape = RoundedCornerShape(50),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
-        ) {
-            Icon(
-                imageVector = if (isSound) Icons.Filled.GraphicEq else Icons.Filled.Videocam,
-                contentDescription = null,
-                modifier = Modifier.size(14.dp),
-                tint = if (isSound) {
-                    MaterialTheme.colorScheme.onTertiaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                },
-            )
-            Text(
-                if (isSound) "Sound" else "Object",
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-                color = if (isSound) {
-                    MaterialTheme.colorScheme.onTertiaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                },
-            )
-        }
-    }
-}
-
-
-@Composable
 private fun AlertBadge() {
     Surface(
         color = MaterialTheme.colorScheme.error.copy(alpha = 0.12f),

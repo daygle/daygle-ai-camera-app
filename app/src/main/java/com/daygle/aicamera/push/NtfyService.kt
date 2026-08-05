@@ -140,7 +140,7 @@ class NtfyService : Service() {
     }
 
     /** Open one streaming connection; returns when the server closes it. */
-    private fun streamOnce(config: NotificationConfig): Int {
+    private fun streamOnce(config: NotificationConfig) {
         val base = config.serverUrl.trim().trimEnd('/')
         val url = "$base/${config.topic.trim()}/json"
         val builder = Request.Builder().url(url).get()
@@ -149,7 +149,6 @@ class NtfyService : Service() {
         }
         val call = client.newCall(builder.build())
         currentCall = call
-        var count = 0
         call.execute().use { response ->
             if (!response.isSuccessful) {
                 throw IllegalStateException("ntfy returned HTTP ${response.code}")
@@ -161,11 +160,9 @@ class NtfyService : Service() {
                 val message = runCatching { json.decodeFromString<NtfyMessage>(line) }.getOrNull() ?: continue
                 if (message.event == "message") {
                     postAlert(message)
-                    count++
                 }
             }
         }
-        return count
     }
 
     private fun postAlert(message: NtfyMessage) {
