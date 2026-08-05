@@ -161,6 +161,7 @@ fun SettingsScreen(
                     modifier = Modifier.padding(16.dp),
                 )
                 PermissionsChecklist(
+                    showTestButton = false,
                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
                 )
             }

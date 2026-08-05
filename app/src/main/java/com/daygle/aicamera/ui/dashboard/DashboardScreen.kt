@@ -27,7 +27,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.VideocamOff
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -161,9 +160,6 @@ private fun CameraTile(card: CameraCard, snapshotUrl: String?, onClick: () -> Un
                         modifier = Modifier.size(48.dp),
                     )
                 }
-                if (card.online) {
-                    LiveBadge(Modifier.align(Alignment.TopStart))
-                }
             }
             ListItem(
                 headlineContent = {
@@ -176,12 +172,9 @@ private fun CameraTile(card: CameraCard, snapshotUrl: String?, onClick: () -> Un
                     )
                 },
                 trailingContent = {
-                    Icon(
-                        Icons.Filled.Videocam,
-                        contentDescription = null,
-                        tint = if (card.online) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.size(24.dp),
-                    )
+                    if (card.online) {
+                        LiveBadge()
+                    }
                 },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)
             )
