@@ -2,6 +2,7 @@ package com.daygle.aicamera.ui.player
 
 import android.app.Activity
 import android.view.LayoutInflater
+import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -240,7 +241,7 @@ private fun ZoomablePlayerSurface(
         AndroidView(
             factory = { ctx ->
                 (LayoutInflater.from(ctx)
-                    .inflate(R.layout.view_zoomable_player, null) as PlayerView).apply {
+                    .inflate(R.layout.view_zoomable_player, FrameLayout(ctx), false) as PlayerView).apply {
                     this.player = player
                 }
             },

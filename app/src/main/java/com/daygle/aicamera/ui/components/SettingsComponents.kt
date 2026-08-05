@@ -46,10 +46,10 @@ fun SettingsSection(
 fun SettingsRow(
     title: String,
     icon: ImageVector,
+    modifier: Modifier = Modifier,
     subtitle: String? = null,
     value: String? = null,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
@@ -100,11 +100,11 @@ fun SettingsRow(
 fun SettingsSwitchRow(
     title: String,
     icon: ImageVector,
+    modifier: Modifier = Modifier,
     subtitle: String? = null,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     enabled: Boolean = true,
-    modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier

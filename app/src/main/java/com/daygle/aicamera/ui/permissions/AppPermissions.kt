@@ -48,6 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import com.daygle.aicamera.push.NtfyService
 import com.daygle.aicamera.ui.LifecycleResumeEffect
 
@@ -101,7 +102,7 @@ object AppPermissions {
     fun requestBatteryException(context: Context) {
         val request = Intent(
             Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-            Uri.parse("package:${context.packageName}"),
+            "package:${context.packageName}".toUri(),
         ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         runCatching { context.startActivity(request) }.onFailure {
             runCatching {

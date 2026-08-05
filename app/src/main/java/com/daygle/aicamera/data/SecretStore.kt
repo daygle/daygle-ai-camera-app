@@ -1,6 +1,7 @@
 package com.daygle.aicamera.data
 
 import android.content.Context
+import androidx.core.content.edit
 import android.util.Base64
 import java.nio.ByteBuffer
 import java.security.KeyStore
@@ -23,14 +24,14 @@ internal class SecretStore(context: Context) {
     fun write(key: String, value: String) {
         // Secret writes are small and must be durable before legacy plaintext
         // values are removed during migration.
-        check(preferences.edit().putString(key, encrypt(value)).commit()) {
-            "Could not persist encrypted secret"
+        preferences.edit(commit = true) {
+            putString(key, encrypt(value))
         }
     }
 
     fun remove(key: String) {
-        check(preferences.edit().remove(key).commit()) {
-            "Could not remove encrypted secret"
+        preferences.edit(commit = true) {
+            remove(key)
         }
     }
 
