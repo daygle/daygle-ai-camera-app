@@ -213,18 +213,6 @@ fun EventsScreen(
                         shape = RoundedCornerShape(12.dp)
                     )
 
-                    FilterChip(
-                        selected = data.filter.alertedOnly,
-                        onClick = { viewModel.setAlertedOnly(!data.filter.alertedOnly) },
-                        label = { Text("Alerts Only") },
-                        leadingIcon = {
-                            if (data.filter.alertedOnly) {
-                                Icon(Icons.Filled.NotificationsActive, null, Modifier.size(18.dp))
-                            }
-                        },
-                        shape = RoundedCornerShape(12.dp)
-                    )
-
                     // Active modes (Sound/Object)
                     data.filter.selectedModes.forEach { mode ->
                         FilterChip(

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,12 +17,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,8 +35,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,7 +52,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -55,6 +61,7 @@ import com.daygle.aicamera.ui.components.ErrorState
 import com.daygle.aicamera.ui.components.LoadingState
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -74,6 +81,7 @@ fun TimelineScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf<String?>(null) } // "start" or "end"
 
     androidx.compose.runtime.LaunchedEffect(refreshTrigger) {
         if (refreshTrigger > 0) viewModel.load()
@@ -96,8 +104,59 @@ fun TimelineScreen(
                 }) { Text("Apply") }
             }
         ) {
-            DatePicker(state = dateState)
+            DatePicker(
+                state = dateState,
+                title = {
+                    Text(
+                        "Select Date",
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            )
         }
+    }
+
+    if (showTimePicker != null) {
+        val initialTime = if (showTimePicker == "start") {
+            (state as? TimelineUiState.Ready)?.data?.startTime ?: LocalTime.MIN
+        } else {
+            (state as? TimelineUiState.Ready)?.data?.endTime ?: LocalTime.MAX
+        }
+        
+        val timePickerState = rememberTimePickerState(
+            initialHour = initialTime.hour,
+            initialMinute = initialTime.minute,
+            is24Hour = true
+        )
+
+        AlertDialog(
+            onDismissRequest = { showTimePicker = null },
+            confirmButton = {
+                TextButton(onClick = {
+                    val newTime = LocalTime.of(timePickerState.hour, timePickerState.minute)
+                    val current = (state as? TimelineUiState.Ready)?.data
+                    if (current != null) {
+                        if (showTimePicker == "start") {
+                            viewModel.setTimeRange(newTime, current.endTime)
+                        } else {
+                            viewModel.setTimeRange(current.startTime, newTime)
+                        }
+                    }
+                    showTimePicker = null
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = null }) { Text("Cancel") }
+            },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(if (showTimePicker == "start") "Set Start Time" else "Set End Time", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(16.dp))
+                    TimePicker(state = timePickerState)
+                }
+            }
+        )
     }
 
     when (val s = state) {
@@ -105,7 +164,7 @@ fun TimelineScreen(
         is TimelineUiState.Error -> ErrorState(s.message, onRetry = viewModel::load, modifier = modifier)
         is TimelineUiState.Ready -> {
             val data = s.data
-            val locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
+            val locale = LocalLocale.current.platformLocale
             
             Column(modifier.fillMaxSize()) {
                 // Header
@@ -121,16 +180,36 @@ fun TimelineScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text("Activity Timeline", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                             Text(
                                 data.date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL).withLocale(locale)),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.primary
                             )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                val timeFormatter = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale)
+                                Text(
+                                    "${data.startTime.format(timeFormatter)} - ${data.endTime.format(timeFormatter)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                TextButton(onClick = { viewModel.setTimeRange(LocalTime.MIN, LocalTime.MAX) }) {
+                                    Text("Reset", style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
                         }
-                        IconButton(onClick = { showDatePicker = true }) {
-                            Icon(Icons.Filled.CalendarMonth, contentDescription = "Change Date")
+                        Row {
+                            IconButton(onClick = { showTimePicker = "start" }) {
+                                Icon(Icons.Filled.AccessTime, contentDescription = "Start Time")
+                            }
+                            IconButton(onClick = { showTimePicker = "end" }) {
+                                Icon(Icons.Filled.AccessTime, contentDescription = "End Time")
+                            }
+                            IconButton(onClick = { showDatePicker = true }) {
+                                Icon(Icons.Filled.CalendarMonth, contentDescription = "Change Date")
+                            }
                         }
                     }
                 }

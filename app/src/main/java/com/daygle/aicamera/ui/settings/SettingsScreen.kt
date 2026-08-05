@@ -1,42 +1,13 @@
 package com.daygle.aicamera.ui.settings
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Dns
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,17 +15,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.daygle.aicamera.ui.HomeTab
-import com.daygle.aicamera.ui.permissions.PermissionsChecklist
-import com.daygle.aicamera.ui.components.SettingsCard
 import com.daygle.aicamera.ui.components.SettingsDivider
 import com.daygle.aicamera.ui.components.SettingsRow
+import com.daygle.aicamera.ui.components.SettingsSection
 import com.daygle.aicamera.ui.components.SettingsSwitchRow
+import com.daygle.aicamera.ui.permissions.PermissionsChecklist
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -114,47 +86,45 @@ fun SettingsScreen(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        SettingsCard(title = "Appearance", icon = Icons.Filled.Palette) {
+        SettingsSection(title = "General") {
             SettingsRow(
                 title = "Theme",
+                icon = Icons.Filled.Palette,
                 value = state.themeLabel,
                 onClick = { showThemeDialog = true }
             )
-        }
-
-        SettingsCard(title = "Display Options", icon = Icons.Filled.Schedule) {
+            SettingsDivider()
             SettingsSwitchRow(
-                title = "Use 24-Hour Format",
+                title = "24-Hour Format",
+                icon = Icons.Filled.Schedule,
                 checked = state.use24Hour,
                 onCheckedChange = { viewModel.setUse24Hour(it) }
             )
-        }
-
-        SettingsCard(title = "Live View Refresh", icon = Icons.Filled.Speed) {
+            SettingsDivider()
             SettingsRow(
-                title = "Refresh Rate",
+                title = "Live Refresh Rate",
+                icon = Icons.Filled.Speed,
                 value = state.refreshLabel,
                 onClick = { showRefreshDialog = true }
             )
         }
 
-        SettingsCard(title = "Navigation Menu", icon = Icons.Filled.Menu) {
-            Text(
-                "Configure the bottom navigation bar. Toggle visibility or change order.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(16.dp),
-            )
-            
+        SettingsSection(title = "Navigation") {
             HomeTab.entries.forEachIndexed { index, tab ->
                 val isActive = state.navItems.contains(tab)
                 val currentIndex = state.navItems.indexOf(tab)
                 
                 ListItem(
-                    headlineContent = { Text(tab.label) },
-                    leadingContent = { Icon(tab.icon, null) },
+                    headlineContent = { Text(tab.label, style = MaterialTheme.typography.bodyLarge) },
+                    leadingContent = { 
+                        Icon(
+                            tab.icon, 
+                            null, 
+                            tint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        ) 
+                    },
                     trailingContent = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (isActive) {
@@ -174,7 +144,8 @@ fun SettingsScreen(
                             Switch(
                                 checked = isActive,
                                 onCheckedChange = { viewModel.toggleNavItem(tab) },
-                                enabled = !isActive || state.navItems.size > 1
+                                enabled = !isActive || state.navItems.size > 1,
+                                modifier = Modifier.scale(0.8f)
                             )
                         }
                     },
@@ -184,93 +155,74 @@ fun SettingsScreen(
             }
         }
 
-        SettingsCard(title = "Notifications", icon = Icons.Filled.NotificationsActive) {
+        SettingsSection(title = "Notifications") {
             SettingsRow(
-                title = "Push Notifications",
-                subtitle = "Configure alerts and server connection",
+                title = "Push Alerts",
+                icon = Icons.Filled.NotificationsActive,
+                subtitle = "ntfy server settings",
                 onClick = onOpenNotifications
             )
             SettingsDivider()
-            Text(
-                "Device permissions required for alerts to reach you:",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            )
-            PermissionsChecklist(
-                showTestButton = false,
-                modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
-            )
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    "Device Permissions",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Required for alerts to reach this device.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                PermissionsChecklist(
+                    showTestButton = false,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
         }
 
-        SettingsCard(title = "Server Details", icon = Icons.Filled.Dns) {
+        SettingsSection(title = "Connection") {
             SettingsRow(
-                title = "Connection Settings",
-                subtitle = "Manage server address and credentials",
+                title = "Server Details",
+                icon = Icons.Filled.Dns,
+                value = state.serverLabel.ifBlank { "Disconnected" },
                 onClick = onOpenServerDetails
             )
             SettingsDivider()
             ListItem(
-                headlineContent = { Text("Server Status", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold) },
-                supportingContent = {
-                    Text(state.serverLabel.ifBlank { "Not connected" })
+                headlineContent = { 
+                    Text(
+                        "Sign Out", 
+                        style = MaterialTheme.typography.bodyLarge, 
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold
+                    ) 
                 },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                leadingContent = { Icon(Icons.AutoMirrored.Filled.Logout, null, tint = MaterialTheme.colorScheme.error) },
+                modifier = Modifier.clickable { showSignOutDialog = true },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
             )
-            SettingsDivider()
-            SignOutButton(onClick = { showSignOutDialog = true })
         }
 
-        SettingsCard(title = "About", icon = Icons.Filled.Info) {
+        SettingsSection(title = "About") {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                    .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                Icon(Icons.Filled.Info, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
                 Column {
                     Text("Daygle AI Camera", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        "Version 1.0.0",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        "Android client for self-hosted Daygle AI Camera",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Text("Version 1.0.0", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
-        Spacer(Modifier.height(24.dp))
+        
+        Spacer(Modifier.height(32.dp))
     }
-}
-
-@Composable
-private fun SignOutButton(onClick: () -> Unit) {
-    ListItem(
-        headlineContent = {
-            Text(
-                "Sign Out",
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.error,
-            )
-        },
-        supportingContent = { Text("Disconnect and forget this server on this device") },
-        leadingContent = {
-            Icon(
-                Icons.AutoMirrored.Filled.Logout,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-            )
-        },
-        modifier = Modifier.clickable { onClick() },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-    )
 }
 
 @Composable

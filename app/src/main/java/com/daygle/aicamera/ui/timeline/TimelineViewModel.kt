@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import javax.inject.Inject
@@ -26,6 +27,8 @@ data class TimelineSegment(
 
 data class TimelineReady(
     val date: LocalDate,
+    val startTime: LocalTime = LocalTime.MIN,
+    val endTime: LocalTime = LocalTime.MAX,
     val objectSegments: List<TimelineSegment>,
     val soundSegments: List<TimelineSegment>,
     val refreshing: Boolean = false,
@@ -46,6 +49,8 @@ class TimelineViewModel @Inject constructor(
     val state: StateFlow<TimelineUiState> = _state.asStateFlow()
 
     private var selectedDate: LocalDate = LocalDate.now()
+    private var startTime: LocalTime = LocalTime.MIN
+    private var endTime: LocalTime = LocalTime.MAX
 
     init {
         load()
@@ -56,11 +61,17 @@ class TimelineViewModel @Inject constructor(
         load()
     }
 
+    fun setTimeRange(start: LocalTime, end: LocalTime) {
+        startTime = start
+        endTime = end
+        load()
+    }
+
     fun load() {
         val current = _state.value
         _state.update {
             if (current is TimelineUiState.Ready) {
-                TimelineUiState.Ready(current.data.copy(refreshing = true, date = selectedDate))
+                TimelineUiState.Ready(current.data.copy(refreshing = true, date = selectedDate, startTime = startTime, endTime = endTime))
             } else {
                 TimelineUiState.Loading
             }
@@ -70,10 +81,12 @@ class TimelineViewModel @Inject constructor(
             val result = repository.recordings()
             if (result.isSuccess) {
                 val recordings = result.getOrThrow()
-                val (objects, sounds) = processRecordings(recordings, selectedDate)
+                val (objects, sounds) = processRecordings(recordings, selectedDate, startTime, endTime)
                 _state.value = TimelineUiState.Ready(
                     TimelineReady(
                         date = selectedDate,
+                        startTime = startTime,
+                        endTime = endTime,
                         objectSegments = objects,
                         soundSegments = sounds
                     )
@@ -88,7 +101,9 @@ class TimelineViewModel @Inject constructor(
 
     private fun processRecordings(
         recordings: List<Recording>,
-        date: LocalDate
+        date: LocalDate,
+        startLimit: LocalTime,
+        endLimit: LocalTime
     ): Pair<List<TimelineSegment>, List<TimelineSegment>> {
         val startOfDay = date.atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime()
         val endOfDay = date.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime()
@@ -102,6 +117,9 @@ class TimelineViewModel @Inject constructor(
             } ?: return@forEach
 
             if (startTs.isBefore(startOfDay) || !startTs.isBefore(endOfDay)) return@forEach
+            
+            val time = startTs.toLocalTime()
+            if (time.isBefore(startLimit) || time.isAfter(endLimit)) return@forEach
 
             val isSound = recording.source?.lowercase() == "sound" ||
                     recording.triggerType?.lowercase() == "sound" ||
