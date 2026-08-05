@@ -2,6 +2,7 @@ package com.daygle.aicamera.ui.snapshots
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,7 +17,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
@@ -62,10 +65,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -272,15 +279,30 @@ fun SnapshotsScreen(
                             if (activeFilterCount > 0) "No snapshots match your filters." else "No snapshots on the server yet.",
                         )
                     } else {
+                        val lazyListState = rememberLazyListState(
+                            initialFirstVisibleItemIndex = viewModel.scrollIndex
+                        )
+                        LaunchedEffect(lazyListState) {
+                            snapshotFlow { lazyListState.firstVisibleItemIndex }
+                                .collect { index -> viewModel.saveScrollIndex(index) }
+                        }
                         LazyColumn(
+                            state = lazyListState,
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             items(data.filtered, key = { it.id }) { event ->
+                                val eventUrl = viewModel.snapshotUrl(event.id)
                                 SnapshotRow(
                                     event = event,
-                                    url = viewModel.snapshotUrl(event.id),
+                                    url = eventUrl,
                                     onClick = { openEventId = event.id },
+                                    onDownload = {
+                                        eventUrl?.let {
+                                            val fileName = "snapshot-${event.id}.jpg"
+                                            viewModel.download(it, fileName)
+                                        }
+                                    },
                                 )
                             }
                         }
@@ -530,6 +552,7 @@ private fun SnapshotRow(
     event: Event,
     url: String?,
     onClick: () -> Unit,
+    onDownload: () -> Unit,
 ) {
     Card(
         onClick = onClick,
@@ -575,7 +598,7 @@ private fun SnapshotRow(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
-                    EventTypeBadge(isSound = isSoundEvent(event))
+                    if (isSoundEvent(event)) EventTypeBadge(isSound = true)
                 }
                 
                 Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -617,19 +640,36 @@ private fun SnapshotRow(
                     )
                 }
             }
-            // View snapshot button - matches Events screen style
-            IconButton(
-                onClick = onClick,
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
-            ) {
-                Icon(
-                    Icons.Filled.Image,
-                    contentDescription = "View Snapshot",
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(20.dp)
-                )
+            // Action buttons
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Download button
+                IconButton(
+                    onClick = onDownload,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
+                ) {
+                    Icon(
+                        Icons.Filled.Download,
+                        contentDescription = "Download",
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                // View snapshot button
+                IconButton(
+                    onClick = onClick,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+                ) {
+                    Icon(
+                        Icons.Filled.Image,
+                        contentDescription = "View Snapshot",
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }
@@ -672,6 +712,9 @@ private fun SnapshotDialog(
     onDismiss: () -> Unit,
     onDownload: () -> Unit
 ) {
+    var scale by remember { mutableStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -687,7 +730,27 @@ private fun SnapshotDialog(
                 AsyncImage(
                     model = url,
                     contentDescription = "Event snapshot",
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .pointerInput(Unit) {
+                            detectTransformGestures { _, pan, zoom, _ ->
+                                scale = (scale * zoom).coerceIn(1f, 5f)
+                                offset = if (scale > 1f) {
+                                    Offset(
+                                        (offset.x + pan.x).coerceIn(-400f, 400f),
+                                        (offset.y + pan.y).coerceIn(-400f, 400f),
+                                    )
+                                } else {
+                                    Offset.Zero
+                                }
+                            }
+                        }
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                            translationX = offset.x
+                            translationY = offset.y
+                        },
                     contentScale = ContentScale.Fit,
                 )
                 IconButton(

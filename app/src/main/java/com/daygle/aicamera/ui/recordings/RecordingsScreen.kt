@@ -9,13 +9,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
@@ -57,10 +60,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -252,7 +257,15 @@ fun RecordingsScreen(
                             if (activeFilterCount > 0) "No recordings match your filters." else "No recordings on the server yet.",
                         )
                     } else {
+                        val lazyListState = rememberLazyListState(
+                            initialFirstVisibleItemIndex = viewModel.scrollIndex
+                        )
+                        LaunchedEffect(lazyListState) {
+                            snapshotFlow { lazyListState.firstVisibleItemIndex }
+                                .collect { index -> viewModel.saveScrollIndex(index) }
+                        }
                         LazyColumn(
+                            state = lazyListState,
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
@@ -622,38 +635,49 @@ private fun RecordingRow(
                 }
             },
             trailingContent = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Box(
+                    modifier = Modifier.fillMaxHeight(),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            if (recording.mediaReady) formatDuration(recording.durationSeconds) else "Processing",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                    if (recording.mediaReady) {
-                        IconButton(
-                            onClick = onPlay,
-                            modifier = Modifier
-                                .size(40.dp)
-                                .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
-                        ) {
-                            Icon(
-                                Icons.Filled.PlayCircle,
-                                contentDescription = "Play Recording",
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.size(20.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                if (recording.mediaReady) formatDuration(recording.durationSeconds) else "Processing",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
                             )
                         }
-                        IconButton(onClick = onDownload) {
-                            Icon(
-                                Icons.Filled.Download,
-                                contentDescription = "Download",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
+                        if (recording.mediaReady) {
+                            IconButton(
+                                onClick = onDownload,
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
+                            ) {
+                                Icon(
+                                    Icons.Filled.Download,
+                                    contentDescription = "Download",
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            IconButton(
+                                onClick = onPlay,
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+                            ) {
+                                Icon(
+                                    Icons.Filled.PlayCircle,
+                                    contentDescription = "Play Recording",
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     }
                 }

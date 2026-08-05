@@ -13,6 +13,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -91,6 +94,14 @@ class SnapshotsViewModel @Inject constructor(
     private val downloader = FileDownloader(context, repository.httpClient())
 
     private var allSnapshots: List<Event> = emptyList()
+
+    /** Saved scroll index so returning from PlayerScreen restores the list position. */
+    var scrollIndex by mutableStateOf(0)
+        private set
+
+    fun saveScrollIndex(index: Int) {
+        scrollIndex = index
+    }
 
     init {
         load()
