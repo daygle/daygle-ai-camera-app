@@ -2,6 +2,7 @@ package com.daygle.aicamera.ui.notifications
 
 import android.Manifest
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -11,6 +12,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -18,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -31,7 +34,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.daygle.aicamera.ui.components.SettingsDivider
 import com.daygle.aicamera.ui.components.SettingsSection
 import com.daygle.aicamera.ui.components.SettingsSwitchRow
-import com.daygle.aicamera.ui.permissions.TestNotificationButton
+import com.daygle.aicamera.ui.permissions.AppPermissions
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -224,10 +227,30 @@ fun NotificationsScreen(
 
             // Test
             SettingsSection(title = "Test") {
-                TestNotificationButton()
+                PushAlertsTestNotificationButton()
             }
 
             Spacer(Modifier.height(16.dp))
         }
+    }
+}
+
+@Composable
+private fun PushAlertsTestNotificationButton() {
+    val context = LocalContext.current
+    OutlinedButton(
+        onClick = {
+            val posted = AppPermissions.sendTestNotification(context)
+            Toast.makeText(
+                context,
+                if (posted) "Test notification sent." else "Enable notifications first, then try again.",
+                Toast.LENGTH_SHORT,
+            ).show()
+        },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Send Test Notification")
     }
 }
