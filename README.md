@@ -21,8 +21,9 @@ setup stays in the server's web dashboard. This client focuses on watching.
 - **Events** - a detailed detection/alert log showing specific event types
   (e.g., **Person**, **Dog Bark**) and confidence levels. Search, sort, and
   filter by detection type, date range, camera, trigger, label, or alerts
-  only. Tap an event to open its annotated snapshot (detection boxes) or jump
-  straight to the recording it triggered.
+  only. Tap an event to open its annotated snapshot (detection boxes) - with
+  pinch-to-zoom (up to 5x, pan, double-tap to reset) - or jump straight to the
+  recording it triggered.
 - **Recordings** - browse saved clips - each shown as a single entry even
   when it spans many detection events - and play them back in-app with a full
   video scrubber, pinch-to-zoom (up to 5x), and an immersive full-screen mode.
