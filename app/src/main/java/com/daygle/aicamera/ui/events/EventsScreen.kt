@@ -73,18 +73,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import coil3.compose.AsyncImage
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.daygle.aicamera.data.model.Detection
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.ui.components.EmptyState
+import com.daygle.aicamera.ui.components.ZoomableImage
 import com.daygle.aicamera.ui.components.ErrorState
 import com.daygle.aicamera.ui.components.LoadingState
 import com.daygle.aicamera.ui.formatEventLabel
@@ -742,11 +741,10 @@ private fun SnapshotViewerDialog(url: String?, onDismiss: () -> Unit) {
             contentAlignment = Alignment.Center,
         ) {
             if (url != null) {
-                AsyncImage(
+                ZoomableImage(
                     model = url,
                     contentDescription = "Event snapshot",
-                    modifier = Modifier.fillMaxWidth(),
-                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize(),
                 )
             } else {
                 Text(
