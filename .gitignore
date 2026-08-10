@@ -4,7 +4,13 @@
 .gradle/
 
 # IDE
-.idea/
+.idea/*
+!.idea/runConfigurations/
+!.idea/deploymentTargetSelector.xml
+!.idea/misc.xml
+!.idea/vcs.xml
+!.idea/gradle.xml
+!.idea/compiler.xml
 *.iml
 *.iws
 
