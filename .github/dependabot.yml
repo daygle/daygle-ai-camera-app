@@ -6,27 +6,39 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-      day: "monday"
+      day: "tuesday"
       time: "09:00"
       timezone: "Australia/Sydney"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 10
     labels:
       - "dependencies"
-      - "gradle"
+      - "android"
     commit-message:
       prefix: "gradle"
       include: "scope"
     groups:
-      androidx-and-google:
+      compose:
         patterns:
-          - "androidx.*"
-          - "com.android.*"
-          - "com.google.*"
+          - "androidx.compose.*"
+          - "com.google.android.compose.*"
+      jetpack-core:
+        patterns:
+          - "androidx.core.*"
+          - "androidx.lifecycle.*"
+          - "androidx.navigation.*"
+          - "androidx.work.*"
+          - "androidx.datastore.*"
+      google-services:
+        patterns:
+          - "com.google.android.gms.*"
+          - "com.google.firebase.*"
+          - "com.google.dagger.*"
+          - "com.google.devtools.ksp*"
       kotlin:
         patterns:
           - "org.jetbrains.kotlin*"
           - "org.jetbrains.kotlinx*"
-      squareup-coil:
+      networking-and-images:
         patterns:
           - "com.squareup.*"
           - "com.jakewharton.*"
@@ -37,7 +49,7 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-      day: "monday"
+      day: "tuesday"
       time: "09:00"
       timezone: "Australia/Sydney"
     open-pull-requests-limit: 5
@@ -46,3 +58,4 @@ updates:
       - "ci"
     commit-message:
       prefix: "ci"
+      include: "scope"
