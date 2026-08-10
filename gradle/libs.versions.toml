@@ -16,7 +16,7 @@ retrofit = "3.0.0"
 retrofitSerialization = "1.0.0"
 kotlinxSerialization = "1.11.0"
 coil = "3.5.0"
-media3 = "1.10.1"
+media3 = "1.11.0"
 work = "2.11.2"
 
 [libraries]
