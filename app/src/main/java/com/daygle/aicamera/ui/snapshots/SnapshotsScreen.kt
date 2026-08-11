@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Image
@@ -86,6 +87,7 @@ import com.daygle.aicamera.ui.components.LoadingState
 import com.daygle.aicamera.ui.components.ZoomableImage
 import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatTimestamp
+import com.daygle.aicamera.ui.isMotionLabel
 import com.daygle.aicamera.ui.isSoundLabel
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -595,13 +597,21 @@ private fun SnapshotRow(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
-                    if (isSoundEvent(event)) EventTypeBadge(isSound = true)
+                    when {
+                        isSoundEvent(event) -> EventTypeBadge(mode = "Sound")
+                        isMotionEvent(event) -> EventTypeBadge(mode = "Motion")
+                    }
                 }
-                
+
                 Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
                     val isSound = isSoundEvent(event)
+                    val isMotion = isMotionEvent(event)
                     Icon(
-                        if (isSound) Icons.Filled.GraphicEq else Icons.Filled.Videocam,
+                        when {
+                            isSound -> Icons.Filled.GraphicEq
+                            isMotion -> Icons.Filled.DirectionsRun
+                            else -> Icons.Filled.Videocam
+                        },
                         contentDescription = null,
                         modifier = Modifier.size(14.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -673,29 +683,37 @@ private fun SnapshotRow(
 }
 
 @Composable
-private fun EventTypeBadge(isSound: Boolean) {
+private fun EventTypeBadge(mode: String) {
+    val container = when (mode) {
+        "Sound" -> MaterialTheme.colorScheme.tertiaryContainer
+        "Motion" -> MaterialTheme.colorScheme.secondaryContainer
+        else -> MaterialTheme.colorScheme.primaryContainer
+    }
+    val onContainer = when (mode) {
+        "Sound" -> MaterialTheme.colorScheme.onTertiaryContainer
+        "Motion" -> MaterialTheme.colorScheme.onSecondaryContainer
+        else -> MaterialTheme.colorScheme.onPrimaryContainer
+    }
     Surface(
-        color = if (isSound) {
-            MaterialTheme.colorScheme.tertiaryContainer
-        } else {
-            MaterialTheme.colorScheme.primaryContainer
-        },
+        color = container,
         shape = RoundedCornerShape(50),
     ) {
         Text(
-            if (isSound) "Sound" else "Object",
+            mode,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            color = if (isSound) {
-                MaterialTheme.colorScheme.onTertiaryContainer
-            } else {
-                MaterialTheme.colorScheme.onPrimaryContainer
-            },
+            color = onContainer,
         )
     }
 }
 
+
+private fun isMotionEvent(event: Event): Boolean =
+    event.source?.lowercase() == "motion" ||
+        event.triggerType?.lowercase() == "motion" ||
+        isMotionLabel(event.triggerLabel) ||
+        event.detections.any { isMotionLabel(it.label) }
 
 private fun isSoundEvent(event: Event): Boolean =
     event.source?.lowercase() == "sound" ||

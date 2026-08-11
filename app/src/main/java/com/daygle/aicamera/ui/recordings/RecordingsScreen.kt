@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Badge
@@ -83,6 +84,7 @@ import com.daygle.aicamera.ui.components.LoadingState
 import com.daygle.aicamera.ui.formatDuration
 import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatTimestamp
+import com.daygle.aicamera.ui.isMotionLabel
 import com.daygle.aicamera.ui.isSoundLabel
 import java.time.Instant
 import java.time.LocalDate
@@ -556,12 +558,20 @@ private fun RecordingRow(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        val isSound = recording.source?.lowercase() == "sound" || 
-                                recording.triggerType?.lowercase() == "sound" || 
-                                isSoundLabel(recording.triggerLabel) || 
+                        val isSound = recording.source?.lowercase() == "sound" ||
+                                recording.triggerType?.lowercase() == "sound" ||
+                                isSoundLabel(recording.triggerLabel) ||
                                 recording.labels.any { isSoundLabel(it) }
+                        val isMotion = recording.source?.lowercase() == "motion" ||
+                                recording.triggerType?.lowercase() == "motion" ||
+                                isMotionLabel(recording.triggerLabel) ||
+                                recording.labels.any { isMotionLabel(it) }
                         Icon(
-                            imageVector = if (isSound) Icons.Filled.GraphicEq else Icons.Filled.Videocam,
+                            imageVector = when {
+                                isSound -> Icons.Filled.GraphicEq
+                                isMotion -> Icons.Filled.DirectionsRun
+                                else -> Icons.Filled.Videocam
+                            },
                             contentDescription = null,
                             modifier = Modifier.size(14.dp),
                             tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
@@ -598,17 +608,24 @@ private fun RecordingRow(
                 }
             },
             leadingContent = {
-                val isSound = recording.source?.lowercase() == "sound" || 
-                        recording.triggerType?.lowercase() == "sound" || 
-                        isSoundLabel(recording.triggerLabel) || 
+                val isSound = recording.source?.lowercase() == "sound" ||
+                        recording.triggerType?.lowercase() == "sound" ||
+                        isSoundLabel(recording.triggerLabel) ||
                         recording.labels.any { isSoundLabel(it) }
+                val isMotion = recording.source?.lowercase() == "motion" ||
+                        recording.triggerType?.lowercase() == "motion" ||
+                        isMotionLabel(recording.triggerLabel) ||
+                        recording.labels.any { isMotionLabel(it) }
                 Box(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(
-                            if (isSound) MaterialTheme.colorScheme.tertiaryContainer
-                            else MaterialTheme.colorScheme.primaryContainer
+                            when {
+                                isSound -> MaterialTheme.colorScheme.tertiaryContainer
+                                isMotion -> MaterialTheme.colorScheme.secondaryContainer
+                                else -> MaterialTheme.colorScheme.primaryContainer
+                            }
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -616,12 +633,16 @@ private fun RecordingRow(
                         imageVector = when {
                             !recording.mediaReady -> Icons.Filled.Videocam
                             isSound -> Icons.Filled.GraphicEq
+                            isMotion -> Icons.Filled.DirectionsRun
                             else -> Icons.Filled.PlayCircle
                         },
                         contentDescription = null,
                         tint = if (recording.mediaReady) {
-                            if (isSound) MaterialTheme.colorScheme.onTertiaryContainer
-                            else MaterialTheme.colorScheme.onPrimaryContainer
+                            when {
+                                isSound -> MaterialTheme.colorScheme.onTertiaryContainer
+                                isMotion -> MaterialTheme.colorScheme.onSecondaryContainer
+                                else -> MaterialTheme.colorScheme.onPrimaryContainer
+                            }
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
                         },

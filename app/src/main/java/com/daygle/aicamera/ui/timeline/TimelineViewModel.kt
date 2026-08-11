@@ -108,8 +108,7 @@ class TimelineViewModel @Inject constructor(
         startLimit: LocalTime,
         endLimit: LocalTime
     ): Triple<List<TimelineSegment>, List<TimelineSegment>, List<TimelineSegment>> {
-        val startOfDay = date.atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime()
-        val endOfDay = date.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime()
+        val zone = ZoneId.systemDefault()
 
         val objectSegments = mutableListOf<TimelineSegment>()
         val soundSegments = mutableListOf<TimelineSegment>()
@@ -120,9 +119,14 @@ class TimelineViewModel @Inject constructor(
                 try { OffsetDateTime.parse(it) } catch (_: Exception) { null }
             } ?: return@forEach
 
-            if (startTs.isBefore(startOfDay) || !startTs.isBefore(endOfDay)) return@forEach
+            // Normalize to the device's local zone so the day boundary, the
+            // time-range filter, and the on-screen position all agree, no matter
+            // what offset the server timestamp carries.
+            val localTs = startTs.atZoneSameInstant(zone)
 
-            val time = startTs.toLocalTime()
+            if (localTs.toLocalDate() != date) return@forEach
+
+            val time = localTs.toLocalTime()
             if (time.isBefore(startLimit) || time.isAfter(endLimit)) return@forEach
 
             val isSound = recording.source?.lowercase() == "sound" ||
@@ -135,7 +139,7 @@ class TimelineViewModel @Inject constructor(
                     isMotionLabel(recording.triggerLabel) ||
                     recording.labels.any { isMotionLabel(it) }
 
-            val startMinute = (startTs.hour * 60 + startTs.minute + startTs.second / 60f)
+            val startMinute = (localTs.hour * 60 + localTs.minute + localTs.second / 60f)
             val durationMinutes = (recording.durationSeconds / 60.0).coerceAtLeast(1.0).toFloat()
 
             val segment = TimelineSegment(
