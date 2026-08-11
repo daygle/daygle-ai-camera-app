@@ -25,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Videocam
@@ -271,6 +272,17 @@ fun TimelineScreen(
                             icon = Icons.Filled.GraphicEq,
                             segments = data.soundSegments,
                             color = MaterialTheme.colorScheme.tertiary,
+                            locale = locale,
+                            minuteWidth = minuteWidth,
+                            onMinuteWidthChange = { minuteWidth = it.coerceIn(MIN_MINUTE_WIDTH, MAX_MINUTE_WIDTH) },
+                            onSegmentClick = onOpenRecording
+                        )
+
+                        TimelineLane(
+                            title = "Motion Recordings",
+                            icon = Icons.Filled.DirectionsRun,
+                            segments = data.motionSegments,
+                            color = MaterialTheme.colorScheme.secondary,
                             locale = locale,
                             minuteWidth = minuteWidth,
                             onMinuteWidthChange = { minuteWidth = it.coerceIn(MIN_MINUTE_WIDTH, MAX_MINUTE_WIDTH) },

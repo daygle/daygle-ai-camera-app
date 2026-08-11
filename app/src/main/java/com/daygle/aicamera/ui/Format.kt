@@ -17,6 +17,12 @@ fun isSoundLabel(label: String?): Boolean {
     return normalized in SOUND_CLASS_IDS || normalized.contains("sound")
 }
 
+/** Returns true if the label identifies a motion detection. */
+fun isMotionLabel(label: String?): Boolean {
+    val normalized = label?.trim()?.lowercase(Locale.getDefault())?.replace(" ", "_") ?: return false
+    return normalized.contains("motion") || normalized.contains("movement")
+}
+
 private fun getDisplayFormatter(): DateTimeFormatter =
     DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
         .withLocale(Locale.getDefault())
