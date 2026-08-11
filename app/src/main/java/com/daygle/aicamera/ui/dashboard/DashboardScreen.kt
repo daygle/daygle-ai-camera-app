@@ -71,6 +71,7 @@ import coil3.compose.AsyncImagePainter
 import coil3.compose.SubcomposeAsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import com.daygle.aicamera.ui.ForceLandscape
 import com.daygle.aicamera.ui.LifecycleResumeEffect
 import com.daygle.aicamera.ui.components.EmptyState
 import com.daygle.aicamera.ui.components.ErrorState
@@ -250,6 +251,9 @@ private fun FullscreenCameraView(
     snapshotUrl: String?,
     onClose: () -> Unit,
 ) {
+    // Rotate to landscape for a wide, immersive live view.
+    ForceLandscape()
+
     val view = LocalView.current
     if (!view.isInEditMode) {
         DisposableEffect(Unit) {

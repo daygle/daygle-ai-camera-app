@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.annotation.OptIn
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -14,12 +15,14 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import com.daygle.aicamera.data.CameraRepository
+import com.daygle.aicamera.util.FileDownloader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
@@ -39,8 +42,18 @@ class PlayerViewModel @Inject constructor(
 
     private val mediaSession: MediaSession = MediaSession.Builder(context, player).build()
 
+    private val downloader = FileDownloader(context, repository.httpClient())
+
     init {
         preparePlayer()
+    }
+
+    /** Save the current recording's MP4 to the device's downloads. */
+    fun download() {
+        val url = repository.recordingStreamUrl(recordingId) ?: return
+        viewModelScope.launch {
+            downloader.downloadFile(url, "recording-$recordingId.mp4", "video/mp4")
+        }
     }
 
     @OptIn(UnstableApi::class)

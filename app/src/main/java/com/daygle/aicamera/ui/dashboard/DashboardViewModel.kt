@@ -116,9 +116,26 @@ class DashboardViewModel @Inject constructor(private val repository: CameraRepos
 }
 
 fun Throwable.friendlyMessage(): String = when (this) {
-    is java.net.UnknownHostException -> "Server not found. Check the address."
-    is java.net.ConnectException -> "Could not connect to the server."
-    is java.net.SocketTimeoutException -> "The server took too long to respond."
-    is java.net.HttpRetryException -> "Server returned ${this.responseCode()}. Try reconnecting."
-    else -> (message ?: "Something went wrong.") + " (${this::class.java.simpleName})"
+    is java.net.UnknownHostException -> "Can't find the server. Check the address and your internet connection."
+    is java.net.ConnectException -> "Can't reach the server. It may be offline, or the address may be wrong."
+    is java.net.SocketTimeoutException -> "The server took too long to respond. Check your connection and try again."
+    is com.daygle.aicamera.data.CloudflareAccessRequiredException ->
+        "Access was rejected. Sign in again to reconnect to your server."
+    is retrofit2.HttpException -> httpStatusMessage(code())
+    is java.net.HttpRetryException -> httpStatusMessage(responseCode())
+    is java.io.IOException -> "Network problem. Check your internet connection and try again."
+    else -> message ?: "Something went wrong. Please try again."
+}
+
+/** Maps an HTTP status code to a user-facing explanation. */
+private fun httpStatusMessage(code: Int): String = when (code) {
+    401, 403 -> "Access denied. You may need to sign in again."
+    404 -> "The server couldn't be found at this address. It may be misconfigured."
+    408 -> "The request timed out. Please try again."
+    429 -> "Too many requests. Please wait a moment and try again."
+    500 -> "The server ran into a problem. Please try again shortly."
+    502, 503, 504 -> "The server is temporarily unavailable. Please try again shortly."
+    // Cloudflare origin errors (520–530): the tunnel/server can't be reached.
+    in 520..530 -> "Can't reach your camera server right now. It may be offline or still starting up."
+    else -> "The server returned an error (HTTP $code). Please try again."
 }

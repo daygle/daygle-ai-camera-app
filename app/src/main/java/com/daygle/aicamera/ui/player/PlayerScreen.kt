@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
@@ -57,6 +58,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
 import com.daygle.aicamera.R
+import com.daygle.aicamera.ui.ForceLandscape
 import com.daygle.aicamera.ui.components.ErrorState
 
 private const val MIN_ZOOM = 1f
@@ -103,6 +105,12 @@ fun PlayerScreen(
                 },
                 actions = {
                     if (error == null) {
+                        IconButton(onClick = viewModel::download) {
+                            Icon(
+                                imageVector = Icons.Filled.Download,
+                                contentDescription = "Download",
+                            )
+                        }
                         IconButton(onClick = { fullscreen = true }) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_fullscreen),
@@ -156,6 +164,9 @@ private fun FullscreenPlayer(
     player: Player,
     onExitFullscreen: () -> Unit,
 ) {
+    // Rotate to landscape for a wide, immersive playback view.
+    ForceLandscape()
+
     val view = LocalView.current
     if (!view.isInEditMode) {
         DisposableEffect(Unit) {

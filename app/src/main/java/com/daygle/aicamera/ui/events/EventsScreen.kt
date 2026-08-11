@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Badge
@@ -88,6 +89,7 @@ import com.daygle.aicamera.ui.components.ErrorState
 import com.daygle.aicamera.ui.components.LoadingState
 import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatTimestamp
+import com.daygle.aicamera.ui.isMotionLabel
 import com.daygle.aicamera.ui.isSoundLabel
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -561,6 +563,7 @@ private fun EventRow(
     // back to the embedded recordings list for older server payloads.
     val firstRecordingId = event.recordingId ?: event.recordings.firstOrNull()?.id
     val isSound = isSoundEvent(event)
+    val isMotion = isMotionEvent(event)
     val detectionsToShow = if (event.detections.isEmpty() && event.source == "sound") {
         val confidence = (event.metadata["confidence"] as? JsonPrimitive)?.doubleOrNull
         val label = (event.metadata["label"] as? JsonPrimitive)?.contentOrNull
@@ -607,7 +610,11 @@ private fun EventRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         Icon(
-                            imageVector = if (isSound) Icons.Filled.GraphicEq else Icons.Filled.Videocam,
+                            imageVector = when {
+                                isSound -> Icons.Filled.GraphicEq
+                                isMotion -> Icons.Filled.DirectionsRun
+                                else -> Icons.Filled.Videocam
+                            },
                             contentDescription = null,
                             modifier = Modifier.size(14.dp),
                             tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
@@ -637,16 +644,26 @@ private fun EventRow(
                         .size(48.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(
-                            if (isSound) MaterialTheme.colorScheme.tertiaryContainer
-                            else MaterialTheme.colorScheme.primaryContainer
+                            when {
+                                isSound -> MaterialTheme.colorScheme.tertiaryContainer
+                                isMotion -> MaterialTheme.colorScheme.secondaryContainer
+                                else -> MaterialTheme.colorScheme.primaryContainer
+                            }
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        imageVector = if (isSound) Icons.Filled.GraphicEq else Icons.Filled.NotificationsActive,
+                        imageVector = when {
+                            isSound -> Icons.Filled.GraphicEq
+                            isMotion -> Icons.Filled.DirectionsRun
+                            else -> Icons.Filled.NotificationsActive
+                        },
                         contentDescription = null,
-                        tint = if (isSound) MaterialTheme.colorScheme.onTertiaryContainer
-                        else MaterialTheme.colorScheme.onPrimaryContainer,
+                        tint = when {
+                            isSound -> MaterialTheme.colorScheme.onTertiaryContainer
+                            isMotion -> MaterialTheme.colorScheme.onSecondaryContainer
+                            else -> MaterialTheme.colorScheme.onPrimaryContainer
+                        },
                         modifier = Modifier.size(24.dp),
                     )
                 }
@@ -693,6 +710,12 @@ private fun EventRow(
     }
 }
 
+
+private fun isMotionEvent(event: Event): Boolean =
+    event.source?.lowercase() == "motion" ||
+        event.triggerType?.lowercase() == "motion" ||
+        isMotionLabel(event.triggerLabel) ||
+        event.detections.any { isMotionLabel(it.label) }
 
 private fun isSoundEvent(event: Event): Boolean =
     event.source?.lowercase() == "sound" ||

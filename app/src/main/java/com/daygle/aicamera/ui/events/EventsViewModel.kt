@@ -6,6 +6,7 @@ import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.ui.dashboard.friendlyMessage
+import com.daygle.aicamera.ui.isMotionLabel
 import com.daygle.aicamera.ui.isSoundLabel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.serialization.json.JsonPrimitive
@@ -58,7 +59,7 @@ data class EventsReady(
     val filter: EventsFilter = EventsFilter(),
     val refreshing: Boolean = false,
 ) {
-    val availableModes: List<String> = listOf("Object", "Sound")
+    val availableModes: List<String> = listOf("Object", "Sound", "Motion")
 
     val availableSources: List<String> =
         events.mapNotNull { it.source }.filter { it != "sound" && it != "rtsp" }.distinct().sorted()
@@ -229,11 +230,19 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
         // Mode filter
         if (filter.selectedModes.isNotEmpty()) {
             result = result.filter { e ->
-                val isSound = e.source?.lowercase() == "sound" || 
-                    e.triggerType?.lowercase() == "sound" || 
-                    isSoundLabel(e.triggerLabel) || 
+                val isSound = e.source?.lowercase() == "sound" ||
+                    e.triggerType?.lowercase() == "sound" ||
+                    isSoundLabel(e.triggerLabel) ||
                     e.detections.any { isSoundLabel(it.label) }
-                val mode = if (isSound) "Sound" else "Object"
+                val isMotion = e.source?.lowercase() == "motion" ||
+                    e.triggerType?.lowercase() == "motion" ||
+                    isMotionLabel(e.triggerLabel) ||
+                    e.detections.any { isMotionLabel(it.label) }
+                val mode = when {
+                    isSound -> "Sound"
+                    isMotion -> "Motion"
+                    else -> "Object"
+                }
                 mode in filter.selectedModes
             }
         }

@@ -8,6 +8,7 @@ import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.Detection
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.ui.dashboard.friendlyMessage
+import com.daygle.aicamera.ui.isMotionLabel
 import com.daygle.aicamera.ui.isSoundLabel
 import com.daygle.aicamera.util.FileDownloader
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -58,7 +59,7 @@ data class RecordingsReady(
     val filter: RecordingsFilter = RecordingsFilter(),
     val refreshing: Boolean = false,
 ) {
-    val availableModes: List<String> = listOf("Object", "Sound")
+    val availableModes: List<String> = listOf("Object", "Sound", "Motion")
 
     val availableCameras: List<String> =
         recordings.mapNotNull { it.source }.filter { it != "sound" && it != "rtsp" }.distinct().sorted()
@@ -234,11 +235,19 @@ class RecordingsViewModel @Inject constructor(
         // Mode filter
         if (filter.selectedModes.isNotEmpty()) {
             result = result.filter { r ->
-                val isSound = r.source?.lowercase() == "sound" || 
-                        r.triggerType?.lowercase() == "sound" || 
-                        isSoundLabel(r.triggerLabel) || 
+                val isSound = r.source?.lowercase() == "sound" ||
+                        r.triggerType?.lowercase() == "sound" ||
+                        isSoundLabel(r.triggerLabel) ||
                         r.labels.any { isSoundLabel(it) }
-                val mode = if (isSound) "Sound" else "Object"
+                val isMotion = r.source?.lowercase() == "motion" ||
+                        r.triggerType?.lowercase() == "motion" ||
+                        isMotionLabel(r.triggerLabel) ||
+                        r.labels.any { isMotionLabel(it) }
+                val mode = when {
+                    isSound -> "Sound"
+                    isMotion -> "Motion"
+                    else -> "Object"
+                }
                 mode in filter.selectedModes
             }
         }

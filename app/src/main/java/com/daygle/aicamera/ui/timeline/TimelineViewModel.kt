@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.ui.dashboard.friendlyMessage
+import com.daygle.aicamera.ui.isMotionLabel
 import com.daygle.aicamera.ui.isSoundLabel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +32,7 @@ data class TimelineReady(
     val endTime: LocalTime = LocalTime.MAX,
     val objectSegments: List<TimelineSegment>,
     val soundSegments: List<TimelineSegment>,
+    val motionSegments: List<TimelineSegment>,
     val refreshing: Boolean = false,
 )
 
@@ -81,14 +83,15 @@ class TimelineViewModel @Inject constructor(
             val result = repository.recordings()
             if (result.isSuccess) {
                 val recordings = result.getOrThrow()
-                val (objects, sounds) = processRecordings(recordings, selectedDate, startTime, endTime)
+                val (objects, sounds, motions) = processRecordings(recordings, selectedDate, startTime, endTime)
                 _state.value = TimelineUiState.Ready(
                     TimelineReady(
                         date = selectedDate,
                         startTime = startTime,
                         endTime = endTime,
                         objectSegments = objects,
-                        soundSegments = sounds
+                        soundSegments = sounds,
+                        motionSegments = motions
                     )
                 )
             } else {
@@ -104,21 +107,26 @@ class TimelineViewModel @Inject constructor(
         date: LocalDate,
         startLimit: LocalTime,
         endLimit: LocalTime
-    ): Pair<List<TimelineSegment>, List<TimelineSegment>> {
-        val startOfDay = date.atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime()
-        val endOfDay = date.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime()
+    ): Triple<List<TimelineSegment>, List<TimelineSegment>, List<TimelineSegment>> {
+        val zone = ZoneId.systemDefault()
 
         val objectSegments = mutableListOf<TimelineSegment>()
         val soundSegments = mutableListOf<TimelineSegment>()
+        val motionSegments = mutableListOf<TimelineSegment>()
 
         recordings.forEach { recording ->
-            val startTs = recording.startedAt?.let { 
-                try { OffsetDateTime.parse(it) } catch (_: Exception) { null } 
+            val startTs = recording.startedAt?.let {
+                try { OffsetDateTime.parse(it) } catch (_: Exception) { null }
             } ?: return@forEach
 
-            if (startTs.isBefore(startOfDay) || !startTs.isBefore(endOfDay)) return@forEach
-            
-            val time = startTs.toLocalTime()
+            // Normalize to the device's local zone so the day boundary, the
+            // time-range filter, and the on-screen position all agree, no matter
+            // what offset the server timestamp carries.
+            val localTs = startTs.atZoneSameInstant(zone)
+
+            if (localTs.toLocalDate() != date) return@forEach
+
+            val time = localTs.toLocalTime()
             if (time.isBefore(startLimit) || time.isAfter(endLimit)) return@forEach
 
             val isSound = recording.source?.lowercase() == "sound" ||
@@ -126,7 +134,12 @@ class TimelineViewModel @Inject constructor(
                     isSoundLabel(recording.triggerLabel) ||
                     recording.labels.any { isSoundLabel(it) }
 
-            val startMinute = (startTs.hour * 60 + startTs.minute + startTs.second / 60f)
+            val isMotion = recording.source?.lowercase() == "motion" ||
+                    recording.triggerType?.lowercase() == "motion" ||
+                    isMotionLabel(recording.triggerLabel) ||
+                    recording.labels.any { isMotionLabel(it) }
+
+            val startMinute = (localTs.hour * 60 + localTs.minute + localTs.second / 60f)
             val durationMinutes = (recording.durationSeconds / 60.0).coerceAtLeast(1.0).toFloat()
 
             val segment = TimelineSegment(
@@ -136,9 +149,13 @@ class TimelineViewModel @Inject constructor(
                 title = recording.triggerLabel ?: recording.triggerType ?: "Event"
             )
 
-            if (isSound) soundSegments.add(segment) else objectSegments.add(segment)
+            when {
+                isSound -> soundSegments.add(segment)
+                isMotion -> motionSegments.add(segment)
+                else -> objectSegments.add(segment)
+            }
         }
 
-        return objectSegments to soundSegments
+        return Triple(objectSegments, soundSegments, motionSegments)
     }
 }
