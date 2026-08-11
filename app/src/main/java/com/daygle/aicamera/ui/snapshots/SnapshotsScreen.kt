@@ -1,8 +1,5 @@
 package com.daygle.aicamera.ui.snapshots
 
-import android.app.Activity
-import android.content.ContextWrapper
-import android.content.pm.ActivityInfo
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -66,7 +63,6 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -77,7 +73,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -94,6 +89,7 @@ import com.daygle.aicamera.ui.components.LoadingState
 import com.daygle.aicamera.ui.components.ZoomableImage
 import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatTimestamp
+import com.daygle.aicamera.ui.ForceLandscape
 import com.daygle.aicamera.ui.isMotionLabel
 import com.daygle.aicamera.ui.isSoundLabel
 import kotlinx.serialization.json.JsonPrimitive
@@ -739,23 +735,8 @@ private fun SnapshotDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        val view = LocalView.current
-        if (!view.isInEditMode) {
-            DisposableEffect(Unit) {
-                // A Dialog runs in its own window whose context can be wrapped, so
-                // walk the context chain to find the hosting Activity.
-                val activity = generateSequence(view.context) { (it as? ContextWrapper)?.baseContext }
-                    .filterIsInstance<Activity>()
-                    .firstOrNull()
-                val originalOrientation = activity?.requestedOrientation
-                // Allow the snapshot to be viewed wide in landscape, matching the player.
-                activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                onDispose {
-                    activity?.requestedOrientation =
-                        originalOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                }
-            }
-        }
+        // View the snapshot wide in landscape, matching the player.
+        ForceLandscape()
 
         Scaffold(
             modifier = Modifier.fillMaxSize(),
