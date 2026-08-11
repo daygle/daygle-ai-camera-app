@@ -299,12 +299,6 @@ fun SnapshotsScreen(
                                     event = event,
                                     url = eventUrl,
                                     onClick = { openEventId = event.id },
-                                    onDownload = {
-                                        eventUrl?.let {
-                                            val fileName = "snapshot-${event.id}.jpg"
-                                            viewModel.download(it, fileName)
-                                        }
-                                    },
                                 )
                             }
                         }
@@ -554,7 +548,6 @@ private fun SnapshotRow(
     event: Event,
     url: String?,
     onClick: () -> Unit,
-    onDownload: () -> Unit,
 ) {
     Card(
         onClick = onClick,
@@ -652,20 +645,6 @@ private fun SnapshotRow(
             }
             // Action buttons
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Download button
-                IconButton(
-                    onClick = onDownload,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
-                ) {
-                    Icon(
-                        Icons.Filled.Download,
-                        contentDescription = "Download",
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
                 // View snapshot button
                 IconButton(
                     onClick = onClick,

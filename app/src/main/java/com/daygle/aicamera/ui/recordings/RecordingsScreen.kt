@@ -26,7 +26,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlayCircle
@@ -275,7 +274,6 @@ fun RecordingsScreen(
                                 RecordingRow(
                                     recording = recording,
                                     onPlay = { onPlay(recording.id) },
-                                    onDownload = { viewModel.download(recording) }
                                 )
                             }
                         }
@@ -531,7 +529,6 @@ private fun dateRangeLabel(start: LocalDate?, end: LocalDate?): String {
 private fun RecordingRow(
     recording: Recording,
     onPlay: () -> Unit,
-    onDownload: () -> Unit
 ) {
     Card(
         onClick = onPlay,
@@ -668,19 +665,6 @@ private fun RecordingRow(
                             )
                         }
                         if (recording.mediaReady) {
-                            IconButton(
-                                onClick = onDownload,
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
-                            ) {
-                                Icon(
-                                    Icons.Filled.Download,
-                                    contentDescription = "Download",
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
                             IconButton(
                                 onClick = onPlay,
                                 modifier = Modifier

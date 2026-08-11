@@ -1,6 +1,5 @@
 package com.daygle.aicamera.ui.recordings
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
@@ -10,9 +9,7 @@ import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.ui.dashboard.friendlyMessage
 import com.daygle.aicamera.ui.isMotionLabel
 import com.daygle.aicamera.ui.isSoundLabel
-import com.daygle.aicamera.util.FileDownloader
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
@@ -83,13 +80,10 @@ sealed interface RecordingsUiState {
 @HiltViewModel
 class RecordingsViewModel @Inject constructor(
     private val repository: CameraRepository,
-    @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<RecordingsUiState>(RecordingsUiState.Loading)
     val state: StateFlow<RecordingsUiState> = _state.asStateFlow()
-
-    private val downloader = FileDownloader(context, repository.httpClient())
 
     private var allRecordings: List<Recording> = emptyList()
 
@@ -186,14 +180,6 @@ class RecordingsViewModel @Inject constructor(
 
     /** Absolute URL for streaming or downloading a recording's MP4. */
     fun streamUrl(recordingId: Int): String? = repository.recordingStreamUrl(recordingId)
-
-    fun download(recording: Recording) {
-        val url = repository.recordingStreamUrl(recording.id) ?: return
-        val fileName = "recording-${recording.id}.mp4"
-        viewModelScope.launch {
-            downloader.downloadFile(url, fileName, "video/mp4")
-        }
-    }
 
     private fun updateFilter(transform: (RecordingsFilter) -> RecordingsFilter) {
         _state.update { current ->
