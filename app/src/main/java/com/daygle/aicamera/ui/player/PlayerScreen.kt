@@ -1,6 +1,7 @@
 package com.daygle.aicamera.ui.player
 
 import android.app.Activity
+import android.content.pm.ActivityInfo
 import android.view.LayoutInflater
 import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
@@ -159,8 +160,12 @@ private fun FullscreenPlayer(
     val view = LocalView.current
     if (!view.isInEditMode) {
         DisposableEffect(Unit) {
-            val window = (view.context as? Activity)?.window
+            val activity = view.context as? Activity
+            val window = activity?.window
             val controller = window?.let { WindowCompat.getInsetsController(it, view) }
+            val originalOrientation = activity?.requestedOrientation
+            // Rotate the screen to landscape for a wide, immersive playback view.
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
             controller?.apply {
                 systemBarsBehavior =
                     WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -168,6 +173,9 @@ private fun FullscreenPlayer(
             }
             onDispose {
                 controller?.show(WindowInsetsCompat.Type.systemBars())
+                // Restore the previous orientation preference on exit.
+                activity?.requestedOrientation =
+                    originalOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             }
         }
     }
