@@ -1,6 +1,7 @@
 package com.daygle.aicamera.ui.dashboard
 
 import android.app.Activity
+import android.content.pm.ActivityInfo
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -253,8 +254,12 @@ private fun FullscreenCameraView(
     val view = LocalView.current
     if (!view.isInEditMode) {
         DisposableEffect(Unit) {
-            val window = (view.context as? Activity)?.window
+            val activity = view.context as? Activity
+            val window = activity?.window
             val controller = window?.let { WindowCompat.getInsetsController(it, view) }
+            val originalOrientation = activity?.requestedOrientation
+            // Rotate the screen to landscape for a wide, immersive live view.
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
             controller?.apply {
                 systemBarsBehavior =
                     WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -262,6 +267,9 @@ private fun FullscreenCameraView(
             }
             onDispose {
                 controller?.show(WindowInsetsCompat.Type.systemBars())
+                // Restore the previous orientation preference on exit.
+                activity?.requestedOrientation =
+                    originalOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             }
         }
     }
