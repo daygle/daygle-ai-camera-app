@@ -14,7 +14,6 @@ import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -27,7 +26,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -59,7 +57,6 @@ fun HomeScreen(
     
     var refreshTrigger by remember { mutableIntStateOf(0) }
     var isDashboardFullscreen by remember { mutableStateOf(false) }
-    var fullscreenResetTrigger by remember { mutableIntStateOf(0) }
 
     val context = androidx.compose.ui.platform.LocalContext.current
     androidx.compose.runtime.LaunchedEffect(Unit) {
@@ -68,22 +65,19 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(effectiveSelectedTab?.label ?: "") },
-                navigationIcon = {
-                    if (isDashboardFullscreen) {
-                        IconButton(onClick = { fullscreenResetTrigger++ }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-            )
+            // Hidden while the live view is full-screen so it doesn't cover the video.
+            if (!isDashboardFullscreen) {
+                TopAppBar(
+                    title = { Text(effectiveSelectedTab?.label ?: "") },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    ),
+                )
+            }
         },
         bottomBar = {
-            if (navItems.isNotEmpty()) {
+            // Hidden while the live view is full-screen so it doesn't cover the video.
+            if (!isDashboardFullscreen && navItems.isNotEmpty()) {
                 NavigationBar {
                     navItems.forEach { tab ->
                         NavigationBarItem(
@@ -105,7 +99,6 @@ fun HomeScreen(
             HomeTab.Cameras -> DashboardScreen(
                 modifier = contentModifier,
                 refreshTrigger = refreshTrigger,
-                resetTrigger = fullscreenResetTrigger,
                 onFullscreenChanged = { isDashboardFullscreen = it },
             )
             HomeTab.Timeline -> com.daygle.aicamera.ui.timeline.TimelineScreen(
