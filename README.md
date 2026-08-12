@@ -123,11 +123,14 @@ so servers not behind Access are unaffected.
 - A reachable Daygle AI Camera server (LAN or a public HTTPS host)
 
 > **Release builds require HTTPS**. The release network security config blocks
-> cleartext HTTP so credentials and camera media are not sent in plaintext.
-> Debug builds permit explicitly configured LAN HTTP/local certificates for
-> development (`http://192.168.1.20:8080`); do not use that mode for an
-> internet-facing deployment. See `app/src/main/res/xml/network_security_config.xml`
-> and `network_security_config_debug.xml`.
+> cleartext HTTP so credentials and camera media are not sent in plaintext. A
+> server address typed without a scheme is therefore assumed to be `https://`
+> (e.g. `cam.example.com` → `https://cam.example.com`). Debug builds permit
+> explicitly configured LAN HTTP/local certificates for development; type the
+> full `http://` prefix for those (`http://192.168.1.20:8080`). Do not use that
+> mode for an internet-facing deployment. See
+> `app/src/main/res/xml/network_security_config.xml` and
+> `network_security_config_debug.xml`.
 
 ## Building
 

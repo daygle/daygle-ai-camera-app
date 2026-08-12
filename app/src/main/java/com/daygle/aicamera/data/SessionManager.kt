@@ -315,7 +315,22 @@ class SessionManager {
                 if (isCloudflareAccessRejection(response)) {
                     return LoginResult.Error(CLOUDFLARE_ACCESS_MESSAGE)
                 }
-                /* cookies captured by jar */
+                // The server's per-IP login rate limiter answers 429 *before* it
+                // ever checks the credentials. Surface it directly - otherwise the
+                // verify call below sees no session cookie and misreports the
+                // throttle as "invalid username or password".
+                if (response.code == 429) {
+                    return LoginResult.Error(rateLimitedMessage(response.header("Retry-After")?.toIntOrNull()))
+                }
+                // A 5xx at this point is a server-side fault, not a credential
+                // problem; report it as such instead of a bogus 401 downstream.
+                if (response.code in 500..599) {
+                    return LoginResult.Error(mapHttpError(response.code, "/login"))
+                }
+                // On success the server answers 303 (redirect not followed) and
+                // sets the session cookie, captured by the jar. On bad credentials
+                // it re-renders the login page (200). The verify call below tells
+                // those two apart.
             }
 
             // The login POST redirects to a page regardless of outcome, so verify
@@ -337,6 +352,14 @@ class SessionManager {
             LoginResult.Error("${e.toUserFriendlyMessage()} (${e::class.java.simpleName})")
         }
     }
+
+    /** Message for a throttled login, including the server-supplied wait when present. */
+    private fun rateLimitedMessage(retryAfterSeconds: Int?): String =
+        if (retryAfterSeconds != null && retryAfterSeconds > 0) {
+            "Too many login attempts. Wait $retryAfterSeconds seconds and try again."
+        } else {
+            "Too many login attempts. Wait a moment and try again."
+        }
 
     private fun mapHttpError(code: Int, path: String): String = when (code) {
         in 500..599 -> "Server error ($code) on $path. Check the server logs."
@@ -387,11 +410,16 @@ class SessionManager {
         fun normalizeBaseUrl(raw: String): HttpUrl? {
             val trimmed = raw.trim()
             if (trimmed.isEmpty()) return null
-            val withScheme = if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-                trimmed
-            } else {
-                "http://$trimmed"
-            }
+            val hasScheme = trimmed.startsWith("http://", ignoreCase = true) ||
+                trimmed.startsWith("https://", ignoreCase = true)
+            // Default a bare host to HTTPS. Release builds forbid cleartext
+            // (see res/xml/network_security_config.xml), so defaulting to
+            // http:// guaranteed a blocked-connection failure whenever the user
+            // typed only a hostname - which is exactly the common case for a
+            // Cloudflare-tunnel https host. Users who really want plain-HTTP LAN
+            // access (debug builds) type the explicit http:// prefix shown in
+            // the field placeholder.
+            val withScheme = if (hasScheme) trimmed else "https://$trimmed"
 
             val url = withScheme.toHttpUrlOrNull() ?: return null
 

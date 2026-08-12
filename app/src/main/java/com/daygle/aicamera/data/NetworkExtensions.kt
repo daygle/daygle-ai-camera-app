@@ -1,5 +1,6 @@
 package com.daygle.aicamera.data
 
+import java.io.IOException
 import java.net.ConnectException
 import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
@@ -10,7 +11,21 @@ import javax.net.ssl.SSLException
  * Maps common OkHttp / java.net connection exceptions to user-friendly text.
  * The raw (technical) message is kept in parentheses for debugging.
  */
-fun Throwable.toUserFriendlyMessage(): String = when (this) {
+fun Throwable.toUserFriendlyMessage(): String {
+    // Release builds block cleartext HTTP (network_security_config.xml). OkHttp
+    // then throws a plain IOException ("Cleartext HTTP traffic to <host> not
+    // permitted") that would otherwise fall through to the generic message,
+    // leaving the user with no idea the address just needs to be https://.
+    if (this is IOException && this !is CloudflareAccessRequiredException &&
+        message?.contains("cleartext", ignoreCase = true) == true
+    ) {
+        return "This app requires a secure connection. Enter your server's https:// address " +
+            "(release builds don't allow plain HTTP)."
+    }
+    return toUserFriendlyMessageInner()
+}
+
+private fun Throwable.toUserFriendlyMessageInner(): String = when (this) {
     is CloudflareAccessRequiredException ->
         "Cloudflare Access is blocking the connection. Check your Client ID and Client Secret in the connection settings."
     is UnknownHostException -> "Server not found. Check the address and your network connection."
