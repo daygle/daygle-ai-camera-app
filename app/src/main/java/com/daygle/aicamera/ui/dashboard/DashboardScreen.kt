@@ -84,7 +84,6 @@ private const val MAX_ZOOM = 5f
 fun DashboardScreen(
     modifier: Modifier = Modifier,
     refreshTrigger: Int = 0,
-    resetTrigger: Int = 0,
     onFullscreenChanged: (Boolean) -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
@@ -101,9 +100,6 @@ fun DashboardScreen(
     var selectedCameraId by remember { mutableStateOf<String?>(null) }
     androidx.compose.runtime.LaunchedEffect(selectedCameraId) {
         onFullscreenChanged(selectedCameraId != null)
-    }
-    androidx.compose.runtime.LaunchedEffect(resetTrigger) {
-        if (resetTrigger > 0) selectedCameraId = null
     }
 
     when (val s = state) {

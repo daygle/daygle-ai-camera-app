@@ -1,5 +1,7 @@
 package com.daygle.aicamera.ui.snapshots
 
+import android.app.Activity
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -47,6 +50,7 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DateRangePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -63,24 +67,33 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.daygle.aicamera.R
 import com.daygle.aicamera.data.model.Detection
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.ui.components.EmptyState
@@ -299,12 +312,6 @@ fun SnapshotsScreen(
                                     event = event,
                                     url = eventUrl,
                                     onClick = { openEventId = event.id },
-                                    onDownload = {
-                                        eventUrl?.let {
-                                            val fileName = "snapshot-${event.id}.jpg"
-                                            viewModel.download(it, fileName)
-                                        }
-                                    },
                                 )
                             }
                         }
@@ -554,7 +561,6 @@ private fun SnapshotRow(
     event: Event,
     url: String?,
     onClick: () -> Unit,
-    onDownload: () -> Unit,
 ) {
     Card(
         onClick = onClick,
@@ -652,20 +658,6 @@ private fun SnapshotRow(
             }
             // Action buttons
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Download button
-                IconButton(
-                    onClick = onDownload,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
-                ) {
-                    Icon(
-                        Icons.Filled.Download,
-                        contentDescription = "Download",
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
                 // View snapshot button
                 IconButton(
                     onClick = onClick,
@@ -731,65 +723,135 @@ private fun SnapshotDialog(
     onDismiss: () -> Unit,
     onDownload: () -> Unit
 ) {
+    var fullscreen by rememberSaveable { mutableStateOf(false) }
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        // View the snapshot wide in landscape, matching the player.
-        ForceLandscape()
-
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            topBar = {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Text(
-                            "Snapshot",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onDismiss) {
-                            Icon(Icons.Filled.Close, contentDescription = "Close")
-                        }
-                    },
-                    actions = {
-                        if (url != null) {
-                            IconButton(onClick = onDownload) {
-                                Icon(Icons.Filled.Download, contentDescription = "Download")
+        if (fullscreen && url != null) {
+            FullscreenSnapshot(url = url, onExitFullscreen = { fullscreen = false })
+        } else {
+            Scaffold(
+                modifier = Modifier.fillMaxSize(),
+                topBar = {
+                    CenterAlignedTopAppBar(
+                        title = {
+                            Text(
+                                "Snapshot",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = onDismiss) {
+                                Icon(Icons.Filled.Close, contentDescription = "Close")
                             }
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                    ),
-                )
-            },
-        ) { padding ->
-            Surface(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                color = MaterialTheme.colorScheme.surface,
-            ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
+                        },
+                        actions = {
+                            if (url != null) {
+                                IconButton(onClick = onDownload) {
+                                    Icon(Icons.Filled.Download, contentDescription = "Download")
+                                }
+                                IconButton(onClick = { fullscreen = true }) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_fullscreen),
+                                        contentDescription = "Full screen",
+                                    )
+                                }
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                        ),
+                    )
+                },
+            ) { padding ->
+                Surface(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    color = MaterialTheme.colorScheme.surface,
                 ) {
-                    if (url != null) {
-                        ZoomableImage(
-                            model = url,
-                            contentDescription = "Event snapshot",
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    } else {
-                        Text("Snapshot unavailable")
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (url != null) {
+                            ZoomableImage(
+                                model = url,
+                                contentDescription = "Event snapshot",
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        } else {
+                            Text("Snapshot unavailable")
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Immersive full-screen snapshot. Rotates to landscape and hides the system bars
+ * while active, filling the display with the image; pinch-to-zoom remains
+ * available. Exits on back press or the on-screen control; system bars and the
+ * previous orientation are restored on dispose.
+ */
+@Composable
+private fun FullscreenSnapshot(
+    url: String,
+    onExitFullscreen: () -> Unit,
+) {
+    // Rotate to landscape for a wide, immersive view.
+    ForceLandscape()
+
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        DisposableEffect(Unit) {
+            val window = (view.context as? Activity)?.window
+            val controller = window?.let { WindowCompat.getInsetsController(it, view) }
+            controller?.apply {
+                systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                hide(WindowInsetsCompat.Type.systemBars())
+            }
+            onDispose {
+                controller?.show(WindowInsetsCompat.Type.systemBars())
+            }
+        }
+    }
+
+    BackHandler(onBack = onExitFullscreen)
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black),
+        contentAlignment = Alignment.Center,
+    ) {
+        ZoomableImage(
+            model = url,
+            contentDescription = "Event snapshot",
+            modifier = Modifier.fillMaxSize(),
+        )
+
+        FilledTonalIconButton(
+            onClick = onExitFullscreen,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .safeDrawingPadding()
+                .padding(16.dp)
+                .size(48.dp),
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_fullscreen_exit),
+                contentDescription = "Exit full screen",
+                modifier = Modifier.size(24.dp),
+            )
         }
     }
 }
