@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration name="Daygle AI Camera" type="AndroidRunConfigurationType" factoryName="Android App" activateToolWindowBeforeRun="false">
+  <configuration default="false" name="Daygle AI Camera" type="AndroidRunConfigurationType" factoryName="Android App" activateToolWindowBeforeRun="false">
     <module name="DaygleAICamera.app" />
     <option name="ANDROID_RUN_CONFIGURATION_SCHEMA_VERSION" value="1" />
     <option name="DEPLOY" value="true" />
@@ -61,7 +61,6 @@
     <option name="ACTIVITY_CLASS" value="" />
     <option name="SEARCH_ACTIVITY_IN_GLOBAL_SCOPE" value="false" />
     <option name="SKIP_ACTIVITY_VALIDATION" value="false" />
-    <option name="ALLOW_RUNNING_IN_PARALLEL" value="false" />
     <method v="2">
       <option name="Android.Gradle.BeforeRunTask" enabled="true" />
     </method>
