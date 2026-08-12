@@ -45,8 +45,11 @@ import com.daygle.aicamera.ui.snapshots.SnapshotsScreen
 @Composable
 fun HomeScreen(
     onOpenRecording: (Int) -> Unit,
+    onOpenGeneralSettings: () -> Unit,
+    onOpenNavigationSettings: () -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenServerDetails: () -> Unit,
+    onOpenAbout: () -> Unit,
     onSignOut: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -124,9 +127,12 @@ fun HomeScreen(
                 refreshTrigger = refreshTrigger,
             )
             HomeTab.Settings -> com.daygle.aicamera.ui.settings.SettingsScreen(
+                onSignOut = onSignOut,
+                onOpenGeneral = onOpenGeneralSettings,
+                onOpenNavigation = onOpenNavigationSettings,
                 onOpenNotifications = onOpenNotifications,
                 onOpenServerDetails = onOpenServerDetails,
-                onSignOut = onSignOut,
+                onOpenAbout = onOpenAbout,
                 modifier = contentModifier,
             )
             null -> Box(Modifier.fillMaxSize())

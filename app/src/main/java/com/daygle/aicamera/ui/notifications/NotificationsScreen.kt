@@ -35,6 +35,7 @@ import com.daygle.aicamera.ui.components.SettingsDivider
 import com.daygle.aicamera.ui.components.SettingsSection
 import com.daygle.aicamera.ui.components.SettingsSwitchRow
 import com.daygle.aicamera.ui.permissions.AppPermissions
+import com.daygle.aicamera.ui.permissions.PermissionsChecklist
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,6 +102,18 @@ fun NotificationsScreen(
                         if (checked) enable() else viewModel.commit(enabled = false) { }
                     }
                 )
+            }
+
+            // Device Permissions
+            SettingsSection(title = "Device Permissions", icon = Icons.Filled.Security) {
+                Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
+                    Text(
+                        "Required for alerts to reach this device.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    PermissionsChecklist(modifier = Modifier.padding(top = 8.dp))
+                }
             }
 
             // Configuration Section
