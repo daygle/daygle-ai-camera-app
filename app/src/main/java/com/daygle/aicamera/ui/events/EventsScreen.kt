@@ -87,6 +87,7 @@ import com.daygle.aicamera.ui.components.EmptyState
 import com.daygle.aicamera.ui.components.ZoomableImage
 import com.daygle.aicamera.ui.components.ErrorState
 import com.daygle.aicamera.ui.components.LoadingState
+import com.daygle.aicamera.ui.LocalUse24Hour
 import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatTimestamp
 import com.daygle.aicamera.ui.isMotionLabel
@@ -620,7 +621,7 @@ private fun EventRow(
                             tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                         )
                         Text(
-                            formatTimestamp(event.createdAt),
+                            formatTimestamp(event.createdAt, LocalUse24Hour.current),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

@@ -6,6 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -16,6 +17,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import com.daygle.aicamera.data.AppPreferencesStore
 import com.daygle.aicamera.data.ThemeMode
+import com.daygle.aicamera.ui.LocalUse24Hour
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -94,20 +96,21 @@ fun DaygleTheme(
     content: @Composable () -> Unit,
 ) {
     val view = LocalView.current
-    val effectiveDark = if (view.isInEditMode) darkTheme else {
-        val entryPoint = remember {
-            EntryPointAccessors.fromApplication(
-                view.context.applicationContext,
-                ThemeEntryPoint::class.java
-            )
-        }
-        val themeMode by entryPoint.appPreferences().themeMode.collectAsState(initial = ThemeMode.SYSTEM)
+    val prefs = if (view.isInEditMode) null else remember {
+        EntryPointAccessors.fromApplication(
+            view.context.applicationContext,
+            ThemeEntryPoint::class.java
+        ).appPreferences()
+    }
+    val effectiveDark = if (prefs == null) darkTheme else {
+        val themeMode by prefs.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
         when (themeMode) {
             ThemeMode.SYSTEM -> darkTheme
             ThemeMode.DARK -> true
             ThemeMode.LIGHT -> false
         }
     }
+    val use24Hour = if (prefs == null) false else prefs.use24Hour.collectAsState(initial = false).value
     val colors = if (effectiveDark) DarkColors else LightColors
     if (!view.isInEditMode) {
         SideEffect {
@@ -117,8 +120,10 @@ fun DaygleTheme(
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !effectiveDark
         }
     }
-    MaterialTheme(
-        colorScheme = colors,
-        content = content,
-    )
+    CompositionLocalProvider(LocalUse24Hour provides use24Hour) {
+        MaterialTheme(
+            colorScheme = colors,
+            content = content,
+        )
+    }
 }
