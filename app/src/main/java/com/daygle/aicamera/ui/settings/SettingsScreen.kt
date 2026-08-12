@@ -16,8 +16,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -85,140 +83,136 @@ fun SettingsScreen(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        SettingsSection(title = "General") {
+        SettingsSection(title = "General", icon = Icons.Filled.Tune) {
             SettingsRow(
                 title = "Theme",
-                icon = Icons.Filled.Palette,
                 value = state.themeLabel,
                 onClick = { showThemeDialog = true }
             )
             SettingsDivider()
             SettingsSwitchRow(
                 title = "24-Hour Format",
-                icon = Icons.Filled.Schedule,
                 checked = state.use24Hour,
                 onCheckedChange = { viewModel.setUse24Hour(it) }
             )
             SettingsDivider()
             SettingsRow(
                 title = "Live Refresh Rate",
-                icon = Icons.Filled.Speed,
                 value = state.refreshLabel,
                 onClick = { showRefreshDialog = true }
             )
         }
 
-        SettingsSection(title = "Navigation") {
+        SettingsSection(title = "Navigation", icon = Icons.Filled.Dashboard) {
             HomeTab.entries.forEachIndexed { index, tab ->
                 val isActive = state.navItems.contains(tab)
                 val currentIndex = state.navItems.indexOf(tab)
-                
-                ListItem(
-                    headlineContent = { Text(tab.label, style = MaterialTheme.typography.bodyLarge) },
-                    leadingContent = { 
-                        Icon(
-                            tab.icon, 
-                            null, 
-                            tint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                        ) 
-                    },
-                    trailingContent = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (isActive) {
-                                IconButton(
-                                    onClick = { viewModel.moveNavItem(currentIndex, true) },
-                                    enabled = currentIndex > 0
-                                ) {
-                                    Icon(Icons.Filled.ArrowUpward, "Move Up", modifier = Modifier.size(20.dp))
-                                }
-                                IconButton(
-                                    onClick = { viewModel.moveNavItem(currentIndex, false) },
-                                    enabled = currentIndex < state.navItems.size - 1
-                                ) {
-                                    Icon(Icons.Filled.ArrowDownward, "Move Down", modifier = Modifier.size(20.dp))
-                                }
-                            }
-                            Switch(
-                                checked = isActive,
-                                onCheckedChange = { viewModel.toggleNavItem(tab) },
-                                enabled = !isActive || state.navItems.size > 1,
-                                modifier = Modifier.scale(0.8f)
-                            )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        tab.icon,
+                        null,
+                        tint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(Modifier.width(16.dp))
+                    Text(
+                        tab.label,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (isActive) {
+                        IconButton(
+                            onClick = { viewModel.moveNavItem(currentIndex, true) },
+                            enabled = currentIndex > 0
+                        ) {
+                            Icon(Icons.Filled.ArrowUpward, "Move Up", modifier = Modifier.size(20.dp))
                         }
-                    },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                )
+                        IconButton(
+                            onClick = { viewModel.moveNavItem(currentIndex, false) },
+                            enabled = currentIndex < state.navItems.size - 1
+                        ) {
+                            Icon(Icons.Filled.ArrowDownward, "Move Down", modifier = Modifier.size(20.dp))
+                        }
+                    }
+                    Switch(
+                        checked = isActive,
+                        onCheckedChange = { viewModel.toggleNavItem(tab) },
+                        enabled = !isActive || state.navItems.size > 1,
+                        modifier = Modifier.scale(0.8f)
+                    )
+                }
                 if (index < HomeTab.entries.size - 1) SettingsDivider()
             }
         }
 
-        SettingsSection(title = "Notifications") {
+        SettingsSection(title = "Notifications", icon = Icons.Filled.Notifications) {
             SettingsRow(
                 title = "Push Alerts",
-                icon = Icons.Filled.NotificationsActive,
                 subtitle = "ntfy server settings",
                 onClick = onOpenNotifications
             )
             SettingsDivider()
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
                 Text(
                     "Device Permissions",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.bodyLarge
                 )
-                Spacer(Modifier.height(4.dp))
                 Text(
                     "Required for alerts to reach this device.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp)
                 )
                 PermissionsChecklist(modifier = Modifier.padding(top = 8.dp))
             }
         }
 
-        SettingsSection(title = "Connection") {
+        SettingsSection(title = "Connection", icon = Icons.Filled.Wifi) {
             SettingsRow(
                 title = "Server Details",
-                icon = Icons.Filled.Dns,
                 value = state.serverLabel.ifBlank { "Disconnected" },
                 onClick = onOpenServerDetails
             )
             SettingsDivider()
-            ListItem(
-                headlineContent = { 
-                    Text(
-                        "Sign Out", 
-                        style = MaterialTheme.typography.bodyLarge, 
-                        color = MaterialTheme.colorScheme.error,
-                        fontWeight = FontWeight.Bold
-                    ) 
-                },
-                leadingContent = { Icon(Icons.AutoMirrored.Filled.Logout, null, tint = MaterialTheme.colorScheme.error) },
-                modifier = Modifier.clickable { showSignOutDialog = true },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            SettingsRow(
+                title = "Sign Out",
+                destructive = true,
+                onClick = { showSignOutDialog = true },
+                action = {
+                    Icon(
+                        Icons.AutoMirrored.Filled.Logout,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             )
         }
 
-        SettingsSection(title = "About") {
-            Row(
+        SettingsSection(title = "About", icon = Icons.Filled.Info) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
             ) {
-                Icon(Icons.Filled.Info, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
-                Column {
-                    Text("Daygle AI Camera", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                    Text("Version 1.0.0", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                Text("Daygle AI Camera", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "Version 1.0.0",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
             }
         }
-        
-        Spacer(Modifier.height(32.dp))
     }
 }
 
