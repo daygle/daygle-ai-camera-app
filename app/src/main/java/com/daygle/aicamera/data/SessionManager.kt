@@ -362,6 +362,15 @@ class SessionManager {
         }
 
     private fun mapHttpError(code: Int, path: String): String = when (code) {
+        // Cloudflare edge errors (5xx in the 52x band, plus 530). These are
+        // returned by Cloudflare's edge - not the origin - when it cannot reach
+        // the server behind the tunnel, so "check the server logs" is
+        // misleading: the request never arrived there. Ordered before the
+        // generic 500..599 branch so it wins.
+        in 520..527, 530 ->
+            "Cloudflare couldn't reach your server (edge error $code). The Cloudflare " +
+                "Tunnel connector may be down or the server is offline - check that the " +
+                "tunnel is running, then try again."
         in 500..599 -> "Server error ($code) on $path. Check the server logs."
         404 -> "Endpoint not found (404) on $path. Check the server address or update the server."
         403 -> "Access forbidden (403). Check your account permissions."
