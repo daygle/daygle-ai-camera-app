@@ -1,10 +1,17 @@
 package com.daygle.aicamera.ui
 
+import android.text.format.DateFormat
+import androidx.compose.runtime.staticCompositionLocalOf
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 import java.util.Locale
+
+/**
+ * Whether times should be shown in 24-hour format, sourced from the app's
+ * "24-hour time" preference and provided at the app root (see DaygleTheme).
+ */
+val LocalUse24Hour = staticCompositionLocalOf { false }
 
 private val SOUND_CLASS_IDS = setOf(
     "cat_meow", "dog_bark", "glass_breaking", "smoke_alarm",
@@ -23,17 +30,30 @@ fun isMotionLabel(label: String?): Boolean {
     return normalized.contains("motion") || normalized.contains("movement")
 }
 
-private fun getDisplayFormatter(): DateTimeFormatter =
-    DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
-        .withLocale(Locale.getDefault())
+/**
+ * Localized date + time formatter that honors the app's 24-hour preference.
+ * Builds the pattern from a skeleton so the hour cycle (H vs h) is forced while
+ * the rest stays locale-appropriate.
+ */
+private fun displayFormatter(use24Hour: Boolean): DateTimeFormatter {
+    val locale = Locale.getDefault()
+    val skeleton = "yMMMd" + if (use24Hour) "Hm" else "hm"
+    return DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, skeleton), locale)
+}
+
+/** Localized time-of-day formatter that honors the app's 24-hour preference. */
+fun timeFormatter(use24Hour: Boolean, locale: Locale = Locale.getDefault()): DateTimeFormatter {
+    val skeleton = if (use24Hour) "Hm" else "hm"
+    return DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, skeleton), locale)
+}
 
 /** Render an ISO-8601 timestamp from the server in the device's local time zone. */
-fun formatTimestamp(iso: String?): String {
+fun formatTimestamp(iso: String?, use24Hour: Boolean): String {
     if (iso.isNullOrBlank()) return "-"
     return try {
         OffsetDateTime.parse(iso)
             .atZoneSameInstant(ZoneId.systemDefault())
-            .format(getDisplayFormatter())
+            .format(displayFormatter(use24Hour))
     } catch (_: Exception) {
         iso
     }

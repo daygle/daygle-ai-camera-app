@@ -81,6 +81,7 @@ import com.daygle.aicamera.ui.components.EmptyState
 import com.daygle.aicamera.ui.components.ErrorState
 import com.daygle.aicamera.ui.components.LoadingState
 import com.daygle.aicamera.ui.formatDuration
+import com.daygle.aicamera.ui.LocalUse24Hour
 import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatTimestamp
 import com.daygle.aicamera.ui.isMotionLabel
@@ -574,7 +575,7 @@ private fun RecordingRow(
                             tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
                         )
                         Text(
-                            recording.subtitle(),
+                            recording.subtitle(LocalUse24Hour.current),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -691,6 +692,6 @@ private fun Recording.title(): String {
     return formatEventLabel(topLabel ?: "Recording")
 }
 
-private fun Recording.subtitle(): String {
-    return formatTimestamp(startedAt)
+private fun Recording.subtitle(use24Hour: Boolean): String {
+    return formatTimestamp(startedAt, use24Hour)
 }

@@ -100,6 +100,7 @@ import com.daygle.aicamera.ui.components.EmptyState
 import com.daygle.aicamera.ui.components.ErrorState
 import com.daygle.aicamera.ui.components.LoadingState
 import com.daygle.aicamera.ui.components.ZoomableImage
+import com.daygle.aicamera.ui.LocalUse24Hour
 import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatTimestamp
 import com.daygle.aicamera.ui.ForceLandscape
@@ -626,7 +627,7 @@ private fun SnapshotRow(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        formatTimestamp(event.createdAt),
+                        formatTimestamp(event.createdAt, LocalUse24Hour.current),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

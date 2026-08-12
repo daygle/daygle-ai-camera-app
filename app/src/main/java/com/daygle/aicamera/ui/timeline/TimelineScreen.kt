@@ -59,8 +59,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.daygle.aicamera.ui.LocalUse24Hour
 import com.daygle.aicamera.ui.components.ErrorState
 import com.daygle.aicamera.ui.components.LoadingState
+import com.daygle.aicamera.ui.timeFormatter
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -131,7 +133,7 @@ fun TimelineScreen(
         val timePickerState = rememberTimePickerState(
             initialHour = initialTime.hour,
             initialMinute = initialTime.minute,
-            is24Hour = true
+            is24Hour = LocalUse24Hour.current
         )
 
         AlertDialog(
@@ -192,14 +194,14 @@ fun TimelineScreen(
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                val timeFormatter = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale)
+                                val timeFmt = timeFormatter(LocalUse24Hour.current, locale)
                                 Surface(
                                     onClick = { showTimePicker = "start" },
                                     color = MaterialTheme.colorScheme.surfaceVariant,
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
                                     Text(
-                                        data.startTime.format(timeFormatter),
+                                        data.startTime.format(timeFmt),
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.Bold
@@ -212,7 +214,7 @@ fun TimelineScreen(
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
                                     Text(
-                                        data.endTime.format(timeFormatter),
+                                        data.endTime.format(timeFmt),
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.Bold
