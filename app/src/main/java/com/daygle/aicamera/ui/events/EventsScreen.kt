@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Clear
@@ -36,7 +37,6 @@ import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Videocam
-import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Badge
@@ -613,7 +613,7 @@ private fun EventRow(
                         Icon(
                             imageVector = when {
                                 isSound -> Icons.Filled.GraphicEq
-                                isMotion -> Icons.Filled.DirectionsRun
+                                isMotion -> Icons.AutoMirrored.Filled.DirectionsRun
                                 else -> Icons.Filled.Videocam
                             },
                             contentDescription = null,
@@ -656,7 +656,7 @@ private fun EventRow(
                     Icon(
                         imageVector = when {
                             isSound -> Icons.Filled.GraphicEq
-                            isMotion -> Icons.Filled.DirectionsRun
+                            isMotion -> Icons.AutoMirrored.Filled.DirectionsRun
                             else -> Icons.Filled.NotificationsActive
                         },
                         contentDescription = null,

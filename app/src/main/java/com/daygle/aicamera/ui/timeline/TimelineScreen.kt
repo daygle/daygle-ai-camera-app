@@ -22,8 +22,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.AlertDialog
@@ -276,7 +276,7 @@ fun TimelineScreen(
 
                         TimelineLane(
                             title = "Motion Recordings",
-                            icon = Icons.Filled.DirectionsRun,
+                            icon = Icons.AutoMirrored.Filled.DirectionsRun,
                             segments = data.motionSegments,
                             color = MaterialTheme.colorScheme.secondary,
                             locale = locale,
