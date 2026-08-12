@@ -35,6 +35,7 @@ import com.daygle.aicamera.ui.components.SettingsDivider
 import com.daygle.aicamera.ui.components.SettingsSection
 import com.daygle.aicamera.ui.components.SettingsSwitchRow
 import com.daygle.aicamera.ui.permissions.AppPermissions
+import com.daygle.aicamera.ui.permissions.PermissionsChecklist
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,20 +82,19 @@ fun NotificationsScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Enable Toggle
-            SettingsSection(title = "Status") {
+            SettingsSection(title = "Status", icon = Icons.Filled.NotificationsActive) {
                 Text(
                     "Get push alerts for camera activity. The app uses ntfy to receive real-time notifications from your server.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp)
+                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 4.dp)
                 )
                 SettingsSwitchRow(
                     title = "Enable Alerts",
-                    icon = Icons.Filled.NotificationsActive,
                     subtitle = if (state.enabled) "Currently Active" else "Currently Disabled",
                     checked = state.enabled,
                     enabled = state.canEnable || state.enabled,
@@ -104,8 +104,20 @@ fun NotificationsScreen(
                 )
             }
 
+            // Device Permissions
+            SettingsSection(title = "Device Permissions", icon = Icons.Filled.Security) {
+                Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
+                    Text(
+                        "Required for alerts to reach this device.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    PermissionsChecklist(modifier = Modifier.padding(top = 8.dp))
+                }
+            }
+
             // Configuration Section
-            SettingsSection(title = "Connection Details") {
+            SettingsSection(title = "Connection Details", icon = Icons.Filled.Dns) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -226,7 +238,7 @@ fun NotificationsScreen(
             }
 
             // Test
-            SettingsSection(title = "Test") {
+            SettingsSection(title = "Test", icon = Icons.Filled.BugReport) {
                 PushAlertsTestNotificationButton()
             }
 

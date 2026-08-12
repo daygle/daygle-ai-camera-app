@@ -22,8 +22,11 @@ import com.daygle.aicamera.ui.player.PlayerScreen
 private object Routes {
     const val CONNECT = "connect"
     const val HOME = "home"
+    const val GENERAL_SETTINGS = "general_settings"
+    const val NAVIGATION_SETTINGS = "navigation_settings"
     const val NOTIFICATIONS = "notifications"
     const val SERVER_DETAILS = "server_details"
+    const val ABOUT = "about"
     const val PLAYER = "player/{recordingId}"
 
     fun player(recordingId: Int) = "player/$recordingId"
@@ -59,8 +62,11 @@ fun DaygleNavHost(
                     composable(Routes.HOME) {
                         HomeScreen(
                             onOpenRecording = { id -> navController.navigate(Routes.player(id)) },
+                            onOpenGeneralSettings = { navController.navigate(Routes.GENERAL_SETTINGS) },
+                            onOpenNavigationSettings = { navController.navigate(Routes.NAVIGATION_SETTINGS) },
                             onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
                             onOpenServerDetails = { navController.navigate(Routes.SERVER_DETAILS) },
+                            onOpenAbout = { navController.navigate(Routes.ABOUT) },
                             onSignOut = {
                                 com.daygle.aicamera.push.PushController.stop(appContext)
                                 rootViewModel.disconnect {
@@ -69,6 +75,21 @@ fun DaygleNavHost(
                                     }
                                 }
                             },
+                        )
+                    }
+                    composable(Routes.GENERAL_SETTINGS) {
+                        com.daygle.aicamera.ui.settings.GeneralSettingsScreen(
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                    composable(Routes.NAVIGATION_SETTINGS) {
+                        com.daygle.aicamera.ui.settings.NavigationSettingsScreen(
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                    composable(Routes.ABOUT) {
+                        com.daygle.aicamera.ui.settings.AboutScreen(
+                            onBack = { navController.popBackStack() },
                         )
                     }
                     composable(Routes.SERVER_DETAILS) {
