@@ -4,10 +4,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.StateFlow
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -18,6 +20,7 @@ import com.daygle.aicamera.ui.connect.ConnectScreen
 import com.daygle.aicamera.ui.notifications.NotificationsScreen
 import com.daygle.aicamera.ui.onboarding.OnboardingScreen
 import com.daygle.aicamera.ui.player.PlayerScreen
+import com.daygle.aicamera.ui.snapshots.SnapshotScreen
 
 private object Routes {
     const val CONNECT = "connect"
@@ -28,13 +31,18 @@ private object Routes {
     const val SERVER_DETAILS = "server_details"
     const val ABOUT = "about"
     const val PLAYER = "player/{recordingId}"
+    const val SNAPSHOT = "snapshot/{eventId}"
 
     fun player(recordingId: Int) = "player/$recordingId"
+
+    fun snapshot(eventId: Int) = "snapshot/$eventId"
 }
 
 @Composable
 fun DaygleNavHost(
     rootViewModel: RootViewModel = hiltViewModel(),
+    snapshotEventId: StateFlow<Int?>,
+    onSnapshotEventConsumed: () -> Unit,
 ) {
     val start by rootViewModel.start.collectAsStateWithLifecycle()
 
@@ -48,6 +56,18 @@ fun DaygleNavHost(
                 val navController = rememberNavController()
                 val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
                 val startRoute = if (start == StartDestination.HOME) Routes.HOME else Routes.CONNECT
+
+                // A tapped push alert can request a specific event snapshot.
+                // Navigate once the home graph is active (the request survives a
+                // fresh process restore, which lands on HOME after reconnect).
+                val pendingSnapshotId by snapshotEventId.collectAsStateWithLifecycle()
+                LaunchedEffect(start, pendingSnapshotId) {
+                    val id = pendingSnapshotId
+                    if (start == StartDestination.HOME && id != null) {
+                        navController.navigate(Routes.snapshot(id)) { launchSingleTop = true }
+                        onSnapshotEventConsumed()
+                    }
+                }
 
                 NavHost(navController = navController, startDestination = startRoute) {
                     composable(Routes.CONNECT) {
@@ -114,6 +134,13 @@ fun DaygleNavHost(
                     ) { backStackEntry ->
                         val recordingId = backStackEntry.arguments?.getInt("recordingId") ?: 0
                         PlayerScreen(recordingId = recordingId, onBack = { navController.popBackStack() })
+                    }
+                    composable(
+                        route = Routes.SNAPSHOT,
+                        arguments = listOf(navArgument("eventId") { type = NavType.IntType }),
+                    ) { backStackEntry ->
+                        val eventId = backStackEntry.arguments?.getInt("eventId") ?: 0
+                        SnapshotScreen(eventId = eventId, onBack = { navController.popBackStack() })
                     }
                 }
             }

@@ -71,6 +71,8 @@ The Daygle server sends detection alerts via **ntfy** - it POSTs to
 `{server_url}/{topic}`. This app receives those alerts by **subscribing to the
 same ntfy topic's live stream** (`GET {server_url}/{topic}/json`), the same
 "instant delivery" model the official ntfy app uses for self-hosted servers.
+Tapping an alert notification opens the triggering event's annotated snapshot
+directly (the server includes the event ID in the alert body).
 
 To turn it on: tap the **bell** icon on the home screen → **Auto-fill from
 server** (reads the ntfy server/topic from your server's push settings) →

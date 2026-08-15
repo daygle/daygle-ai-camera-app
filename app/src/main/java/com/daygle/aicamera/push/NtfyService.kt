@@ -173,10 +173,17 @@ class NtfyService : Service() {
         val title = message.title?.takeIf { it.isNotBlank() } ?: "Camera alert"
         val text = message.message?.takeIf { it.isNotBlank() } ?: "A detection alert was triggered."
 
+        // The Daygle server embeds the triggering event's id in the alert body
+        // ("Event ID: 123"). Carry it through the tap intent so tapping the
+        // notification opens that event's annotated snapshot directly.
+        val eventId = eventIdFrom(message)
+        val notificationId = alertId.incrementAndGet()
         val contentIntent = PendingIntent.getActivity(
             this,
-            0,
-            Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            notificationId,
+            Intent(this, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .apply { eventId?.let { putExtra(EXTRA_EVENT_ID, it) } },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
@@ -192,7 +199,7 @@ class NtfyService : Service() {
             .build()
 
         runCatching {
-            NotificationManagerCompat.from(this).notify(alertId.incrementAndGet(), notification)
+            NotificationManagerCompat.from(this).notify(notificationId, notification)
         }.onFailure { error ->
             Log.w(TAG, "Could not post camera alert notification", error)
         }
@@ -232,6 +239,9 @@ class NtfyService : Service() {
         private const val ALERTS_CHANNEL = "camera_alerts"
         private const val STATUS_ID = 1001
         private const val TEST_ID = 1002
+
+        /** Intent extra on alert notifications carrying the triggering event id. */
+        const val EXTRA_EVENT_ID = "com.daygle.aicamera.extra.EVENT_ID"
 
         /** Create the status + alert notification channels. Safe to call repeatedly. */
         fun ensureChannels(context: Context) {
@@ -298,3 +308,9 @@ private data class NtfyMessage(
     val title: String? = null,
     val priority: Int = 3,
 )
+
+private val EVENT_ID_PATTERN = Regex("""Event\s*ID\s*[:=]\s*(\d+)""", RegexOption.IGNORE_CASE)
+
+/** Extract the Daygle event id from an alert body (e.g. "Event ID: 123"). */
+private fun eventIdFrom(message: NtfyMessage): Int? =
+    message.message?.let { EVENT_ID_PATTERN.find(it)?.groupValues?.get(1)?.toIntOrNull() }
