@@ -164,7 +164,7 @@ CI runs on every push to `main` via GitHub Actions (`.github/workflows/android-b
 
 | Layer | Libraries |
 | --- | --- |
-| Language | Kotlin 2.4.10 |
+| Language | Kotlin 2.4.20-RC |
 | UI | Jetpack Compose (BOM 2026.06.01), Material 3 + material-icons-extended |
 | Build | AGP 9.3.1, **Gradle 9.6.1**, JDK 17 |
 | Performance | Configuration Cache, Parallel Sync |
