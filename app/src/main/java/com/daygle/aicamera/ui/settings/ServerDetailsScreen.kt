@@ -62,6 +62,8 @@ fun ServerDetailsScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var cfSecretVisible by remember { mutableStateOf(false) }
     var showCloudflare by remember { mutableStateOf(state.cfAccessClientId.isNotBlank() || state.cfAccessClientSecret.isNotBlank()) }
+    var customHeaderValueVisible by remember { mutableStateOf(false) }
+    var showCustomHeader by remember { mutableStateOf(state.customHeaderName.isNotBlank() || state.customHeaderValue.isNotBlank()) }
 
     Scaffold(
         modifier = modifier,
@@ -192,6 +194,61 @@ fun ServerDetailsScreen(
                                     Icon(
                                         imageVector = if (cfSecretVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
                                         contentDescription = if (cfSecretVisible) "Hide client secret" else "Show client secret",
+                                    )
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                            )
+                        )
+                    }
+
+                    TextButton(
+                        onClick = { showCustomHeader = !showCustomHeader },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Custom Header (Optional)")
+                        Icon(
+                            imageVector = if (showCustomHeader) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                            contentDescription = null,
+                        )
+                    }
+
+                    if (showCustomHeader) {
+                        Text(
+                            "Send a custom HTTP header with every request, including login.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        OutlinedTextField(
+                            value = state.customHeaderName,
+                            onValueChange = viewModel::onCustomHeaderName,
+                            label = { Text("Header name") },
+                            placeholder = { Text("X-Api-Key") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                            )
+                        )
+                        OutlinedTextField(
+                            value = state.customHeaderValue,
+                            onValueChange = viewModel::onCustomHeaderValue,
+                            label = { Text("Header value") },
+                            singleLine = true,
+                            visualTransformation = if (customHeaderValueVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                            trailingIcon = {
+                                IconButton(onClick = { customHeaderValueVisible = !customHeaderValueVisible }) {
+                                    Icon(
+                                        imageVector = if (customHeaderValueVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                        contentDescription = if (customHeaderValueVisible) "Hide header value" else "Show header value",
                                     )
                                 }
                             },

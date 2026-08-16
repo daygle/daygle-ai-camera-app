@@ -19,6 +19,8 @@ data class ConnectUiState(
     val password: String = "",
     val cfAccessClientId: String = "",
     val cfAccessClientSecret: String = "",
+    val customHeaderName: String = "",
+    val customHeaderValue: String = "",
     val connecting: Boolean = false,
     val error: String? = null,
 ) {
@@ -42,6 +44,8 @@ class ConnectViewModel @Inject constructor(private val repository: CameraReposit
                         password = saved.password,
                         cfAccessClientId = saved.cfAccessClientId,
                         cfAccessClientSecret = saved.cfAccessClientSecret,
+                        customHeaderName = saved.customHeaderName,
+                        customHeaderValue = saved.customHeaderValue,
                     )
                 }
             }
@@ -53,10 +57,19 @@ class ConnectViewModel @Inject constructor(private val repository: CameraReposit
     fun onPassword(value: String) = _state.update { it.copy(password = value, error = null) }
     fun onCfAccessClientId(value: String) = _state.update { it.copy(cfAccessClientId = value, error = null) }
     fun onCfAccessClientSecret(value: String) = _state.update { it.copy(cfAccessClientSecret = value, error = null) }
+    fun onCustomHeaderName(value: String) = _state.update { it.copy(customHeaderName = value, error = null) }
+    fun onCustomHeaderValue(value: String) = _state.update { it.copy(customHeaderValue = value, error = null) }
 
     fun connect(onSuccess: () -> Unit) {
         val current = _state.value
         if (!current.canSubmit) return
+        val headerName = current.customHeaderName.trim()
+        if (headerName.isNotBlank() && !isValidHeaderName(headerName)) {
+            _state.update {
+                it.copy(error = "Invalid header name. Use letters, digits, and characters like -_.")
+            }
+            return
+        }
         _state.update { it.copy(connecting = true, error = null) }
         viewModelScope.launch {
             val result = repository.connect(
@@ -66,6 +79,8 @@ class ConnectViewModel @Inject constructor(private val repository: CameraReposit
                     password = current.password,
                     cfAccessClientId = current.cfAccessClientId.trim(),
                     cfAccessClientSecret = current.cfAccessClientSecret,
+                    customHeaderName = headerName,
+                    customHeaderValue = current.customHeaderValue,
                 ),
             )
             when (result) {
@@ -81,5 +96,12 @@ class ConnectViewModel @Inject constructor(private val repository: CameraReposit
                     _state.update { it.copy(connecting = false, error = result.message) }
             }
         }
+    }
+
+    companion object {
+        // HTTP token characters allowed in a header name (RFC 7230).
+        private val HEADER_NAME = Regex("^[A-Za-z0-9!#$%&'*+.^_`|~-]+$")
+
+        fun isValidHeaderName(name: String): Boolean = name.matches(HEADER_NAME)
     }
 }

@@ -54,6 +54,8 @@ fun ConnectScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var cfSecretVisible by remember { mutableStateOf(false) }
     var showCloudflare by remember { mutableStateOf(state.cfAccessClientId.isNotBlank() || state.cfAccessClientSecret.isNotBlank()) }
+    var customHeaderValueVisible by remember { mutableStateOf(false) }
+    var showCustomHeader by remember { mutableStateOf(state.customHeaderName.isNotBlank() || state.customHeaderValue.isNotBlank()) }
 
     Column(
         modifier = modifier
@@ -157,6 +159,56 @@ fun ConnectScreen(
                         Icon(
                             imageVector = if (cfSecretVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
                             contentDescription = if (cfSecretVisible) "Hide client secret" else "Show client secret",
+                        )
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp)
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+        TextButton(
+            onClick = { showCustomHeader = !showCustomHeader },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Custom Header (Optional)")
+            Icon(
+                imageVector = if (showCustomHeader) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                contentDescription = null,
+            )
+        }
+        if (showCustomHeader) {
+            Text(
+                "Send a custom HTTP header with every request, including login. " +
+                    "Useful for servers that require an extra token, e.g. behind a reverse proxy.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(16.dp))
+            OutlinedTextField(
+                value = state.customHeaderName,
+                onValueChange = viewModel::onCustomHeaderName,
+                label = { Text("Header name") },
+                placeholder = { Text("X-Api-Key") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp)
+            )
+            Spacer(Modifier.height(16.dp))
+            OutlinedTextField(
+                value = state.customHeaderValue,
+                onValueChange = viewModel::onCustomHeaderValue,
+                label = { Text("Header value") },
+                singleLine = true,
+                visualTransformation = if (customHeaderValueVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                trailingIcon = {
+                    IconButton(onClick = { customHeaderValueVisible = !customHeaderValueVisible }) {
+                        Icon(
+                            imageVector = if (customHeaderValueVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                            contentDescription = if (customHeaderValueVisible) "Hide header value" else "Show header value",
                         )
                     }
                 },

@@ -71,6 +71,12 @@ class SessionManager {
     @Volatile
     private var cfAccessClientSecret: String = ""
 
+    @Volatile
+    private var customHeaderName: String = ""
+
+    @Volatile
+    private var customHeaderValue: String = ""
+
     private val cookieManager = CookieManager(null, CookiePolicy.ACCEPT_ALL)
     private val cookieJar = JavaNetCookieJar(cookieManager)
     private val loginLock = Any()
@@ -81,7 +87,7 @@ class SessionManager {
         level = HttpLoggingInterceptor.Level.BASIC
         redactHeader("Cookie")
         redactHeader("Set-Cookie")
-        // Service-token headers are credentials; never let logging print them.
+        // Service-token and custom headers are credentials; never let logging print them.
         redactHeader("CF-Access-Client-Id")
         redactHeader("CF-Access-Client-Secret")
     }
@@ -102,6 +108,25 @@ class SessionManager {
             chain.request().newBuilder()
                 .header("CF-Access-Client-Id", clientId)
                 .header("CF-Access-Client-Secret", clientSecret)
+                .build()
+        )
+    }
+
+    /**
+     * When a custom header (name + value) is configured, attach it to every
+     * request - the login handshake included - so servers that require an
+     * extra header (e.g. an API key or reverse-proxy token) accept the app's
+     * traffic. No-op when unset, so behaviour is unchanged otherwise.
+     */
+    private fun customHeaderInterceptor() = Interceptor { chain ->
+        val name = customHeaderName
+        val value = customHeaderValue
+        if (name.isBlank() || value.isBlank()) {
+            return@Interceptor chain.proceed(chain.request())
+        }
+        chain.proceed(
+            chain.request().newBuilder()
+                .header(name, value)
                 .build()
         )
     }
@@ -130,6 +155,7 @@ class SessionManager {
         .followRedirects(false)
         .followSslRedirects(false)
         .addInterceptor(cloudflareAccessInterceptor())
+        .addInterceptor(customHeaderInterceptor())
         .addInterceptor(logging)
         .build()
 
@@ -148,6 +174,7 @@ class SessionManager {
         .followRedirects(false)
         .followSslRedirects(false)
         .addInterceptor(cloudflareAccessInterceptor())
+        .addInterceptor(customHeaderInterceptor())
         .addInterceptor(logging)
         .addInterceptor(authInterceptor())
         .build()
@@ -172,6 +199,14 @@ class SessionManager {
         this.baseUrl = normalized
         this.cfAccessClientId = connection.cfAccessClientId.trim()
         this.cfAccessClientSecret = connection.cfAccessClientSecret
+        this.customHeaderName = connection.customHeaderName.trim()
+        this.customHeaderValue = connection.customHeaderValue
+        // Keep the configured header out of the HTTP logs. update() runs on
+        // the caller's thread before any network traffic is issued, so this
+        // redaction is in place before requests are logged.
+        if (customHeaderName.isNotBlank()) {
+            logging.redactHeader(customHeaderName)
+        }
         if (changed) {
             cookieManager.cookieStore.removeAll()
             sessionGeneration.incrementAndGet()

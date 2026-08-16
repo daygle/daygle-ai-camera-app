@@ -119,6 +119,17 @@ Access lets the app through instead of redirecting it to a browser login page.
 When the fields are empty, the app behaves exactly as before (no headers sent),
 so servers not behind Access are unaffected.
 
+### Custom headers
+
+If your server requires an extra HTTP header on every request (for example an
+API key or a reverse-proxy token), you can configure one in the connect screen
+under *Custom Header (Optional)* - enter the header name and value. The header
+is attached to **every** request, including the login handshake and the
+push-alert stream, and its value is stored encrypted like your password and
+redacted from the app's HTTP logs. Leave the fields empty to send no custom
+header. (For Cloudflare Access, use the dedicated service-token fields above
+instead.)
+
 ## Requirements
 
 - Android 8.0 (API 26) or newer

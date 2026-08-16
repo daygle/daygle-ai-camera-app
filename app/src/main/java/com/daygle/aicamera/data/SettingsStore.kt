@@ -15,6 +15,7 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 
 private const val CF_ACCESS_CLIENT_ID_KEY = "cf_access_client_id"
 private const val CF_ACCESS_CLIENT_SECRET_KEY = "cf_access_client_secret"
+private const val CUSTOM_HEADER_VALUE_KEY = "custom_header_value"
 private const val USERNAME_SECRET_KEY = "daygle_username"
 private const val PASSWORD_SECRET_KEY = "daygle_password"
 
@@ -26,6 +27,9 @@ data class Connection(
     /** Optional Cloudflare Access service token (Client ID / Client Secret). */
     val cfAccessClientId: String = "",
     val cfAccessClientSecret: String = "",
+    /** Optional custom HTTP header sent with every request (name stored in plain prefs, value encrypted). */
+    val customHeaderName: String = "",
+    val customHeaderValue: String = "",
 ) {
     val isConfigured: Boolean get() = baseUrl.isNotBlank() && username.isNotBlank()
 }
@@ -47,6 +51,7 @@ class SettingsStore(private val context: Context) {
         val USERNAME = stringPreferencesKey("username")
         val PASSWORD = stringPreferencesKey("password")
         val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
+        val CUSTOM_HEADER_NAME = stringPreferencesKey("custom_header_name")
     }
 
     val connection: Flow<Connection> = context.dataStore.data.map { prefs ->
@@ -58,6 +63,8 @@ class SettingsStore(private val context: Context) {
             password = secrets.read(PASSWORD_SECRET_KEY) ?: prefs[Keys.PASSWORD].orEmpty(),
             cfAccessClientId = secrets.read(CF_ACCESS_CLIENT_ID_KEY).orEmpty(),
             cfAccessClientSecret = secrets.read(CF_ACCESS_CLIENT_SECRET_KEY).orEmpty(),
+            customHeaderName = prefs[Keys.CUSTOM_HEADER_NAME].orEmpty(),
+            customHeaderValue = secrets.read(CUSTOM_HEADER_VALUE_KEY).orEmpty(),
         )
     }
 
@@ -85,6 +92,7 @@ class SettingsStore(private val context: Context) {
         secrets.write(PASSWORD_SECRET_KEY, connection.password)
         context.dataStore.edit { prefs ->
             prefs[Keys.BASE_URL] = connection.baseUrl
+            prefs[Keys.CUSTOM_HEADER_NAME] = connection.customHeaderName.trim()
             // Username/password used to live in DataStore. Remove those legacy
             // values only after the encrypted copies have been written.
             prefs.remove(Keys.USERNAME)
@@ -100,6 +108,11 @@ class SettingsStore(private val context: Context) {
         } else {
             secrets.write(CF_ACCESS_CLIENT_SECRET_KEY, connection.cfAccessClientSecret)
         }
+        if (connection.customHeaderValue.isBlank()) {
+            secrets.remove(CUSTOM_HEADER_VALUE_KEY)
+        } else {
+            secrets.write(CUSTOM_HEADER_VALUE_KEY, connection.customHeaderValue)
+        }
     }
 
     suspend fun isOnboardingDone(): Boolean =
@@ -114,11 +127,13 @@ class SettingsStore(private val context: Context) {
             prefs.remove(Keys.BASE_URL)
             prefs.remove(Keys.USERNAME)
             prefs.remove(Keys.PASSWORD)
+            prefs.remove(Keys.CUSTOM_HEADER_NAME)
         }
         secrets.remove(USERNAME_SECRET_KEY)
         secrets.remove(PASSWORD_SECRET_KEY)
         secrets.remove(CF_ACCESS_CLIENT_ID_KEY)
         secrets.remove(CF_ACCESS_CLIENT_SECRET_KEY)
+        secrets.remove(CUSTOM_HEADER_VALUE_KEY)
     }
 
     fun appPrefs(): AppPreferencesStore = appPrefsStore
