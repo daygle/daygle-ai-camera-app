@@ -43,11 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.daygle.aicamera.ui.formatEventLabel
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -284,14 +280,4 @@ internal fun FilterSection(
         }
         content()
     }
-}
-
-internal fun dateRangeLabel(start: LocalDate?, end: LocalDate?): String {
-    if (start == null && end == null) return "Anytime"
-    val formatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
-        .withLocale(Locale.getDefault())
-    if (start != null && end != null) {
-        return "${start.format(formatter)} - ${end.format(formatter)}"
-    }
-    return if (start != null) "From ${start.format(formatter)}" else "Until ${end!!.format(formatter)}"
 }

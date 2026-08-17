@@ -1,7 +1,6 @@
 package com.daygle.aicamera.ui.events
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,8 +40,6 @@ import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.ui.LocalUse24Hour
 import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatTimestamp
-import com.daygle.aicamera.ui.isMotionLabel
-import com.daygle.aicamera.ui.isSoundLabel
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
@@ -83,7 +80,7 @@ internal fun EventRow(
             headlineContent = {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
                         formatEventLabel(event.topLabel ?: "Event"),
@@ -97,10 +94,10 @@ internal fun EventRow(
                 }
             },
             supportingContent = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
                     ) {
                         Icon(
                             imageVector = when {
@@ -163,7 +160,7 @@ internal fun EventRow(
             },
             trailingContent = {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (event.hasSnapshot) {
@@ -229,15 +226,3 @@ internal fun AlertBadge() {
         }
     }
 }
-
-internal fun isMotionEvent(event: Event): Boolean =
-    event.source?.lowercase() == "motion" ||
-        event.triggerType?.lowercase() == "motion" ||
-        isMotionLabel(event.triggerLabel) ||
-        event.detections.any { isMotionLabel(it.label) }
-
-internal fun isSoundEvent(event: Event): Boolean =
-    event.source?.lowercase() == "sound" ||
-        event.triggerType?.lowercase() == "sound" ||
-        isSoundLabel(event.triggerLabel) ||
-        event.detections.any { isSoundLabel(it.label) }

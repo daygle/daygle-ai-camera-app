@@ -79,7 +79,7 @@ fun EventsScreen(
 
     snapshotEventId?.let { id ->
         SnapshotViewerDialog(
-            url = viewModel.snapshotUrl(id)
+            url = viewModel.snapshotUrl(id),
         ) { snapshotEventId = null }
     }
 
@@ -246,8 +246,7 @@ fun EventsScreen(
                                 EventRow(
                                     event,
                                     onPlayRecording = onPlayRecording,
-                                    onOpenSnapshot = { snapshotEventId = it },
-                                )
+                                ) { snapshotEventId = it }
                             }
                         }
                     }
