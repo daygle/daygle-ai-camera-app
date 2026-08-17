@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +40,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -53,9 +55,15 @@ fun ConnectScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var passwordVisible by remember { mutableStateOf(false) }
     var cfSecretVisible by remember { mutableStateOf(false) }
-    var showCloudflare by remember { mutableStateOf(state.cfAccessClientId.isNotBlank() || state.cfAccessClientSecret.isNotBlank()) }
     var customHeaderValueVisible by remember { mutableStateOf(false) }
-    var showCustomHeader by remember { mutableStateOf(state.customHeaderName.isNotBlank() || state.customHeaderValue.isNotBlank()) }
+    var showAdvanced by remember {
+        mutableStateOf(
+            state.cfAccessClientId.isNotBlank() ||
+                state.cfAccessClientSecret.isNotBlank() ||
+                state.customHeaderName.isNotBlank() ||
+                state.customHeaderValue.isNotBlank()
+        )
+    }
 
     Column(
         modifier = modifier
@@ -70,19 +78,20 @@ fun ConnectScreen(
         AppLogo(modifier = Modifier.size(88.dp))
         Spacer(Modifier.height(24.dp))
         Text("Daygle AI Camera", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(12.dp))
         Text(
-            "Connect to your hosted server",
+            "Connect to your Daygle AI Camera Server",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
         )
-        Spacer(Modifier.height(48.dp))
+        Spacer(Modifier.height(40.dp))
 
         OutlinedTextField(
             value = state.baseUrl,
             onValueChange = viewModel::onBaseUrl,
-            label = { Text("Server address") },
-            placeholder = { Text("http://192.168.1.20:8080") },
+            label = { Text("Server URL") },
+            placeholder = { Text("https://cam.yourdomain.com") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
             modifier = Modifier.fillMaxWidth(),
@@ -120,23 +129,35 @@ fun ConnectScreen(
 
         Spacer(Modifier.height(8.dp))
         TextButton(
-            onClick = { showCloudflare = !showCloudflare },
-            modifier = Modifier.fillMaxWidth(),
+            onClick = { showAdvanced = !showAdvanced },
         ) {
-            Text("Cloudflare Access (Optional)")
+            Text(
+                "Advanced Options (Optional)",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Icon(
-                imageVector = if (showCloudflare) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                imageVector = if (showAdvanced) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
                 contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        if (showCloudflare) {
+
+        if (showAdvanced) {
+            Spacer(Modifier.height(16.dp))
+            Text(
+                "Cloudflare Access",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.fillMaxWidth()
+            )
             Text(
                 "Only for servers behind a Cloudflare Tunnel protected by Cloudflare Access. " +
                     "Create a service token in Zero Trust and paste it here.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
             OutlinedTextField(
                 value = state.cfAccessClientId,
                 onValueChange = viewModel::onCfAccessClientId,
@@ -153,7 +174,7 @@ fun ConnectScreen(
                 label = { Text("Client Secret") },
                 singleLine = true,
                 visualTransformation = if (cfSecretVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
                 trailingIcon = {
                     IconButton(onClick = { cfSecretVisible = !cfSecretVisible }) {
                         Icon(
@@ -165,27 +186,21 @@ fun ConnectScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp)
             )
-        }
 
-        Spacer(Modifier.height(8.dp))
-        TextButton(
-            onClick = { showCustomHeader = !showCustomHeader },
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Custom Header (Optional)")
-            Icon(
-                imageVector = if (showCustomHeader) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                contentDescription = null,
-            )
-        }
-        if (showCustomHeader) {
+            Spacer(Modifier.height(24.dp))
+            HorizontalDivider(modifier = Modifier.padding(bottom = 24.dp), thickness = 0.5.dp)
             Text(
-                "Send a custom HTTP header with every request, including login. " +
-                    "Useful for servers that require an extra token, e.g. behind a reverse proxy.",
+                "Custom Header",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                "Send a custom HTTP header with every request. " +
+                    "Useful for servers behind a reverse proxy that requires an extra token.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
             OutlinedTextField(
                 value = state.customHeaderName,
                 onValueChange = viewModel::onCustomHeaderName,
