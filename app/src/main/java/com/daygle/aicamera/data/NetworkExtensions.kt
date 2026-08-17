@@ -1,5 +1,6 @@
 package com.daygle.aicamera.data
 
+import kotlinx.coroutines.CancellationException
 import java.io.IOException
 import java.net.ConnectException
 import java.net.NoRouteToHostException
@@ -34,4 +35,18 @@ private fun Throwable.toUserFriendlyMessageInner(): String = when (this) {
     is NoRouteToHostException -> "No route to host. The server cannot be reached on this network."
     is SSLException -> "SSL/TLS error. Check if your server supports HTTPS and has a valid certificate."
     else -> "Could not reach the server."
+}
+
+/**
+ * A safe version of [runCatching] for coroutines that ensures [CancellationException]
+ * is re-thrown so the coroutine scope can be correctly cancelled.
+ */
+inline fun <R> suspendRunCatching(block: () -> R): Result<R> {
+    return try {
+        Result.success(block())
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        Result.failure(e)
+    }
 }

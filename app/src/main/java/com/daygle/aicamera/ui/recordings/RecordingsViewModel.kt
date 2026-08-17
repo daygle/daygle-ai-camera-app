@@ -6,7 +6,7 @@ import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.Detection
 import com.daygle.aicamera.data.model.Recording
-import com.daygle.aicamera.ui.dashboard.friendlyMessage
+import com.daygle.aicamera.ui.friendlyMessage
 import com.daygle.aicamera.ui.isMotionLabel
 import com.daygle.aicamera.ui.isSoundLabel
 import dagger.hilt.android.lifecycle.HiltViewModel

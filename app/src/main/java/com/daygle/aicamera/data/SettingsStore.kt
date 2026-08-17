@@ -7,9 +7,11 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "connection")
 
@@ -55,17 +57,19 @@ class SettingsStore(private val context: Context) {
     }
 
     val connection: Flow<Connection> = context.dataStore.data.map { prefs ->
-        Connection(
-            baseUrl = prefs[Keys.BASE_URL].orEmpty(),
-            // Legacy fallback keeps old installations usable until restore()
-            // performs the one-time encrypted migration.
-            username = secrets.read(USERNAME_SECRET_KEY) ?: prefs[Keys.USERNAME].orEmpty(),
-            password = secrets.read(PASSWORD_SECRET_KEY) ?: prefs[Keys.PASSWORD].orEmpty(),
-            cfAccessClientId = secrets.read(CF_ACCESS_CLIENT_ID_KEY).orEmpty(),
-            cfAccessClientSecret = secrets.read(CF_ACCESS_CLIENT_SECRET_KEY).orEmpty(),
-            customHeaderName = prefs[Keys.CUSTOM_HEADER_NAME].orEmpty(),
-            customHeaderValue = secrets.read(CUSTOM_HEADER_VALUE_KEY).orEmpty(),
-        )
+        withContext(Dispatchers.IO) {
+            Connection(
+                baseUrl = prefs[Keys.BASE_URL].orEmpty(),
+                // Legacy fallback keeps old installations usable until restore()
+                // performs the one-time encrypted migration.
+                username = secrets.read(USERNAME_SECRET_KEY) ?: prefs[Keys.USERNAME].orEmpty(),
+                password = secrets.read(PASSWORD_SECRET_KEY) ?: prefs[Keys.PASSWORD].orEmpty(),
+                cfAccessClientId = secrets.read(CF_ACCESS_CLIENT_ID_KEY).orEmpty(),
+                cfAccessClientSecret = secrets.read(CF_ACCESS_CLIENT_SECRET_KEY).orEmpty(),
+                customHeaderName = prefs[Keys.CUSTOM_HEADER_NAME].orEmpty(),
+                customHeaderValue = secrets.read(CUSTOM_HEADER_VALUE_KEY).orEmpty(),
+            )
+        }
     }
 
     suspend fun current(): Connection = connection.first()

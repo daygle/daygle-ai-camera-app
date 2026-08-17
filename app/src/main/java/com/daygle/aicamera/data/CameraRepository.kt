@@ -43,17 +43,17 @@ class CameraRepository(
     /** The persisted connection, so the connect screen can pre-fill it. */
     suspend fun currentConnection(): Connection = settings.current()
 
-    suspend fun cameras(): Result<List<Camera>> = runCatching { session.api.cameras().cameras }
+    suspend fun cameras(): Result<List<Camera>> = suspendRunCatching { session.api.cameras().cameras }
 
-    suspend fun cameraHealth(): Result<CameraHealthResponse> = runCatching { session.api.cameraHealth() }
+    suspend fun cameraHealth(): Result<CameraHealthResponse> = suspendRunCatching { session.api.cameraHealth() }
 
     suspend fun events(alertedOnly: Boolean = false): Result<List<Event>> =
-        runCatching { session.api.events(alertedOnly = alertedOnly) }
+        suspendRunCatching { session.api.events(alertedOnly = alertedOnly) }
 
     suspend fun recordings(cameraId: String? = null): Result<List<Recording>> =
-        runCatching { session.api.recordings(cameraId = cameraId) }
+        suspendRunCatching { session.api.recordings(cameraId = cameraId) }
 
-    suspend fun pushSettings(): Result<PushSettings> = runCatching { session.api.pushSettings() }
+    suspend fun pushSettings(): Result<PushSettings> = suspendRunCatching { session.api.pushSettings() }
 
     fun snapshotUrl(cameraId: String?, cacheBuster: Long): String? =
         session.snapshotUrl(cameraId, cacheBuster)
