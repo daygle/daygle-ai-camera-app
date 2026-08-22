@@ -232,7 +232,7 @@ class SnapshotsViewModel @Inject constructor(
             val start = filter.dateStart?.atStartOfDay(ZoneId.systemDefault())?.toOffsetDateTime()
             val end = filter.dateEnd?.plusDays(1)?.atStartOfDay(ZoneId.systemDefault())?.toOffsetDateTime()
             result = result.filter { e ->
-                parseTimestamp(e.createdAt) ?: return@filter true
+                val ts = parseTimestamp(e.createdAt) ?: return@filter true
                 if (start != null && ts.isBefore(start)) return@filter false
                 if (end != null && !ts.isBefore(end)) return@filter false
                 true
