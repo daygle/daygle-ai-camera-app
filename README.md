@@ -89,7 +89,7 @@ For environments requiring specific HTTP headers (like proxy API keys), configur
 | --- | --- |
 | **Language** | Kotlin 2.4.10 (JDK 21) |
 | **UI Framework** | Jetpack Compose (Material 3, Adaptive Layouts) |
-| **Build System** | Gradle 9.7.0 with AGP 9.3.1 |
+| **Build System** | Gradle 9.7.1 with AGP 9.3.1 |
 | **Networking** | OkHttp 5.4, Retrofit 3.0, Kotlinx Serialization |
 | **Dependency Injection** | Hilt 2.60 (KSP) |
 | **Image / Video** | Coil 3.5, Media3 / ExoPlayer 1.11.1 |
