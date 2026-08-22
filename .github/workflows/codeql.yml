@@ -39,12 +39,15 @@ jobs:
       uses: github/codeql-action/init@v4
       with:
         languages: ${{ matrix.language }}
-        build-mode: manual
+        # Build-less extraction for Java/Kotlin: CodeQL compiles nothing and
+        # extracts directly from source, so analysis can't fail because the
+        # traced Gradle build produced no code.
+        build-mode: none
 
     - name: Build for CodeQL
-      # Use clean to ensure compilation is not skipped due to cache.
-      # Disable configuration cache and build cache for the tracer to see all tasks.
-      run: ./gradlew clean assembleDebug --no-daemon --no-build-cache --no-configuration-cache
+      # Not needed for extraction with build-mode: none, but kept so compile
+      # errors still fail CI alongside the Android CI workflow.
+      run: ./gradlew assembleDebug --no-daemon --no-build-cache --no-configuration-cache
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v4
