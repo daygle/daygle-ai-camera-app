@@ -7,6 +7,7 @@ import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.ui.friendlyMessage
 import com.daygle.aicamera.ui.isMotionLabel
 import com.daygle.aicamera.ui.isSoundLabel
+import com.daygle.aicamera.ui.parseTimestamp
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,7 +16,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
-import java.time.OffsetDateTime
 import java.time.ZoneId
 import javax.inject.Inject
 
@@ -70,8 +70,7 @@ class TimelineViewModel @Inject constructor(
     }
 
     fun load() {
-        val current = _state.value
-        _state.update {
+        _state.update { current ->
             if (current is TimelineUiState.Ready) {
                 TimelineUiState.Ready(current.data.copy(refreshing = true, date = selectedDate, startTime = startTime, endTime = endTime))
             } else {
@@ -115,9 +114,7 @@ class TimelineViewModel @Inject constructor(
         val motionSegments = mutableListOf<TimelineSegment>()
 
         recordings.forEach { recording ->
-            val startTs = recording.startedAt?.let {
-                try { OffsetDateTime.parse(it) } catch (_: Exception) { null }
-            } ?: return@forEach
+            val startTs = parseTimestamp(recording.startedAt) ?: return@forEach
 
             // Normalize to the device's local zone so the day boundary, the
             // time-range filter, and the on-screen position all agree, no matter

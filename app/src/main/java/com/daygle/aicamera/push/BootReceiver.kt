@@ -20,6 +20,10 @@ class BootReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 PushController.sync(context.applicationContext)
+            } catch (e: Exception) {
+                // Never let a boot-time sync failure crash the app; the
+                // keep-alive worker retries once the app is running.
+                android.util.Log.w("BootReceiver", "Push sync after boot failed: ${e.message}")
             } finally {
                 pending.finish()
             }

@@ -9,6 +9,7 @@ import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.ui.friendlyMessage
 import com.daygle.aicamera.ui.isMotionLabel
 import com.daygle.aicamera.ui.isSoundLabel
+import com.daygle.aicamera.ui.parseTimestamp
 import dagger.hilt.android.lifecycle.HiltViewModel
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -19,7 +20,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
-import java.time.OffsetDateTime
 import java.time.ZoneId
 import javax.inject.Inject
 
@@ -58,17 +58,22 @@ data class RecordingsReady(
 ) {
     val availableModes: List<String> = listOf("Object", "Sound", "Motion")
 
-    val availableCameras: List<String> =
+    // Derived collections are lazy: the Ready state is rebuilt on every filter
+    // edit, and these only depend on the full recording list.
+    val availableCameras: List<String> by lazy {
         recordings.mapNotNull { it.source }.filter { it != "sound" && it != "rtsp" }.distinct().sorted()
+    }
 
-    val availableTriggerTypes: List<String> =
+    val availableTriggerTypes: List<String> by lazy {
         recordings.mapNotNull { it.triggerType }.distinct().sorted()
+    }
 
-    val availableLabels: List<String> =
+    val availableLabels: List<String> by lazy {
         recordings.flatMap { it.labels }.distinct().sorted()
+    }
 
-    val availableObjectLabels: List<String> = availableLabels.filter { !isSoundLabel(it) }
-    val availableSoundLabels: List<String> = availableLabels.filter { isSoundLabel(it) }
+    val availableObjectLabels: List<String> by lazy { availableLabels.filter { !isSoundLabel(it) } }
+    val availableSoundLabels: List<String> by lazy { availableLabels.filter { isSoundLabel(it) } }
 }
 
 sealed interface RecordingsUiState {
@@ -209,9 +214,7 @@ class RecordingsViewModel @Inject constructor(
             val start = filter.dateStart?.atStartOfDay(ZoneId.systemDefault())?.toOffsetDateTime()
             val end = filter.dateEnd?.plusDays(1)?.atStartOfDay(ZoneId.systemDefault())?.toOffsetDateTime()
             result = result.filter { r ->
-                val ts = r.startedAt?.let {
-                    try { OffsetDateTime.parse(it) } catch (_: Exception) { null }
-                } ?: return@filter true
+                val ts = parseTimestamp(r.startedAt) ?: return@filter true
                 if (start != null && ts.isBefore(start)) return@filter false
                 if (end != null && !ts.isBefore(end)) return@filter false
                 true

@@ -6,14 +6,14 @@ import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.Event
+import com.daygle.aicamera.data.model.metadataLabel
 import com.daygle.aicamera.ui.friendlyMessage
 import com.daygle.aicamera.ui.isMotionLabel
 import com.daygle.aicamera.ui.isSoundLabel
+import com.daygle.aicamera.ui.parseTimestamp
 import com.daygle.aicamera.util.FileDownloader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
@@ -23,7 +23,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
-import java.time.OffsetDateTime
 import java.time.ZoneId
 import javax.inject.Inject
 
@@ -62,20 +61,25 @@ data class SnapshotsReady(
 ) {
     val availableModes: List<String> = listOf("Object", "Sound", "Motion")
 
-    val availableSources: List<String> =
+    // Derived collections are lazy: the Ready state is rebuilt on every filter
+    // edit, and these only depend on the full snapshot list.
+    val availableSources: List<String> by lazy {
         snapshots.mapNotNull { it.source }.filter { it != "sound" && it != "rtsp" }.distinct().sorted()
+    }
 
-    val availableTriggerTypes: List<String> =
+    val availableTriggerTypes: List<String> by lazy {
         snapshots.mapNotNull { it.triggerType }.distinct().sorted()
+    }
 
-    val availableLabels: List<String> =
+    val availableLabels: List<String> by lazy {
         snapshots.flatMap { event ->
             event.detections.map { it.label } +
                 listOfNotNull(event.triggerLabel, event.metadataLabel())
         }.distinct().sorted()
+    }
 
-    val availableObjectLabels: List<String> = availableLabels.filter { !isSoundLabel(it) }
-    val availableSoundLabels: List<String> = availableLabels.filter { isSoundLabel(it) }
+    val availableObjectLabels: List<String> by lazy { availableLabels.filter { !isSoundLabel(it) } }
+    val availableSoundLabels: List<String> by lazy { availableLabels.filter { isSoundLabel(it) } }
 }
 
 sealed interface SnapshotsUiState {
@@ -228,9 +232,7 @@ class SnapshotsViewModel @Inject constructor(
             val start = filter.dateStart?.atStartOfDay(ZoneId.systemDefault())?.toOffsetDateTime()
             val end = filter.dateEnd?.plusDays(1)?.atStartOfDay(ZoneId.systemDefault())?.toOffsetDateTime()
             result = result.filter { e ->
-                val ts = e.createdAt?.let {
-                    try { OffsetDateTime.parse(it) } catch (_: Exception) { null }
-                } ?: return@filter true
+                parseTimestamp(e.createdAt) ?: return@filter true
                 if (start != null && ts.isBefore(start)) return@filter false
                 if (end != null && !ts.isBefore(end)) return@filter false
                 true
@@ -287,6 +289,3 @@ class SnapshotsViewModel @Inject constructor(
         return result
     }
 }
-
-private fun Event.metadataLabel(): String? =
-    (metadata["label"] as? JsonPrimitive)?.contentOrNull

@@ -12,6 +12,7 @@ import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -128,8 +129,15 @@ class NtfyService : Service() {
             try {
                 // The JSON stream delivers only messages published after the
                 // connection opens, so there's no history to replay on connect.
+                val startedAt = SystemClock.elapsedRealtime()
                 streamOnce(config)
                 backoffMs = 2_000L
+                // A stream that ends healthy but almost immediately (server or
+                // proxy closing each connection right away) must not cause a
+                // tight reconnect loop; pause before dialing again.
+                if (SystemClock.elapsedRealtime() - startedAt < SHORT_STREAM_THRESHOLD_MS) {
+                    delay(backoffMs)
+                }
             } catch (e: Exception) {
                 Log.w(TAG, "ntfy stream error: ${e.message}")
             }
@@ -241,6 +249,9 @@ class NtfyService : Service() {
         private const val ALERTS_CHANNEL = "camera_alerts"
         private const val STATUS_ID = 1001
         private const val TEST_ID = 1002
+
+        /** Streams shorter than this are treated as unhealthy for backoff purposes. */
+        private const val SHORT_STREAM_THRESHOLD_MS = 5_000L
 
         /** Intent extra on alert notifications carrying the triggering event id. */
         const val EXTRA_EVENT_ID = "com.daygle.aicamera.extra.EVENT_ID"

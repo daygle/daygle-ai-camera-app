@@ -51,11 +51,22 @@ fun timeFormatter(use24Hour: Boolean, locale: Locale = Locale.getDefault()): Dat
 fun formatTimestamp(iso: String?, use24Hour: Boolean): String {
     if (iso.isNullOrBlank()) return "-"
     return try {
-        OffsetDateTime.parse(iso)
-            .atZoneSameInstant(ZoneId.systemDefault())
-            .format(displayFormatter(use24Hour))
+        parseTimestamp(iso)
+            ?.atZoneSameInstant(ZoneId.systemDefault())
+            ?.format(displayFormatter(use24Hour))
+            ?: iso
     } catch (_: Exception) {
         iso
+    }
+}
+
+/** Parse an ISO-8601 server timestamp, returning null instead of throwing. */
+fun parseTimestamp(iso: String?): OffsetDateTime? {
+    if (iso.isNullOrBlank()) return null
+    return try {
+        OffsetDateTime.parse(iso)
+    } catch (_: Exception) {
+        null
     }
 }
 

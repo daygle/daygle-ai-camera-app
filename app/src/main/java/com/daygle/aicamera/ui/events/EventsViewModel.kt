@@ -5,17 +5,17 @@ import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.Event
+import com.daygle.aicamera.data.model.metadataLabel
 import com.daygle.aicamera.ui.friendlyMessage
 import com.daygle.aicamera.ui.isMotionLabel
 import com.daygle.aicamera.ui.isSoundLabel
+import com.daygle.aicamera.ui.parseTimestamp
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -67,9 +67,10 @@ data class EventsReady(
     val refreshing: Boolean = false,
 ) {
     val availableModes: List<String> = listOf("Object", "Motion", "Sound")
-    
+
+    /** Cameras that produced events; excludes non-camera sources like sound or rtsp. */
     val availableSources: List<String> by lazy {
-        events.mapNotNull { it.source }.distinct().sorted()
+        events.mapNotNull { it.source }.filter { it != "sound" && it != "rtsp" }.distinct().sorted()
     }
     
     val availableTriggerTypes: List<String> by lazy {
@@ -126,7 +127,7 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
             allFilterableEvents = events.map { e ->
                 FilterableEvent(
                     event = e,
-                    timestamp = e.createdAt?.let { try { OffsetDateTime.parse(it) } catch (_: Exception) { null } },
+                    timestamp = parseTimestamp(e.createdAt),
                     isSound = e.source?.lowercase() == "sound" || e.triggerType?.lowercase() == "sound" || 
                              isSoundLabel(e.triggerLabel) || e.detections.any { isSoundLabel(it.label) },
                     isMotion = e.source?.lowercase() == "motion" || e.triggerType?.lowercase() == "motion" || 
@@ -260,6 +261,3 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
         }
     }
 }
-
-private fun Event.metadataLabel(): String? =
-    (metadata["label"] as? JsonPrimitive)?.contentOrNull

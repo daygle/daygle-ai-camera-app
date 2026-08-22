@@ -1,6 +1,7 @@
 package com.daygle.aicamera.data
 
 import android.util.Log
+import com.daygle.aicamera.BuildConfig
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -60,6 +61,7 @@ class SessionManager {
 
     private val sessionGeneration = AtomicLong()
 
+    /** Request/response logging is a debugging aid; skip the overhead in release builds. */
     private val logging = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BASIC
         redactHeader("Cookie")
@@ -79,30 +81,13 @@ class SessionManager {
     )
 
     /** Bare client used only for the login handshake. */
-    private val authClient: OkHttpClient = OkHttpClient.Builder()
-        .cookieJar(cookieJar)
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .followRedirects(false)
-        .followSslRedirects(false)
-        .addInterceptor(cloudflareAccessInterceptor)
-        .addInterceptor(customHeaderInterceptor)
-        .addInterceptor(logging)
-        .build()
+    private val authClient: OkHttpClient = baseClientBuilder().build()
 
     /**
      * The authenticated client, shared by Retrofit, Coil (snapshots) and
      * Media3 (recording playback).
      */
-    val httpClient: OkHttpClient = OkHttpClient.Builder()
-        .cookieJar(cookieJar)
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .followRedirects(false)
-        .followSslRedirects(false)
-        .addInterceptor(cloudflareAccessInterceptor)
-        .addInterceptor(customHeaderInterceptor)
-        .addInterceptor(logging)
+    val httpClient: OkHttpClient = baseClientBuilder()
         .addInterceptor(
             AuthInterceptor(
                 sessionGeneration = sessionGeneration,
@@ -113,6 +98,18 @@ class SessionManager {
             )
         )
         .build()
+
+    private fun baseClientBuilder(): OkHttpClient.Builder = OkHttpClient.Builder()
+        .cookieJar(cookieJar)
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .followRedirects(false)
+        .followSslRedirects(false)
+        .addInterceptor(cloudflareAccessInterceptor)
+        .addInterceptor(customHeaderInterceptor)
+        .apply {
+            if (BuildConfig.DEBUG) addInterceptor(logging)
+        }
 
     @Volatile
     var api: DaygleApi = buildApi(null)

@@ -85,8 +85,12 @@ data class Event(
     val alerted: Boolean get() = alert != null
     val topLabel: String? get() = triggerLabel ?: triggerType
         ?: detections.maxByOrNull { it.confidence }?.label
-        ?: (metadata["label"] as? JsonPrimitive)?.contentOrNull
+        ?: metadataLabel()
 }
+
+/** The free-form label some servers embed under `metadata.label`. */
+fun Event.metadataLabel(): String? =
+    (metadata["label"] as? JsonPrimitive)?.contentOrNull
 
 /**
  * The server's ntfy push configuration (`GET /api/settings/alert-push`). For a
