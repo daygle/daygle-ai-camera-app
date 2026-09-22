@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.daygle.aicamera.ui.LocalUse24Hour
+import com.daygle.aicamera.ui.components.EmptyState
 import com.daygle.aicamera.ui.components.ErrorState
 import com.daygle.aicamera.ui.components.LoadingState
 import com.daygle.aicamera.ui.timeFormatter
@@ -245,45 +246,56 @@ fun TimelineScreen(
                     onRefresh = viewModel::load,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
-                            .padding(vertical = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(32.dp)
-                    ) {
-                        TimelineLane(
-                            title = "Object Detections",
-                            icon = Icons.Filled.Videocam,
-                            segments = data.objectSegments,
-                            color = MaterialTheme.colorScheme.primary,
-                            locale = locale,
-                            minuteWidth = minuteWidth,
-                            onMinuteWidthChange = { minuteWidth = it.coerceIn(MIN_MINUTE_WIDTH, MAX_MINUTE_WIDTH) },
-                            onSegmentClick = onOpenRecording
-                        )
+                    val hasSegments = data.objectSegments.isNotEmpty() ||
+                            data.soundSegments.isNotEmpty() ||
+                            data.motionSegments.isNotEmpty()
 
-                        TimelineLane(
-                            title = "Sound Detections",
-                            icon = Icons.Filled.GraphicEq,
-                            segments = data.soundSegments,
-                            color = MaterialTheme.colorScheme.tertiary,
-                            locale = locale,
-                            minuteWidth = minuteWidth,
-                            onMinuteWidthChange = { minuteWidth = it.coerceIn(MIN_MINUTE_WIDTH, MAX_MINUTE_WIDTH) },
-                            onSegmentClick = onOpenRecording
+                    if (!hasSegments) {
+                        EmptyState(
+                            "No activity on ${data.date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))}.",
+                            modifier = Modifier.fillMaxSize()
                         )
+                    } else {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState())
+                                .padding(vertical = 24.dp),
+                            verticalArrangement = Arrangement.spacedBy(32.dp)
+                        ) {
+                            TimelineLane(
+                                title = "Object Detections",
+                                icon = Icons.Filled.Videocam,
+                                segments = data.objectSegments,
+                                color = MaterialTheme.colorScheme.primary,
+                                locale = locale,
+                                minuteWidth = minuteWidth,
+                                onMinuteWidthChange = { minuteWidth = it.coerceIn(MIN_MINUTE_WIDTH, MAX_MINUTE_WIDTH) },
+                                onSegmentClick = onOpenRecording
+                            )
 
-                        TimelineLane(
-                            title = "Motion Recordings",
-                            icon = Icons.AutoMirrored.Filled.DirectionsRun,
-                            segments = data.motionSegments,
-                            color = MaterialTheme.colorScheme.secondary,
-                            locale = locale,
-                            minuteWidth = minuteWidth,
-                            onMinuteWidthChange = { minuteWidth = it.coerceIn(MIN_MINUTE_WIDTH, MAX_MINUTE_WIDTH) },
-                            onSegmentClick = onOpenRecording
-                        )
+                            TimelineLane(
+                                title = "Sound Detections",
+                                icon = Icons.Filled.GraphicEq,
+                                segments = data.soundSegments,
+                                color = MaterialTheme.colorScheme.tertiary,
+                                locale = locale,
+                                minuteWidth = minuteWidth,
+                                onMinuteWidthChange = { minuteWidth = it.coerceIn(MIN_MINUTE_WIDTH, MAX_MINUTE_WIDTH) },
+                                onSegmentClick = onOpenRecording
+                            )
+
+                            TimelineLane(
+                                title = "Motion Recordings",
+                                icon = Icons.AutoMirrored.Filled.DirectionsRun,
+                                segments = data.motionSegments,
+                                color = MaterialTheme.colorScheme.secondary,
+                                locale = locale,
+                                minuteWidth = minuteWidth,
+                                onMinuteWidthChange = { minuteWidth = it.coerceIn(MIN_MINUTE_WIDTH, MAX_MINUTE_WIDTH) },
+                                onSegmentClick = onOpenRecording
+                            )
+                        }
                     }
                 }
             }

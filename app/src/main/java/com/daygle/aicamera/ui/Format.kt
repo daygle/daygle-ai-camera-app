@@ -2,9 +2,12 @@ package com.daygle.aicamera.ui
 
 import android.text.format.DateFormat
 import androidx.compose.runtime.staticCompositionLocalOf
+import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 import java.util.Locale
 
 /**
@@ -60,11 +63,25 @@ fun formatTimestamp(iso: String?, use24Hour: Boolean): String {
     }
 }
 
-/** Parse an ISO-8601 server timestamp, returning null instead of throwing. */
+/**
+ * Parse an ISO-8601 server timestamp, returning null instead of throwing.
+ *
+ * The server (FastAPI) usually emits offsets like `2026-01-02T03:04:05+00:00`,
+ * but a naive `...T03:04:05` (no offset) is also possible. Strict
+ * [OffsetDateTime.parse] rejects the naive form, which previously made every
+ * recording disappear from date-based views such as the Timeline. Treat naive
+ * timestamps as server-local UTC so they still render and filter.
+ */
 fun parseTimestamp(iso: String?): OffsetDateTime? {
     if (iso.isNullOrBlank()) return null
     return try {
         OffsetDateTime.parse(iso)
+    } catch (_: DateTimeParseException) {
+        try {
+            LocalDateTime.parse(iso).atOffset(ZoneOffset.UTC)
+        } catch (_: Exception) {
+            null
+        }
     } catch (_: Exception) {
         null
     }
