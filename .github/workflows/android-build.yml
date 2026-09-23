@@ -36,9 +36,6 @@ jobs:
           # wrapper-validation is enabled by default in setup-gradle@v6
           add-job-summary: always
 
-      - name: Make Gradle wrapper executable
-        run: chmod +x ./gradlew
-
       - name: Run checks and build APKs
         run: ./gradlew lintDebug testDebugUnitTest assembleDebug assembleRelease --warning-mode=all --stacktrace
 

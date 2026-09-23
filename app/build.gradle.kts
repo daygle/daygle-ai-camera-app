@@ -63,6 +63,9 @@ kotlin {
 
 dependencies {
     constraints {
+        // Version floors for dependency-resolution safety (see Dependabot advisories).
+        // None of these are used directly; the constraints keep any transitive
+        // resolution at or above the latest patched release.
         implementation(libs.netty.all)
         implementation(libs.netty.common)
         implementation(libs.netty.handler)
