@@ -1,5 +1,5 @@
 [versions]
-agp = "9.4.0"
+agp = "9.4.1"
 # Kotlin 2.4.20+ is required to fix CVE-2026-53914, but CodeQL (as of Aug 2026)
 # currently supports versions below 2.4.20. Stay on 2.4.10 for CI compatibility.
 kotlin = "2.4.20"
@@ -17,7 +17,7 @@ okhttp = "5.5.0"
 retrofit = "3.0.0"
 retrofitSerialization = "1.0.0"
 kotlinxSerialization = "1.11.0"
-coil = "3.6.2"
+coil = "3.6.3"
 media3 = "1.11.1"
 work = "2.11.2"
 netty = "4.2.18.Final"
