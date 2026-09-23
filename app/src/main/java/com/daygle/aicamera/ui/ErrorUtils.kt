@@ -29,7 +29,7 @@ private fun httpStatusMessage(code: Int): String = when (code) {
     429 -> "Too many requests. Please wait a moment and try again."
     500 -> "The server ran into a problem. Please try again shortly."
     502, 503, 504 -> "The server is temporarily unavailable. Please try again shortly."
-    // Cloudflare origin errors (520–530): the tunnel/server can't be reached.
+    // Cloudflare origin errors (520-530): the tunnel/server can't be reached.
     in 520..530 -> "Can't reach your camera server right now. It may be offline or still starting up."
     else -> "The server returned an error (HTTP $code). Please try again."
 }

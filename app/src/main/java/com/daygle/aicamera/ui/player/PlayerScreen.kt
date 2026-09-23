@@ -213,8 +213,8 @@ private fun FullscreenPlayer(
 /**
  * ExoPlayer video surface with digital pinch-to-zoom. The [PlayerView] is inflated
  * with a TextureView surface (see res/layout/view_zoomable_player.xml) so the video
- * follows the [graphicsLayer] transform. Only transform gestures are handled here —
- * no tap detector — so single taps still reach the Media3 controller (play/pause,
+ * follows the [graphicsLayer] transform. Only transform gestures are handled here -
+ * no tap detector - so single taps still reach the Media3 controller (play/pause,
  * scrub, show/hide). Zoom is clamped and panning is kept within the view bounds;
  * pinching back to 1x recenters.
  */

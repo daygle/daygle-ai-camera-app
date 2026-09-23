@@ -31,8 +31,8 @@ class CameraRepository(
      * Re-apply the persisted connection to the session (e.g. on app launch).
      *
      * The session cookie lives only in memory, so after a process restart it
-     * is always gone. Signing in here — before any screen fires its first
-     * API call — avoids a guaranteed 401 in the server log on every launch.
+     * is always gone. Signing in here - before any screen fires its first
+     * API call - avoids a guaranteed 401 in the server log on every launch.
      * Failures (offline, tunnel down, etc.) are ignored: navigation proceeds
      * as before and screens recover via the usual lazy re-auth path.
      */

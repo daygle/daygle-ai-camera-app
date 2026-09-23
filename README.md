@@ -5,7 +5,7 @@
 
 A modern, native Android client for your self-hosted [Daygle AI Camera](https://github.com/daygle/daygle-ai-camera) server. View live feeds, browse detection events, and play back recordings with high-performance native tools.
 
-The app is a **dedicated viewer** — while camera management and AI rules stay in your server's web dashboard, this client provides a fluid, mobile-first experience for monitoring your home or business.
+The app is a **dedicated viewer** - while camera management and AI rules stay in your server's web dashboard, this client provides a fluid, mobile-first experience for monitoring your home or business.
 
 ---
 
@@ -22,13 +22,13 @@ The app is a **dedicated viewer** — while camera management and AI rules stay 
 
 ## ✨ Features
 
-- **Seamless Connection** — Connect via local IP or public HTTPS. Verified on sign-in and remembered between sessions.
-- **Cameras Dashboard** — Clean grid view of all configured cameras with live snapshot thumbnails and real-time status.
-- **Immersive Live View** — Tap any camera for a full-screen, landscape feed with pinch-to-zoom (up to 5x) and fluid panning.
-- **Deep Event Log** — Filter alerts by type (Person, Dog Bark, etc.), date, or camera. Jump from an event directly to its annotated snapshot or triggered recording.
-- **Video Recordings** — High-performance playback of saved clips with a full video scrubber and pinch-to-zoom support.
-- **Real-time Push Alerts** — Stay notified with instant object/sound detection alerts delivered while the app is backgrounded.
-- **Adaptive UI** — Full support for light/dark themes and 12/24-hour time formats.
+- **Seamless Connection** - Connect via local IP or public HTTPS. Verified on sign-in and remembered between sessions.
+- **Cameras Dashboard** - Clean grid view of all configured cameras with live snapshot thumbnails and real-time status.
+- **Immersive Live View** - Tap any camera for a full-screen, landscape feed with pinch-to-zoom (up to 5x) and fluid panning.
+- **Deep Event Log** - Filter alerts by type (Person, Dog Bark, etc.), date, or camera. Jump from an event directly to its annotated snapshot or triggered recording.
+- **Video Recordings** - High-performance playback of saved clips with a full video scrubber and pinch-to-zoom support.
+- **Real-time Push Alerts** - Stay notified with instant object/sound detection alerts delivered while the app is backgrounded.
+- **Adaptive UI** - Full support for light/dark themes and 12/24-hour time formats.
 
 ---
 

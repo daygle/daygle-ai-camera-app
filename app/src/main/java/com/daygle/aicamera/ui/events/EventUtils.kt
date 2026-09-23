@@ -34,7 +34,7 @@ internal fun Event.filterCameraId(): String? =
     if (isBehaviourEvent()) metadataString("camera_id") else source
 
 /**
- * Human context for a behaviour event — "Person crossed Driveway Line (inbound)
+ * Human context for a behaviour event - "Person crossed Driveway Line (inbound)
  * in Front Yard". Prefers the alert message the server composes; for events
  * without a fired alert falls back to the event metadata. Null for
  * non-behaviour events without a zone.
