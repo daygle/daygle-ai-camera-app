@@ -1,7 +1,7 @@
 [versions]
 agp = "9.4.1"
-# Kotlin 2.4.20+ is required to fix CVE-2026-53914, but CodeQL (as of Aug 2026)
-# currently supports versions below 2.4.20. Stay on 2.4.10 for CI compatibility.
+# 2.4.20 is the latest stable and includes the CVE-2026-53914 fix.
+# CodeQL runs with build-mode: none (source extraction), so it is Kotlin-version agnostic.
 kotlin = "2.4.20"
 hilt = "2.60.1"
 hiltNavigationCompose = "1.4.0"
