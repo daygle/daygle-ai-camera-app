@@ -47,8 +47,12 @@ jobs:
 
     - name: Build for CodeQL
       # Traced by CodeQL to build the analysis database; also fails CI early
-      # on compile errors, alongside the Android CI workflow.
-      run: ./gradlew assembleDebug --no-daemon --no-build-cache --no-configuration-cache
+      # on compile errors, alongside the Android CI workflow. The Kotlin
+      # compiler runs in-process because its daemon crashes under the CodeQL
+      # tracer's LD_PRELOAD environment.
+      run: >-
+        ./gradlew assembleDebug --no-daemon --no-build-cache --no-configuration-cache
+        -Dkotlin.compiler.execution.strategy=in-process
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v4
