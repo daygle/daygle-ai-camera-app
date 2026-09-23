@@ -39,20 +39,18 @@ jobs:
       uses: github/codeql-action/init@v4
       with:
         languages: ${{ matrix.language }}
-        # Manual build mode: the Gradle build below is traced, so CodeQL
-        # extracts from real compilation with the Android SDK and full
-        # dependency classpath. (build-mode: none is unsupported for Kotlin
-        # and produced "low analysis quality" warnings.)
-        build-mode: manual
+        # Build-less extraction. Manual/autobuild build modes are NOT viable
+        # here: the CodeQL Kotlin extractor rejects the project's Kotlin
+        # compiler ("2.4.20 is too recent ... supports versions below 2.4.20"),
+        # so a traced build hard-fails. Revisit once CodeQL supports the
+        # current Kotlin toolchain; until then accept the lower-fidelity
+        # source extraction (GitHub surfaces it as "low analysis quality").
+        build-mode: none
 
     - name: Build for CodeQL
-      # Traced by CodeQL to build the analysis database; also fails CI early
-      # on compile errors, alongside the Android CI workflow. The Kotlin
-      # compiler runs in-process because its daemon crashes under the CodeQL
-      # tracer's LD_PRELOAD environment.
-      run: >-
-        ./gradlew assembleDebug --no-daemon --no-build-cache --no-configuration-cache
-        -Dkotlin.compiler.execution.strategy=in-process
+      # Not needed for extraction with build-mode: none, but kept so compile
+      # errors still fail CI alongside the Android CI workflow.
+      run: ./gradlew assembleDebug --no-daemon --no-build-cache --no-configuration-cache
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v4

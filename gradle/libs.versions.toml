@@ -1,8 +1,9 @@
 [versions]
 agp = "9.4.1"
 # 2.4.20 is the latest stable and includes the CVE-2026-53914 fix.
-# CodeQL traces the Gradle build (manual build mode), so recent stable
-# Kotlin toolchains are fully supported.
+# Note the CodeQL Kotlin extractor: traced (manual/autobuild) CodeQL builds
+# fail on compilers newer than its support cutoff, so only bump this after
+# confirming CodeQL can extract the new compiler.
 kotlin = "2.4.20"
 hilt = "2.60.1"
 hiltNavigationCompose = "1.4.0"
