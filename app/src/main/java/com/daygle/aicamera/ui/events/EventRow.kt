@@ -13,7 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
-import androidx.compose.material.icons.filled.FollowTheSigns
+import androidx.compose.material.icons.automirrored.filled.FollowTheSigns
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.NotificationsActive
@@ -107,7 +107,7 @@ internal fun EventRow(
                             imageVector = when {
                                 isSound -> Icons.Filled.GraphicEq
                                 isMotion -> Icons.AutoMirrored.Filled.DirectionsRun
-                                isBehaviour -> Icons.Filled.FollowTheSigns
+                                isBehaviour -> Icons.AutoMirrored.Filled.FollowTheSigns
                                 else -> Icons.Filled.Videocam
                             },
                             contentDescription = null,
@@ -160,7 +160,7 @@ internal fun EventRow(
                         imageVector = when {
                             isSound -> Icons.Filled.GraphicEq
                             isMotion -> Icons.AutoMirrored.Filled.DirectionsRun
-                            isBehaviour -> Icons.Filled.FollowTheSigns
+                            isBehaviour -> Icons.AutoMirrored.Filled.FollowTheSigns
                             else -> Icons.Filled.NotificationsActive
                         },
                         contentDescription = null,

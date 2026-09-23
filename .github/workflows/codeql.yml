@@ -39,17 +39,10 @@ jobs:
       uses: github/codeql-action/init@v4
       with:
         languages: ${{ matrix.language }}
-        # Build-less extraction. Manual/autobuild build modes are NOT viable
-        # here: the CodeQL Kotlin extractor rejects the project's Kotlin
-        # compiler ("2.4.20 is too recent ... supports versions below 2.4.20"),
-        # so a traced build hard-fails. Revisit once CodeQL supports the
-        # current Kotlin toolchain; until then accept the lower-fidelity
-        # source extraction (GitHub surfaces it as "low analysis quality").
-        build-mode: none
+        build-mode: manual
 
     - name: Build for CodeQL
-      # Not needed for extraction with build-mode: none, but kept so compile
-      # errors still fail CI alongside the Android CI workflow.
+      # Traced build for CodeQL extraction in manual build mode.
       run: ./gradlew assembleDebug --no-daemon --no-build-cache --no-configuration-cache
 
     - name: Perform CodeQL Analysis
