@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.filled.FollowTheSigns
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.NotificationsActive
@@ -37,12 +38,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.daygle.aicamera.data.model.Detection
 import com.daygle.aicamera.data.model.Event
-import com.daygle.aicamera.ui.LocalUse24Hour
-import com.daygle.aicamera.ui.formatEventLabel
-import com.daygle.aicamera.ui.formatTimestamp
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
+import com.daygle.aicamera.ui.LocalUse24Hour
+import com.daygle.aicamera.ui.formatEventLabel
+import com.daygle.aicamera.ui.formatTimestamp
 
 @Composable
 internal fun EventRow(
@@ -53,11 +54,14 @@ internal fun EventRow(
     val firstRecordingId = event.recordingId ?: event.recordings.firstOrNull()?.id
     val isSound = isSoundEvent(event)
     val isMotion = isMotionEvent(event)
-    
+    val isBehaviour = event.isBehaviourEvent()
+
     val detectionsToShow = if (event.detections.isEmpty() && event.source == "sound") {
-        val confidence = (event.metadata["confidence"] as? JsonPrimitive)?.doubleOrNull
-        val label = (event.metadata["label"] as? JsonPrimitive)?.contentOrNull
-        if (confidence != null && label != null) listOf(Detection(label, confidence)) else emptyList()
+        listOfNotNull(
+            (event.metadata["confidence"] as? JsonPrimitive)?.doubleOrNull?.let { confidence ->
+                (event.metadata["label"] as? JsonPrimitive)?.contentOrNull?.let { Detection(it, confidence) }
+            }
+        )
     } else {
         event.detections
     }
@@ -103,6 +107,7 @@ internal fun EventRow(
                             imageVector = when {
                                 isSound -> Icons.Filled.GraphicEq
                                 isMotion -> Icons.AutoMirrored.Filled.DirectionsRun
+                                isBehaviour -> Icons.Filled.FollowTheSigns
                                 else -> Icons.Filled.Videocam
                             },
                             contentDescription = null,
@@ -126,6 +131,15 @@ internal fun EventRow(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
+                    event.behaviourContext()?.let { context ->
+                        Text(
+                            context,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             },
             leadingContent = {
@@ -146,6 +160,7 @@ internal fun EventRow(
                         imageVector = when {
                             isSound -> Icons.Filled.GraphicEq
                             isMotion -> Icons.AutoMirrored.Filled.DirectionsRun
+                            isBehaviour -> Icons.Filled.FollowTheSigns
                             else -> Icons.Filled.NotificationsActive
                         },
                         contentDescription = null,

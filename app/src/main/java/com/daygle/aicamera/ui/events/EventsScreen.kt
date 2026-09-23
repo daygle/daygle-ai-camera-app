@@ -56,6 +56,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.daygle.aicamera.ui.LifecycleResumeEffect
 import com.daygle.aicamera.ui.components.EmptyState
 import com.daygle.aicamera.ui.components.ErrorState
 import com.daygle.aicamera.ui.components.LoadingState
@@ -72,6 +73,10 @@ fun EventsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showFilterSheet by remember { mutableStateOf(value = false) }
     var snapshotEventId by remember { mutableStateOf<Int?>(null) }
+
+    // Poll for new events incrementally while the screen is visible; stop when
+    // the app is backgrounded so we don't hammer the server.
+    LifecycleResumeEffect(onPause = viewModel::pausePolling, onResume = viewModel::startPolling)
 
     LaunchedEffect(refreshTrigger) {
         if (refreshTrigger > 0) viewModel.load()

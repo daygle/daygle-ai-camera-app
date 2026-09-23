@@ -5,6 +5,7 @@ import com.daygle.aicamera.data.model.CameraHealthResponse
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.data.model.PushSettings
 import com.daygle.aicamera.data.model.Recording
+import com.daygle.aicamera.data.model.TimelineResponse
 
 /**
  * Thin domain layer over [SessionManager]/[DaygleApi]. Each call returns a
@@ -58,11 +59,19 @@ class CameraRepository(
 
     suspend fun cameraHealth(): Result<CameraHealthResponse> = suspendRunCatching { session.api.cameraHealth() }
 
-    suspend fun events(alertedOnly: Boolean = false): Result<List<Event>> =
-        suspendRunCatching { session.api.events(alertedOnly = alertedOnly) }
+    suspend fun events(alertedOnly: Boolean = false, since: String? = null): Result<List<Event>> =
+        suspendRunCatching { session.api.events(alertedOnly = alertedOnly, since = since) }
 
     suspend fun recordings(cameraId: String? = null): Result<List<Recording>> =
         suspendRunCatching { session.api.recordings(cameraId = cameraId) }
+
+    /** Pre-grouped timeline for a camera-day; server clamps to the day and localizes via [tzOffsetMinutes]. */
+    suspend fun recordingsTimeline(
+        cameraId: String? = null,
+        day: String? = null,
+        tzOffsetMinutes: Int? = null,
+    ): Result<TimelineResponse> =
+        suspendRunCatching { session.api.recordingsTimeline(cameraId, day, tzOffsetMinutes) }
 
     suspend fun pushSettings(): Result<PushSettings> = suspendRunCatching { session.api.pushSettings() }
 

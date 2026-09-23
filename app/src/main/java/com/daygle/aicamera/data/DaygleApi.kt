@@ -6,6 +6,7 @@ import com.daygle.aicamera.data.model.CamerasResponse
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.data.model.PushSettings
 import com.daygle.aicamera.data.model.Recording
+import com.daygle.aicamera.data.model.TimelineResponse
 import retrofit2.http.GET
 import retrofit2.http.Query
 
@@ -23,6 +24,9 @@ interface DaygleApi {
         @Query("limit") limit: Int = 100,
         @Query("alerted_only") alertedOnly: Boolean = false,
         @Query("with_recording") withRecording: Boolean = true,
+        // Supported by newer servers for incremental refresh; older servers
+        // simply ignore the unknown parameter.
+        @Query("since") since: String? = null,
     ): List<Event>
 
     @GET("api/recordings")
@@ -30,6 +34,14 @@ interface DaygleApi {
         @Query("camera_id") cameraId: String? = null,
         @Query("limit") limit: Int = 100,
     ): List<Recording>
+
+    /** Pre-grouped timeline segments for one camera-day in the given timezone. */
+    @GET("api/recordings/timeline")
+    suspend fun recordingsTimeline(
+        @Query("camera_id") cameraId: String? = null,
+        @Query("day") day: String? = null,
+        @Query("tz_offset_minutes") tzOffsetMinutes: Int? = null,
+    ): TimelineResponse
 
     @GET("api/settings/alert-push")
     suspend fun pushSettings(): PushSettings

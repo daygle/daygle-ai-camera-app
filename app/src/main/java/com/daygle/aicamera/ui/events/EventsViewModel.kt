@@ -11,6 +11,8 @@ import com.daygle.aicamera.ui.isMotionLabel
 import com.daygle.aicamera.ui.isSoundLabel
 import com.daygle.aicamera.ui.parseTimestamp
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,6 +21,8 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 enum class EventsSortOrder(val label: String) {
@@ -56,6 +60,8 @@ private data class FilterableEvent(
     val timestamp: OffsetDateTime?,
     val isSound: Boolean,
     val isMotion: Boolean,
+    val isBehaviour: Boolean,
+    val cameraId: String?,
     val metadataLabel: String?
 )
 
@@ -66,11 +72,13 @@ data class EventsReady(
     val filter: EventsFilter,
     val refreshing: Boolean = false,
 ) {
-    val availableModes: List<String> = listOf("Object", "Motion", "Sound")
+    val availableModes: List<String> = listOf("Object", "Motion", "Sound", "Behaviour")
 
     /** Cameras that produced events; excludes non-camera sources like sound or rtsp. */
     val availableSources: List<String> by lazy {
-        events.mapNotNull { it.source }.filter { it != "sound" && it != "rtsp" }.distinct().sorted()
+        events.mapNotNull { e ->
+            e.filterCameraId()
+        }.filter { it != "sound" && it != "rtsp" }.distinct().sorted()
     }
     
     val availableTriggerTypes: List<String> by lazy {
@@ -100,7 +108,12 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
     val state: StateFlow<EventsUiState> = _state.asStateFlow()
 
     private var allFilterableEvents: List<FilterableEvent> = emptyList()
-    
+
+    /** Newest event timestamp seen, used as the `since` bound for incremental refresh. */
+    private var lastEventTimestamp: OffsetDateTime? = null
+
+    private var pollJob: Job? = null
+
     var scrollIndex: Int = 0
         private set
 
@@ -112,6 +125,10 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
         load()
     }
 
+    /**
+     * Full reload: fetches the entire events list, replacing local state. Used
+     * on first load and for explicit pull-to-refresh (authoritative state).
+     */
     fun load() {
         _state.update { if (it is EventsUiState.Ready) it.copy(data = it.data.copy(refreshing = true)) else EventsUiState.Loading }
         viewModelScope.launch {
@@ -124,17 +141,8 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
             }
             val cameras = camerasResult.getOrDefault(emptyList())
 
-            allFilterableEvents = events.map { e ->
-                FilterableEvent(
-                    event = e,
-                    timestamp = parseTimestamp(e.createdAt),
-                    isSound = e.source?.lowercase() == "sound" || e.triggerType?.lowercase() == "sound" || 
-                             isSoundLabel(e.triggerLabel) || e.detections.any { isSoundLabel(it.label) },
-                    isMotion = e.source?.lowercase() == "motion" || e.triggerType?.lowercase() == "motion" || 
-                              isMotionLabel(e.triggerLabel) || e.detections.any { isMotionLabel(it.label) },
-                    metadataLabel = e.metadataLabel()
-                )
-            }
+            allFilterableEvents = events.map(::toFilterable)
+            lastEventTimestamp = events.mapNotNull { parseTimestamp(it.createdAt) }.maxOrNull()
 
             val currentFilter = (_state.value as? EventsUiState.Ready)?.data?.filter ?: EventsFilter()
             _state.value = EventsUiState.Ready(
@@ -147,6 +155,97 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
             )
         }
     }
+
+    /**
+     * Incremental refresh: only fetches events newer than the newest one we
+     * hold, using the server's `since` filter, and merges them in (dedupe by
+     * id). Falls back to a full reload when we hold no timestamps yet.
+     *
+     * @param silent when true (background polling) the refreshing spinner is
+     * not shown, so the user isn't shown a busy indicator every poll tick.
+     */
+    fun refresh(silent: Boolean = false) {
+        val since = lastEventTimestamp
+        if (since == null || allFilterableEvents.isEmpty()) {
+            load()
+            return
+        }
+        if (!silent) {
+            _state.update { current ->
+                if (current is EventsUiState.Ready) current.copy(data = current.data.copy(refreshing = true)) else current
+            }
+        }
+        viewModelScope.launch {
+            val eventsResult = repository.events(since = formatUtc(since))
+            val newEvents = eventsResult.getOrElse {
+                // Incremental fetch failed; keep the current data, just stop
+                // the spinner. The next poll retries.
+                if (!silent) {
+                    _state.update { current ->
+                        if (current is EventsUiState.Ready) current.copy(data = current.data.copy(refreshing = false)) else current
+                    }
+                }
+                return@launch
+            }
+
+            val knownIds = allFilterableEvents.mapTo(mutableSetOf()) { it.event.id }
+            val added = newEvents.filter { it.id !in knownIds }
+            if (added.isNotEmpty()) {
+                allFilterableEvents = allFilterableEvents + added.map(::toFilterable)
+                lastEventTimestamp = (added.mapNotNull { parseTimestamp(it.createdAt) } + since).maxOrNull()
+            }
+
+            if (added.isEmpty() && silent) return@launch
+
+            _state.update { current ->
+                if (current !is EventsUiState.Ready) return@update current
+                val merged = allFilterableEvents.map { it.event }
+                current.copy(
+                    data = current.data.copy(
+                        events = merged,
+                        filtered = applyFilters(allFilterableEvents, current.data.filter),
+                        refreshing = false
+                    )
+                )
+            }
+        }
+    }
+
+    /** Start periodic incremental refresh (called when the screen is resumed). */
+    fun startPolling() {
+        pollJob?.cancel()
+        pollJob = viewModelScope.launch {
+            while (true) {
+                // Events change slowly compared to dashboard snapshots; a fixed
+                // 30 s cadence keeps the feed current without hammering the
+                // server (the faster user preference only drives snapshots).
+                delay(POLL_INTERVAL_MS)
+                refresh(silent = true)
+            }
+        }
+    }
+
+    /** Stop periodic refresh (called when the screen is paused). */
+    fun pausePolling() {
+        pollJob?.cancel()
+        pollJob = null
+    }
+
+    private fun toFilterable(e: Event) = FilterableEvent(
+        event = e,
+        timestamp = parseTimestamp(e.createdAt),
+        isSound = e.source?.lowercase() == "sound" || e.triggerType?.lowercase() == "sound" ||
+                 isSoundLabel(e.triggerLabel) || e.detections.any { isSoundLabel(it.label) },
+        isMotion = e.source?.lowercase() == "motion" || e.triggerType?.lowercase() == "motion" ||
+                  isMotionLabel(e.triggerLabel) || e.detections.any { isMotionLabel(it.label) },
+        isBehaviour = e.isBehaviourEvent(),
+        cameraId = e.filterCameraId(),
+        metadataLabel = e.metadataLabel()
+    )
+
+    /** Canonical UTC `+00:00` form the server's `_normalize_iso_to_utc` expects. */
+    private fun formatUtc(ts: OffsetDateTime): String =
+        ts.withOffsetSameInstant(ZoneOffset.UTC).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
 
     fun setQuery(query: String) = updateFilter { it.copy(query = query) }
 
@@ -225,6 +324,7 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
                 val mode = when {
                     fe.isSound -> "Sound"
                     fe.isMotion -> "Motion"
+                    fe.isBehaviour -> "Behaviour"
                     else -> "Object"
                 }
                 mode in filter.selectedModes
@@ -232,7 +332,7 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
         }
 
         if (filter.selectedCameras.isNotEmpty()) {
-            seq = seq.filter { fe -> fe.event.source in filter.selectedCameras }
+            seq = seq.filter { fe -> fe.cameraId in filter.selectedCameras }
         }
 
         if (filter.selectedTriggerTypes.isNotEmpty()) {
@@ -259,5 +359,9 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
             EventsSortOrder.NEWEST -> result.sortedByDescending { it.id }
             EventsSortOrder.OLDEST -> result.sortedBy { it.id }
         }
+    }
+
+    companion object {
+        private const val POLL_INTERVAL_MS = 30_000L
     }
 }

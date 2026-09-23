@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
 
 /**
  * Data models mirroring the JSON returned by the `daygle-ai-camera` FastAPI
@@ -92,6 +93,14 @@ data class Event(
 fun Event.metadataLabel(): String? =
     (metadata["label"] as? JsonPrimitive)?.contentOrNull
 
+/** String value under `metadata[key]`, if present. */
+fun Event.metadataString(key: String): String? =
+    (metadata[key] as? JsonPrimitive)?.contentOrNull
+
+/** Numeric value under `metadata[key]`, if present. */
+fun Event.metadataDouble(key: String): Double? =
+    (metadata[key] as? JsonPrimitive)?.doubleOrNull
+
 /**
  * The server's ntfy push configuration (`GET /api/settings/alert-push`). For a
  * non-admin (viewer) session the server redacts `password`, so the app also
@@ -126,3 +135,43 @@ data class Recording(
 ) {
     val topLabel: String? get() = triggerLabel ?: triggerType ?: detections.maxByOrNull { it.confidence }?.label ?: labels.firstOrNull()
 }
+
+/**
+ * One pre-computed timeline bar from `GET /api/recordings/timeline`. The server
+ * clamps each recording to the selected day and precomputes its position as
+ * seconds-from-midnight so clients don't repeat that date math.
+ */
+@Serializable
+data class TimelineSegmentDto(
+    val id: Int = 0,
+    @SerialName("started_at") val startedAt: String? = null,
+    @SerialName("ended_at") val endedAt: String? = null,
+    @SerialName("duration_seconds") val durationSeconds: Double = 0.0,
+    val source: String? = null,
+    @SerialName("trigger_type") val triggerType: String? = null,
+    @SerialName("trigger_label") val triggerLabel: String? = null,
+    val labels: List<String> = emptyList(),
+    @SerialName("timeline_start_seconds") val timelineStartSeconds: Double = 0.0,
+    @SerialName("timeline_end_seconds") val timelineEndSeconds: Double = 0.0,
+    @SerialName("timeline_duration_seconds") val timelineDurationSeconds: Double = 0.0,
+)
+
+/** Response of `GET /api/recordings/timeline` for one camera-day. */
+@Serializable
+data class TimelineResponse(
+    val camera: TimelineCamera? = null,
+    val cameras: List<TimelineCamera> = emptyList(),
+    val day: String? = null,
+    @SerialName("day_start") val dayStart: String? = null,
+    @SerialName("day_end") val dayEnd: String? = null,
+    @SerialName("timeline_timezone_offset_minutes") val timezoneOffsetMinutes: Int = 0,
+    @SerialName("pre_event_seconds") val preEventSeconds: Int = 0,
+    val recordings: List<TimelineSegmentDto> = emptyList(),
+)
+
+/** Camera entry in [TimelineResponse]. */
+@Serializable
+data class TimelineCamera(
+    val id: String = "",
+    val name: String? = null,
+)
