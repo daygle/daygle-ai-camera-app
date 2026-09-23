@@ -9,6 +9,7 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Whether times should be shown in 24-hour format, sourced from the app's
@@ -38,17 +39,24 @@ fun isMotionLabel(label: String?): Boolean {
  * Builds the pattern from a skeleton so the hour cycle (H vs h) is forced while
  * the rest stays locale-appropriate.
  */
-private fun displayFormatter(use24Hour: Boolean): DateTimeFormatter {
-    val locale = Locale.getDefault()
-    val skeleton = "yMMMd" + if (use24Hour) "Hm" else "hm"
-    return DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, skeleton), locale)
-}
+// DateTimeFormatter.ofPattern is expensive, and list rows call these on every
+// item during scrolling/recomposition, so instances are cached per (24h, locale).
+private val displayFormatters = ConcurrentHashMap<Pair<Boolean, Locale>, DateTimeFormatter>()
+private val timeFormatters = ConcurrentHashMap<Pair<Boolean, Locale>, DateTimeFormatter>()
+
+private fun displayFormatter(use24Hour: Boolean): DateTimeFormatter =
+    displayFormatters.getOrPut(use24Hour to Locale.getDefault()) {
+        val locale = Locale.getDefault()
+        val skeleton = "yMMMd" + if (use24Hour) "Hm" else "hm"
+        DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, skeleton), locale)
+    }
 
 /** Localized time-of-day formatter that honors the app's 24-hour preference. */
-fun timeFormatter(use24Hour: Boolean, locale: Locale = Locale.getDefault()): DateTimeFormatter {
-    val skeleton = if (use24Hour) "Hm" else "hm"
-    return DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, skeleton), locale)
-}
+fun timeFormatter(use24Hour: Boolean, locale: Locale = Locale.getDefault()): DateTimeFormatter =
+    timeFormatters.getOrPut(use24Hour to locale) {
+        val skeleton = if (use24Hour) "Hm" else "hm"
+        DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, skeleton), locale)
+    }
 
 /** Render an ISO-8601 timestamp from the server in the device's local time zone. */
 fun formatTimestamp(iso: String?, use24Hour: Boolean): String {

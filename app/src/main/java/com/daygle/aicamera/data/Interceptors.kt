@@ -61,6 +61,10 @@ internal class AuthInterceptor(
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
+        // Requests already re-sent after a re-login are never retried again;
+        // without this a server that keeps returning 401 (stale credentials,
+        // clock skew) would trap the app in an unbounded login/retry loop.
+        val alreadyRetried = request.header(RETRY_HEADER) != null
         val generationAtRequest = sessionGeneration.get()
         val response = chain.proceed(request)
 
@@ -71,7 +75,7 @@ internal class AuthInterceptor(
         }
 
         val isApiCall = request.url.pathSegments.contains("api")
-        if ((response.code == 401) && isApiCall && isConfigured()) {
+        if (!alreadyRetried && response.code == 401 && isApiCall && isConfigured()) {
             Log.w("AuthInterceptor", "401 on ${request.url.encodedPath}; attempting re-login")
             val result = synchronized(loginLock) {
                 if (sessionGeneration.get() != generationAtRequest) {
@@ -83,10 +87,15 @@ internal class AuthInterceptor(
             if (result is LoginResult.Success) {
                 response.close()
                 Log.i("AuthInterceptor", "Re-login succeeded; retrying ${request.url.encodedPath}")
-                return chain.proceed(request.newBuilder().build())
+                return chain.proceed(request.newBuilder().header(RETRY_HEADER, "1").build())
             }
             Log.w("AuthInterceptor", "Re-login failed: $result")
         }
         return response
+    }
+
+    private companion object {
+        /** Marks a request that has already been retried after a re-login. */
+        const val RETRY_HEADER = "X-Daygle-Auth-Retry"
     }
 }

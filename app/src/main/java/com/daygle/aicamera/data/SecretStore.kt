@@ -50,7 +50,12 @@ internal class SecretStore(context: Context) {
     private fun decrypt(value: String): String? = runCatching {
         val payload = Base64.decode(value, Base64.NO_WRAP)
         val buffer = ByteBuffer.wrap(payload)
-        val iv = ByteArray(buffer.int).also { buffer.get(it) }
+        val ivSize = buffer.int
+        // Sanity bound: our writes are always a 12-byte GCM IV. A corrupted
+        // length prefix must fail fast and cleanly, not attempt a huge array
+        // allocation (an OutOfMemoryError, which runCatching cannot catch).
+        if (ivSize !in 12..255) return null
+        val iv = ByteArray(ivSize).also { buffer.get(it) }
         val encrypted = ByteArray(buffer.remaining()).also { buffer.get(it) }
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.DECRYPT_MODE, secretKey(), GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv))

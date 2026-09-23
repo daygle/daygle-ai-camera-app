@@ -1,15 +1,21 @@
 package com.daygle.aicamera.util
 
+import android.Manifest
 import android.content.ContentValues
 import android.content.Context
+import android.content.pm.PackageManager
+import android.media.MediaScannerConnection
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.ResponseBody
+import java.io.File
 
 class FileDownloader(
     private val context: Context,
@@ -23,6 +29,18 @@ class FileDownloader(
 
                 val body = response.body
                 val resolver = context.contentResolver
+
+                // Android 9 and below require WRITE_EXTERNAL_STORAGE for MediaStore
+                // writes (a runtime permission this app never requests). Fall back
+                // to app-specific storage and index the file so gallery apps
+                // still show it.
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
+                    PackageManager.PERMISSION_GRANTED
+                ) {
+                    saveToAppStorage(body, fileName, mimeType)
+                    return@use
+                }
                 val contentValues = ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
                     put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
@@ -68,5 +86,20 @@ class FileDownloader(
                 Toast.makeText(context, "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    /** Permission-free save target for Android 9 and below. */
+    private fun saveToAppStorage(body: ResponseBody, fileName: String, mimeType: String) {
+        val dir = context.getExternalFilesDir(
+            if (mimeType.startsWith("image")) Environment.DIRECTORY_PICTURES else Environment.DIRECTORY_MOVIES
+        ) ?: context.filesDir
+        val target = File(dir, fileName)
+        target.outputStream().use { output ->
+            body.byteStream().use { input ->
+                input.copyTo(output)
+            }
+        }
+        // Register with MediaStore so the file appears in gallery apps.
+        MediaScannerConnection.scanFile(context, arrayOf(target.absolutePath), arrayOf(mimeType), null)
     }
 }
