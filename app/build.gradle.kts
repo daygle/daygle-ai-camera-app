@@ -62,27 +62,6 @@ kotlin {
 }
 
 dependencies {
-    constraints {
-        // Version floors for dependency-resolution safety (see Dependabot advisories).
-        // None of these are used directly; the constraints keep any transitive
-        // resolution at or above the latest patched release.
-        implementation(libs.netty.all)
-        implementation(libs.netty.common)
-        implementation(libs.netty.handler)
-        implementation(libs.netty.codec.http)
-        implementation(libs.netty.codec.http2)
-        implementation(libs.netty.codec)
-        implementation(libs.netty.handler.proxy)
-        implementation(libs.netty.buffer)
-        implementation(libs.netty.transport)
-        implementation(libs.netty.resolver)
-        implementation(libs.bouncyCastle.provider)
-        implementation(libs.bouncyCastle.pkix)
-        implementation(libs.jdom2)
-        implementation(libs.commons.lang3)
-        implementation(libs.jose4j)
-        implementation(libs.httpclient)
-    }
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
