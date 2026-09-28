@@ -3,24 +3,18 @@ package com.daygle.aicamera.ui.events
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.data.model.metadataDouble
 import com.daygle.aicamera.data.model.metadataString
-import com.daygle.aicamera.ui.isMotionLabel
-import com.daygle.aicamera.ui.isSoundLabel
+import com.daygle.aicamera.ui.isMotionDetection
+import com.daygle.aicamera.ui.isSoundDetection
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
 
 internal fun isMotionEvent(event: Event): Boolean =
-    event.source?.lowercase() == "motion" ||
-        event.triggerType?.lowercase() == "motion" ||
-        isMotionLabel(event.triggerLabel) ||
-        event.detections.any { isMotionLabel(it.label) }
+    isMotionDetection(event.source, event.triggerType, event.triggerLabel, event.detections.map { it.label })
 
 internal fun isSoundEvent(event: Event): Boolean =
-    event.source?.lowercase() == "sound" ||
-        event.triggerType?.lowercase() == "sound" ||
-        isSoundLabel(event.triggerLabel) ||
-        event.detections.any { isSoundLabel(it.label) }
+    isSoundDetection(event.source, event.triggerType, event.triggerLabel, event.detections.map { it.label })
 
 /** Behavioural-intelligence events (tripwires, loitering, unusual time-of-day). */
 internal fun Event.isBehaviourEvent(): Boolean =

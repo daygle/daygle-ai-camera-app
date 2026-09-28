@@ -117,6 +117,9 @@ class SessionManager {
 
     val currentBaseUrl: String? get() = baseUrl?.toString()?.trimEnd('/')
 
+    /** Whether [host] is the configured Daygle server's host. */
+    fun isServerHost(host: String): Boolean = baseUrl?.host.equals(host, ignoreCase = true)
+
     fun currentCfAccessClientId(): String = cfAccessClientId
     fun currentCfAccessClientSecret(): String = cfAccessClientSecret
 

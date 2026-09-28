@@ -27,5 +27,3 @@ class DaygleApp : Application(), SingletonImageLoader.Factory {
             }
             .build()
 }
-
-// AppContainer removed in favor of Hilt

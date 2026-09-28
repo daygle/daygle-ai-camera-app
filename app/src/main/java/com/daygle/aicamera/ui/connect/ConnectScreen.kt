@@ -29,6 +29,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,14 +57,14 @@ fun ConnectScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var cfSecretVisible by remember { mutableStateOf(false) }
     var customHeaderValueVisible by remember { mutableStateOf(false) }
-    var showAdvanced by remember {
-        mutableStateOf(
-            state.cfAccessClientId.isNotBlank() ||
-                state.cfAccessClientSecret.isNotBlank() ||
-                state.customHeaderName.isNotBlank() ||
-                state.customHeaderValue.isNotBlank()
-        )
-    }
+    var showAdvanced by remember { mutableStateOf(false) }
+    // Saved settings load asynchronously, so expand once they arrive rather
+    // than deciding from the (still empty) initial state.
+    val hasAdvanced = state.cfAccessClientId.isNotBlank() ||
+        state.cfAccessClientSecret.isNotBlank() ||
+        state.customHeaderName.isNotBlank() ||
+        state.customHeaderValue.isNotBlank()
+    LaunchedEffect(hasAdvanced) { if (hasAdvanced) showAdvanced = true }
 
     Column(
         modifier = modifier

@@ -8,7 +8,8 @@ import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.data.model.metadataLabel
 import com.daygle.aicamera.ui.friendlyMessage
-import com.daygle.aicamera.ui.isMotionLabel
+import com.daygle.aicamera.ui.events.isMotionEvent
+import com.daygle.aicamera.ui.events.isSoundEvent
 import com.daygle.aicamera.ui.isSoundLabel
 import com.daygle.aicamera.ui.parseTimestamp
 import com.daygle.aicamera.util.FileDownloader
@@ -17,6 +18,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -99,6 +102,7 @@ class SnapshotsViewModel @Inject constructor(
     private val downloader = FileDownloader(context, repository.httpClient())
 
     private var allSnapshots: List<Event> = emptyList()
+    private var loadJob: Job? = null
 
     /** Saved scroll index so returning from PlayerScreen restores the list position. */
     var scrollIndex by mutableIntStateOf(0)
@@ -120,9 +124,11 @@ class SnapshotsViewModel @Inject constructor(
             SnapshotsUiState.Loading
         }
 
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            val camerasDeferred = async { repository.cameras() }
             val eventsResult = repository.events()
-            val camerasResult = repository.cameras()
+            val camerasResult = camerasDeferred.await()
             
             if (eventsResult.isSuccess && camerasResult.isSuccess) {
                 val events = eventsResult.getOrThrow()
@@ -242,17 +248,9 @@ class SnapshotsViewModel @Inject constructor(
         // Mode
         if (filter.selectedModes.isNotEmpty()) {
             result = result.filter { e ->
-                val isSound = e.source?.lowercase() == "sound" ||
-                    e.triggerType?.lowercase() == "sound" ||
-                    isSoundLabel(e.triggerLabel) ||
-                    e.detections.any { isSoundLabel(it.label) }
-                val isMotion = e.source?.lowercase() == "motion" ||
-                    e.triggerType?.lowercase() == "motion" ||
-                    isMotionLabel(e.triggerLabel) ||
-                    e.detections.any { isMotionLabel(it.label) }
                 val mode = when {
-                    isSound -> "Sound"
-                    isMotion -> "Motion"
+                    isSoundEvent(e) -> "Sound"
+                    isMotionEvent(e) -> "Motion"
                     else -> "Object"
                 }
                 mode in filter.selectedModes

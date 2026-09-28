@@ -104,32 +104,25 @@ import com.daygle.aicamera.ui.LocalUse24Hour
 import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatTimestamp
 import com.daygle.aicamera.ui.ForceLandscape
-import com.daygle.aicamera.ui.isMotionLabel
-import com.daygle.aicamera.ui.isSoundLabel
+import com.daygle.aicamera.ui.events.dateRangeLabel
+import com.daygle.aicamera.ui.events.isMotionEvent
+import com.daygle.aicamera.ui.events.isSoundEvent
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SnapshotsScreen(
     modifier: Modifier = Modifier,
-    refreshTrigger: Int = 0,
     viewModel: SnapshotsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var openEventId by remember { mutableStateOf<Int?>(null) }
     var showFilterSheet by remember { mutableStateOf(false) }
 
-    LaunchedEffect(refreshTrigger) {
-        if (refreshTrigger > 0) viewModel.load()
-    }
 
     openEventId?.let { eventId ->
         val url = viewModel.snapshotUrl(eventId)
@@ -544,19 +537,6 @@ private fun FilterSection(
     }
 }
 
-private fun getDateFormatter(): DateTimeFormatter =
-    DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
-        .withLocale(Locale.getDefault())
-
-private fun dateRangeLabel(start: LocalDate?, end: LocalDate?): String {
-    if (start == null && end == null) return "Anytime"
-    val formatter = getDateFormatter()
-    if (start != null && end != null) {
-        return "${start.format(formatter)} - ${end.format(formatter)}"
-    }
-    return if (start != null) "From ${start.format(formatter)}" else "Until ${end!!.format(formatter)}"
-}
-
 @Composable
 private fun SnapshotRow(
     event: Event,
@@ -703,19 +683,6 @@ private fun EventTypeBadge(mode: String) {
         )
     }
 }
-
-
-private fun isMotionEvent(event: Event): Boolean =
-    event.source?.lowercase() == "motion" ||
-        event.triggerType?.lowercase() == "motion" ||
-        isMotionLabel(event.triggerLabel) ||
-        event.detections.any { isMotionLabel(it.label) }
-
-private fun isSoundEvent(event: Event): Boolean =
-    event.source?.lowercase() == "sound" ||
-        event.triggerType?.lowercase() == "sound" ||
-        isSoundLabel(event.triggerLabel) ||
-        event.detections.any { isSoundLabel(it.label) }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

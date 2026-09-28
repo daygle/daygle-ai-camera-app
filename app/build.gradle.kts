@@ -104,4 +104,6 @@ dependencies {
     implementation(libs.androidx.compose.material3.adaptive.navigation)
 
     debugImplementation(libs.androidx.ui.tooling)
+
+    testImplementation(libs.junit)
 }

@@ -13,5 +13,20 @@ enum class HomeTab(val label: String, val icon: ImageVector) {
     Timeline("Timeline", Icons.Outlined.ViewTimeline),
     Events("Events", Icons.Outlined.Notifications),
     Clips("Clips", Icons.Outlined.VideoLibrary),
-    Settings("Settings", Icons.Outlined.Settings),
+    Settings("Settings", Icons.Outlined.Settings);
+
+    companion object {
+        /**
+         * Parse the persisted comma-separated tab order. Unknown names (e.g. a
+         * tab removed in an update) and duplicates are dropped; if nothing
+         * valid remains, every tab is shown - an empty bar would leave the
+         * user with no way to reach Settings to fix it.
+         */
+        fun parse(saved: String?): List<HomeTab> =
+            saved?.split(",")
+                ?.mapNotNull { name -> entries.find { it.name == name.trim() } }
+                ?.distinct()
+                ?.takeIf { it.isNotEmpty() }
+                ?: entries
+    }
 }

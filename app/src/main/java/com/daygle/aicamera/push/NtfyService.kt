@@ -33,9 +33,12 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.Credentials
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 
@@ -61,7 +64,10 @@ class NtfyService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val alertId = AtomicInteger(2000)
-    private val running = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val running = AtomicBoolean(false)
+
+    /** Set when a settings re-sync cancels the stream, so it reconnects at once. */
+    private val resyncRequested = AtomicBoolean(false)
 
     @Volatile
     private var currentCall: okhttp3.Call? = null
@@ -76,14 +82,19 @@ class NtfyService : Service() {
             // When the Daygle server (and its ntfy endpoint) sits behind a
             // Cloudflare Tunnel protected by Cloudflare Access, the stream must
             // carry the same service-token headers as every other request.
-            .addInterceptor { chain ->
+            // The ntfy server is often a different host (e.g. public ntfy.sh),
+            // so the token is only attached for the Daygle server's own host.
+            // A network interceptor re-checks the host on every redirect hop,
+            // so a redirect can't carry the secret to another origin either.
+            .addNetworkInterceptor { chain ->
+                val request = chain.request()
                 val clientId = session.currentCfAccessClientId()
                 val clientSecret = session.currentCfAccessClientSecret()
-                if (clientId.isBlank() || clientSecret.isBlank()) {
-                    chain.proceed(chain.request())
+                if (clientId.isBlank() || clientSecret.isBlank() || !session.isServerHost(request.url.host)) {
+                    chain.proceed(request)
                 } else {
                     chain.proceed(
-                        chain.request().newBuilder()
+                        request.newBuilder()
                             .header("CF-Access-Client-Id", clientId)
                             .header("CF-Access-Client-Secret", clientSecret)
                             .build()
@@ -113,50 +124,63 @@ class NtfyService : Service() {
             // through onStartCommand. Drop the old stream so runLoop reads the
             // new server/topic/credentials immediately instead of waiting for
             // the remote connection to time out.
+            resyncRequested.set(true)
             currentCall?.cancel()
         }
         return START_STICKY
     }
 
     private suspend fun runLoop() {
-        var backoffMs = 2_000L
+        var backoffMs = MIN_BACKOFF_MS
         while (scope.isActive) {
+            resyncRequested.set(false)
             val config = notificationSettings.current()
             if (!config.isSubscribable) {
                 stopSelfSafely()
                 return
             }
-            try {
-                // The JSON stream delivers only messages published after the
-                // connection opens, so there's no history to replay on connect.
-                val startedAt = SystemClock.elapsedRealtime()
+            // The JSON stream delivers only messages published after the
+            // connection opens, so there's no history to replay on connect.
+            val startedAt = SystemClock.elapsedRealtime()
+            val healthy = try {
                 streamOnce(config)
-                backoffMs = 2_000L
-                // A stream that ends healthy but almost immediately (server or
-                // proxy closing each connection right away) must not cause a
-                // tight reconnect loop; pause before dialing again.
-                if (SystemClock.elapsedRealtime() - startedAt < SHORT_STREAM_THRESHOLD_MS) {
-                    delay(backoffMs)
-                }
+                true
             } catch (e: Exception) {
-                Log.w(TAG, "ntfy stream error: ${e.message}")
+                if (!resyncRequested.get()) Log.w(TAG, "ntfy stream error: ${e.message}")
+                false
             }
             if (!scope.isActive) return
+            if (resyncRequested.get()) {
+                // Settings changed: reconnect straight away with the new config.
+                backoffMs = MIN_BACKOFF_MS
+                continue
+            }
+            // A stream that ran for a while and then ended normally reconnects
+            // immediately. Failures - and streams the server or a proxy closes
+            // right after opening - back off exponentially so a broken setup
+            // can't spin in a tight reconnect loop.
+            if (healthy && SystemClock.elapsedRealtime() - startedAt >= SHORT_STREAM_THRESHOLD_MS) {
+                backoffMs = MIN_BACKOFF_MS
+                continue
+            }
             delay(backoffMs)
-            backoffMs = (backoffMs * 2).coerceAtMost(60_000L)
+            backoffMs = (backoffMs * 2).coerceAtMost(MAX_BACKOFF_MS)
         }
     }
 
     /** Open one streaming connection; returns when the server closes it. */
     private fun streamOnce(config: NotificationConfig) {
-        val base = config.serverUrl.trim().trimEnd('/')
-        val url = "$base/${config.topic.trim()}/json"
+        val url = streamUrl(config)
+            ?: throw IllegalArgumentException("Invalid ntfy server address: ${config.serverUrl}")
         val builder = Request.Builder().url(url).get()
         if (config.username.isNotBlank()) {
             builder.header("Authorization", Credentials.basic(config.username, config.password))
         }
         val call = client.newCall(builder.build())
         currentCall = call
+        // A re-sync that landed after this loop read its config would have
+        // cancelled the previous call; honour it for this one too.
+        if (resyncRequested.get()) call.cancel()
         call.execute().use { response ->
             if (!response.isSuccessful) {
                 throw IllegalStateException("ntfy returned HTTP ${response.code}")
@@ -185,7 +209,11 @@ class NtfyService : Service() {
         // ("Event ID: 123"). Carry it through the tap intent so tapping the
         // notification opens that event's annotated snapshot directly.
         val eventId = eventIdFrom(message)
-        val notificationId = alertId.incrementAndGet()
+        // Derive the id from ntfy's unique message id so a restarted service
+        // (whose counter starts over) doesn't replace alerts still on screen.
+        val notificationId = message.id?.takeIf { it.isNotBlank() }
+            ?.let { (it.hashCode() and Int.MAX_VALUE) or ALERT_ID_FLOOR }
+            ?: alertId.incrementAndGet()
         val contentIntent = PendingIntent.getActivity(
             this,
             notificationId,
@@ -252,6 +280,11 @@ class NtfyService : Service() {
 
         /** Streams shorter than this are treated as unhealthy for backoff purposes. */
         private const val SHORT_STREAM_THRESHOLD_MS = 5_000L
+        private const val MIN_BACKOFF_MS = 2_000L
+        private const val MAX_BACKOFF_MS = 60_000L
+
+        /** Keeps hashed alert ids clear of the fixed status/test notification ids. */
+        private const val ALERT_ID_FLOOR = 0x10000
 
         /** Intent extra on alert notifications carrying the triggering event id. */
         const val EXTRA_EVENT_ID = "com.daygle.aicamera.extra.EVENT_ID"
@@ -312,6 +345,23 @@ class NtfyService : Service() {
             }.getOrDefault(false)
         }
     }
+}
+
+/**
+ * `{server}/{topic}/json`. The topic is added as an encoded path segment, so a
+ * stray `/`, `?` or `#` in it can't point the subscription somewhere else. A
+ * server address typed without a scheme defaults to https.
+ */
+internal fun streamUrl(config: NotificationConfig): HttpUrl? {
+    val server = config.serverUrl.trim()
+    val topic = config.topic.trim()
+    if (server.isEmpty() || topic.isEmpty()) return null
+    val withScheme = if ("://" in server) server else "https://$server"
+    return withScheme.toHttpUrlOrNull()
+        ?.newBuilder()
+        ?.addPathSegment(topic)
+        ?.addPathSegment("json")
+        ?.build()
 }
 
 @Serializable

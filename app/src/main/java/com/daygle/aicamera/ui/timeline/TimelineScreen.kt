@@ -82,17 +82,12 @@ private const val TOTAL_MINUTES = 24 * 60
 fun TimelineScreen(
     onOpenRecording: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    refreshTrigger: Int = 0,
     viewModel: TimelineViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf<String?>(null) } // "start" or "end"
     var minuteWidth by remember { mutableFloatStateOf(DEFAULT_MINUTE_WIDTH) }
-
-    androidx.compose.runtime.LaunchedEffect(refreshTrigger) {
-        if (refreshTrigger > 0) viewModel.load()
-    }
 
     if (showDatePicker) {
         val dateState = rememberDatePickerState(

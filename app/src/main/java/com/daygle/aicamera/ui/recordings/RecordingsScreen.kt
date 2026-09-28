@@ -84,29 +84,21 @@ import com.daygle.aicamera.ui.formatDuration
 import com.daygle.aicamera.ui.LocalUse24Hour
 import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatTimestamp
-import com.daygle.aicamera.ui.isMotionLabel
-import com.daygle.aicamera.ui.isSoundLabel
+import com.daygle.aicamera.ui.events.dateRangeLabel
+import com.daygle.aicamera.ui.isMotion
+import com.daygle.aicamera.ui.isSound
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecordingsScreen(
     onPlay: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    refreshTrigger: Int = 0,
     viewModel: RecordingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showFilterSheet by remember { mutableStateOf(false) }
-
-    androidx.compose.runtime.LaunchedEffect(refreshTrigger) {
-        if (refreshTrigger > 0) viewModel.load()
-    }
 
     if (showFilterSheet) {
         RecordingsFilterSheet(
@@ -513,24 +505,16 @@ private fun FilterSection(
 }
 
 
-private fun getDateFormatter(): DateTimeFormatter =
-    DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
-        .withLocale(Locale.getDefault())
-
-private fun dateRangeLabel(start: LocalDate?, end: LocalDate?): String {
-    if (start == null && end == null) return "Anytime"
-    val formatter = getDateFormatter()
-    if (start != null && end != null) {
-        return "${start.format(formatter)} - ${end.format(formatter)}"
-    }
-    return if (start != null) "From ${start.format(formatter)}" else "Until ${end!!.format(formatter)}"
-}
-
 @Composable
 private fun RecordingRow(
     recording: Recording,
     onPlay: () -> Unit,
 ) {
+    // Row content is derived purely from the recording; compute it once rather
+    // than on every recomposition while the list scrolls.
+    val isSound = remember(recording) { recording.isSound() }
+    val isMotion = remember(recording) { recording.isMotion() }
+    val detectionsToShow = remember(recording) { recording.combinedDetections() }
     Card(
         onClick = onPlay,
         enabled = recording.mediaReady,
@@ -556,14 +540,6 @@ private fun RecordingRow(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        val isSound = recording.source?.lowercase() == "sound" ||
-                                recording.triggerType?.lowercase() == "sound" ||
-                                isSoundLabel(recording.triggerLabel) ||
-                                recording.labels.any { isSoundLabel(it) }
-                        val isMotion = recording.source?.lowercase() == "motion" ||
-                                recording.triggerType?.lowercase() == "motion" ||
-                                isMotionLabel(recording.triggerLabel) ||
-                                recording.labels.any { isMotionLabel(it) }
                         Icon(
                             imageVector = when {
                                 isSound -> Icons.Filled.GraphicEq
@@ -580,18 +556,6 @@ private fun RecordingRow(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    // A recording can span several events, so combine detections from
-                    // the clip and its events into one deduplicated object list.
-                    val eventDetections = recording.events.flatMap { it.detections }
-                    val confidenceDetections = recording.labelConfidences.map { (label, confidence) ->
-                        Detection(label, confidence)
-                    }
-                    val detectionsToShow = (recording.detections + eventDetections + confidenceDetections)
-                        .filter { it.label.isNotBlank() }
-                        .groupBy { it.label.lowercase() }
-                        .map { (_, detections) -> detections.maxBy { it.confidence } }
-                        .sortedByDescending { it.confidence }
-
                     if (detectionsToShow.isNotEmpty()) {
                         Text(
                             detectionsToShow.joinToString(", ") {
@@ -606,14 +570,6 @@ private fun RecordingRow(
                 }
             },
             leadingContent = {
-                val isSound = recording.source?.lowercase() == "sound" ||
-                        recording.triggerType?.lowercase() == "sound" ||
-                        isSoundLabel(recording.triggerLabel) ||
-                        recording.labels.any { isSoundLabel(it) }
-                val isMotion = recording.source?.lowercase() == "motion" ||
-                        recording.triggerType?.lowercase() == "motion" ||
-                        isMotionLabel(recording.triggerLabel) ||
-                        recording.labels.any { isMotionLabel(it) }
                 Box(
                     modifier = Modifier
                         .size(48.dp)
@@ -686,6 +642,20 @@ private fun RecordingRow(
             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
         )
     }
+}
+
+/**
+ * A recording can span several events, so combine detections from the clip and
+ * its events into one list, deduplicated by label (keeping the most confident).
+ */
+private fun Recording.combinedDetections(): List<Detection> {
+    val eventDetections = events.flatMap { it.detections }
+    val confidenceDetections = labelConfidences.map { (label, confidence) -> Detection(label, confidence) }
+    return (detections + eventDetections + confidenceDetections)
+        .filter { it.label.isNotBlank() }
+        .groupBy { it.label.lowercase() }
+        .map { (_, grouped) -> grouped.maxBy { it.confidence } }
+        .sortedByDescending { it.confidence }
 }
 
 private fun Recording.title(): String {

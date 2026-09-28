@@ -2,6 +2,8 @@ package com.daygle.aicamera.ui
 
 import android.text.format.DateFormat
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.daygle.aicamera.data.model.Recording
+import com.daygle.aicamera.data.model.TimelineSegmentDto
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -33,6 +35,38 @@ fun isMotionLabel(label: String?): Boolean {
     val normalized = label?.trim()?.lowercase(Locale.getDefault())?.replace(" ", "_") ?: return false
     return normalized.contains("motion") || normalized.contains("movement")
 }
+
+/**
+ * True when an item's source, trigger or labels identify a sound detection.
+ * Shared by every list filter, badge and timeline lane so they classify alike.
+ */
+fun isSoundDetection(
+    source: String?,
+    triggerType: String?,
+    triggerLabel: String?,
+    labels: Iterable<String>,
+): Boolean =
+    source.equals("sound", ignoreCase = true) ||
+        triggerType.equals("sound", ignoreCase = true) ||
+        isSoundLabel(triggerLabel) ||
+        labels.any(::isSoundLabel)
+
+/** True when an item's source, trigger or labels identify a motion detection. */
+fun isMotionDetection(
+    source: String?,
+    triggerType: String?,
+    triggerLabel: String?,
+    labels: Iterable<String>,
+): Boolean =
+    source.equals("motion", ignoreCase = true) ||
+        triggerType.equals("motion", ignoreCase = true) ||
+        isMotionLabel(triggerLabel) ||
+        labels.any(::isMotionLabel)
+
+fun Recording.isSound(): Boolean = isSoundDetection(source, triggerType, triggerLabel, labels)
+fun Recording.isMotion(): Boolean = isMotionDetection(source, triggerType, triggerLabel, labels)
+fun TimelineSegmentDto.isSound(): Boolean = isSoundDetection(source, triggerType, triggerLabel, labels)
+fun TimelineSegmentDto.isMotion(): Boolean = isMotionDetection(source, triggerType, triggerLabel, labels)
 
 /**
  * Localized date + time formatter that honors the app's 24-hour preference.

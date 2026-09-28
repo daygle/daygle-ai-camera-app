@@ -7,11 +7,11 @@ import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.data.model.metadataLabel
 import com.daygle.aicamera.ui.friendlyMessage
-import com.daygle.aicamera.ui.isMotionLabel
 import com.daygle.aicamera.ui.isSoundLabel
 import com.daygle.aicamera.ui.parseTimestamp
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -113,6 +113,7 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
     private var lastEventTimestamp: OffsetDateTime? = null
 
     private var pollJob: Job? = null
+    private var loadJob: Job? = null
 
     var scrollIndex: Int = 0
         private set
@@ -131,9 +132,13 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
      */
     fun load() {
         _state.update { if (it is EventsUiState.Ready) it.copy(data = it.data.copy(refreshing = true)) else EventsUiState.Loading }
-        viewModelScope.launch {
+        // A newer full reload supersedes both an in-flight reload and any
+        // incremental refresh, so stale responses can't overwrite it.
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            val camerasDeferred = async { repository.cameras() }
             val eventsResult = repository.events()
-            val camerasResult = repository.cameras()
+            val camerasResult = camerasDeferred.await()
 
             val events = eventsResult.getOrElse {
                 _state.value = EventsUiState.Error(it.friendlyMessage())
@@ -165,6 +170,8 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
      * not shown, so the user isn't shown a busy indicator every poll tick.
      */
     fun refresh(silent: Boolean = false) {
+        // A full reload already in flight will bring in everything new.
+        if (loadJob?.isActive == true) return
         val since = lastEventTimestamp
         if (since == null || allFilterableEvents.isEmpty()) {
             load()
@@ -175,7 +182,7 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
                 if (current is EventsUiState.Ready) current.copy(data = current.data.copy(refreshing = true)) else current
             }
         }
-        viewModelScope.launch {
+        loadJob = viewModelScope.launch {
             val eventsResult = repository.events(since = formatUtc(since))
             val newEvents = eventsResult.getOrElse {
                 // Incremental fetch failed; keep the current data, just stop
@@ -234,10 +241,8 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
     private fun toFilterable(e: Event) = FilterableEvent(
         event = e,
         timestamp = parseTimestamp(e.createdAt),
-        isSound = e.source?.lowercase() == "sound" || e.triggerType?.lowercase() == "sound" ||
-                 isSoundLabel(e.triggerLabel) || e.detections.any { isSoundLabel(it.label) },
-        isMotion = e.source?.lowercase() == "motion" || e.triggerType?.lowercase() == "motion" ||
-                  isMotionLabel(e.triggerLabel) || e.detections.any { isMotionLabel(it.label) },
+        isSound = isSoundEvent(e),
+        isMotion = isMotionEvent(e),
         isBehaviour = e.isBehaviourEvent(),
         cameraId = e.filterCameraId(),
         metadataLabel = e.metadataLabel()

@@ -7,16 +7,16 @@ import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.data.model.TimelineResponse
 import com.daygle.aicamera.data.model.TimelineSegmentDto
 import com.daygle.aicamera.ui.friendlyMessage
-import com.daygle.aicamera.ui.isMotionLabel
-import com.daygle.aicamera.ui.isSoundLabel
+import com.daygle.aicamera.ui.isMotion
+import com.daygle.aicamera.ui.isSound
 import com.daygle.aicamera.ui.parseTimestamp
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -64,6 +64,7 @@ class TimelineViewModel @Inject constructor(
     private var selectedDate: LocalDate = LocalDate.now()
     private var startTime: LocalTime = LocalTime.MIN
     private var endTime: LocalTime = LocalTime.MAX
+    private var loadJob: Job? = null
 
     init {
         load()
@@ -96,10 +97,13 @@ class TimelineViewModel @Inject constructor(
             }
         }
 
-        viewModelScope.launch {
+        // Switching days quickly must not let an older, slower response
+        // overwrite the day the user is now looking at.
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             val timelineResult = repository.recordingsTimeline(
                 day = selectedDate.format(DAY_FORMAT),
-                tzOffsetMinutes = tzOffsetMinutes(),
+                tzOffsetMinutes = tzOffsetMinutes(selectedDate),
             )
             val timeline = timelineResult.getOrNull()
             if (timeline != null) {
@@ -209,37 +213,19 @@ class TimelineViewModel @Inject constructor(
         )
     }
 
-    private fun TimelineSegmentDto.isSound(): Boolean =
-        source?.lowercase() == "sound" ||
-            triggerType?.lowercase() == "sound" ||
-            isSoundLabel(triggerLabel) ||
-            labels.any { isSoundLabel(it) }
-
-    private fun TimelineSegmentDto.isMotion(): Boolean =
-        source?.lowercase() == "motion" ||
-            triggerType?.lowercase() == "motion" ||
-            isMotionLabel(triggerLabel) ||
-            labels.any { isMotionLabel(it) }
-
-    private fun Recording.isSound(): Boolean =
-        source?.lowercase() == "sound" ||
-            triggerType?.lowercase() == "sound" ||
-            isSoundLabel(triggerLabel) ||
-            labels.any { isSoundLabel(it) }
-
-    private fun Recording.isMotion(): Boolean =
-        source?.lowercase() == "motion" ||
-            triggerType?.lowercase() == "motion" ||
-            isMotionLabel(triggerLabel) ||
-            labels.any { isMotionLabel(it) }
-
     /**
      * Device timezone as minutes east of UTC, negated to match the server's
      * `tz_offset_minutes` convention (JS `getTimezoneOffset()`: positive west
      * of UTC). The server turns it into `timezone(timedelta(minutes=-value))`.
+     *
+     * The offset is taken for the selected [day], not for "now": across a
+     * daylight-saving change the two differ by an hour, which would shift
+     * every bar (and the day boundary) when browsing past days. Noon is used
+     * because DST transitions happen in the early hours, so it reflects the
+     * offset in effect for most of that day.
      */
-    private fun tzOffsetMinutes(): Int =
-        -ZoneId.systemDefault().rules.getOffset(Instant.now()).totalSeconds / 60
+    private fun tzOffsetMinutes(day: LocalDate): Int =
+        -day.atTime(LocalTime.NOON).atZone(ZoneId.systemDefault()).offset.totalSeconds / 60
 
     companion object {
         private val DAY_FORMAT: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE

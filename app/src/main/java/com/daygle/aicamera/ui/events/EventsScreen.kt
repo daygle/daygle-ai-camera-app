@@ -67,7 +67,6 @@ import com.daygle.aicamera.ui.components.ZoomableImage
 fun EventsScreen(
     modifier: Modifier = Modifier,
     onPlayRecording: (Int) -> Unit = {},
-    refreshTrigger: Int = 0,
     viewModel: EventsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -77,10 +76,6 @@ fun EventsScreen(
     // Poll for new events incrementally while the screen is visible; stop when
     // the app is backgrounded so we don't hammer the server.
     LifecycleResumeEffect(onPause = viewModel::pausePolling, onResume = viewModel::startPolling)
-
-    LaunchedEffect(refreshTrigger) {
-        if (refreshTrigger > 0) viewModel.load()
-    }
 
     snapshotEventId?.let { id ->
         SnapshotViewerDialog(

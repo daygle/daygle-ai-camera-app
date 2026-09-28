@@ -49,9 +49,7 @@ class SettingsViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             val connection = settingsStore.current()
-            val savedNav = prefs.currentNavItems()?.split(",")?.mapNotNull { name ->
-                runCatching { HomeTab.valueOf(name) }.getOrNull()
-            } ?: HomeTab.entries
+            val savedNav = HomeTab.parse(prefs.currentNavItems())
 
             _state.update {
                 it.copy(
