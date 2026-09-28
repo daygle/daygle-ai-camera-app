@@ -301,7 +301,7 @@ fun SnapshotsScreen(
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             items(data.filtered, key = { it.id }) { event ->
-                                val eventUrl = viewModel.snapshotUrl(event.id)
+                                val eventUrl = viewModel.thumbnailUrl(event.id)
                                 SnapshotRow(
                                     event = event,
                                     url = eventUrl,

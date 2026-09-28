@@ -6,6 +6,7 @@ import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.data.model.PushSettings
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.data.model.TimelineResponse
+import retrofit2.HttpException
 
 /**
  * Thin domain layer over [SessionManager]/[DaygleApi]. Each call returns a
@@ -48,6 +49,9 @@ class CameraRepository(
 
     /** Forget the server and end the session. */
     suspend fun disconnect() {
+        // Revoke the session server-side too; otherwise it stays valid until it
+        // expires. Best effort - signing out must work offline.
+        session.logout()
         settings.clear()
         session.update(Connection())
     }
@@ -60,10 +64,25 @@ class CameraRepository(
     suspend fun cameraHealth(): Result<CameraHealthResponse> = suspendRunCatching { session.api.cameraHealth() }
 
     suspend fun events(alertedOnly: Boolean = false, since: String? = null): Result<List<Event>> =
-        suspendRunCatching { session.api.events(alertedOnly = alertedOnly, since = since) }
+        suspendRunCatching { session.api.events(alertedOnly = alertedOnly, since = since).items }
+
+    /**
+     * Events with a stored snapshot (`GET /api/snapshots`), including ones not
+     * linked to a recording. Servers without that endpoint fall back to the
+     * events feed filtered to entries that advertise a snapshot.
+     */
+    suspend fun snapshots(): Result<List<Event>> = suspendRunCatching {
+        try {
+            session.api.snapshots().items
+        } catch (e: HttpException) {
+            if (e.code() != 404) throw e
+            session.api.events(withRecording = false).items
+                .filter { it.hasSnapshot || !it.snapshotPath.isNullOrBlank() }
+        }
+    }
 
     suspend fun recordings(cameraId: String? = null): Result<List<Recording>> =
-        suspendRunCatching { session.api.recordings(cameraId = cameraId) }
+        suspendRunCatching { session.api.recordings(cameraId = cameraId).items }
 
     /** Pre-grouped timeline for a camera-day; server clamps to the day and localizes via [tzOffsetMinutes]. */
     suspend fun recordingsTimeline(
@@ -80,7 +99,10 @@ class CameraRepository(
 
     fun recordingStreamUrl(recordingId: Int): String? = session.recordingStreamUrl(recordingId)
 
-    fun eventSnapshotUrl(eventId: Int): String? = session.eventSnapshotUrl(eventId)
+    fun recordingDownloadUrl(recordingId: Int): String? = session.recordingDownloadUrl(recordingId)
+
+    fun eventSnapshotUrl(eventId: Int, thumbnail: Boolean = false): String? =
+        session.eventSnapshotUrl(eventId, thumbnail)
 
     fun httpClient() = session.httpClient
 

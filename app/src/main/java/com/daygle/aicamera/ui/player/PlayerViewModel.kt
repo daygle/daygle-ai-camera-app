@@ -50,7 +50,7 @@ class PlayerViewModel @Inject constructor(
 
     /** Save the current recording's MP4 to the device's downloads. */
     fun download() {
-        val url = repository.recordingStreamUrl(recordingId) ?: return
+        val url = repository.recordingDownloadUrl(recordingId) ?: return
         viewModelScope.launch {
             downloader.downloadFile(url, "recording-$recordingId.mp4", "video/mp4")
         }

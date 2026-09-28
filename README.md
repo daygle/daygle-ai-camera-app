@@ -39,6 +39,7 @@ The server uses browser-style **session-cookie authentication with a CSRF token*
 1. **Token Fetch**: Performs a `GET /login` to acquire a CSRF token.
 2. **Authentication**: Performs a `POST /login` with credentials and the token to establish a session.
 3. **Session Persistence**: The session cookie is managed by a shared OkHttp client, used transparently by Retrofit, Coil (images), and ExoPlayer (video).
+4. **Sign-out**: Signing out revokes the session on the server (`POST /logout`) before the app forgets it.
 
 > [!TIP]
 > Authentication is automatic. If your session expires, the app silently re-authenticates and retries your request without interrupting your workflow.

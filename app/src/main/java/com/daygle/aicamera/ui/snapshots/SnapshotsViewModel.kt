@@ -127,15 +127,13 @@ class SnapshotsViewModel @Inject constructor(
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
             val camerasDeferred = async { repository.cameras() }
-            val eventsResult = repository.events()
+            val eventsResult = repository.snapshots()
             val camerasResult = camerasDeferred.await()
             
             if (eventsResult.isSuccess && camerasResult.isSuccess) {
-                val events = eventsResult.getOrThrow()
                 val cameras = camerasResult.getOrThrow()
                 
-                allSnapshots = events
-                    .filter { it.hasSnapshot || !it.snapshotPath.isNullOrBlank() }
+                allSnapshots = eventsResult.getOrThrow()
                 
                 val currentFilter = (_state.value as? SnapshotsUiState.Ready)?.data?.filter ?: SnapshotsFilter()
                 _state.value = SnapshotsUiState.Ready(
@@ -202,6 +200,9 @@ class SnapshotsViewModel @Inject constructor(
     }
 
     fun snapshotUrl(eventId: Int): String? = repository.eventSnapshotUrl(eventId)
+
+    /** Small capture-time thumbnail for list rows. */
+    fun thumbnailUrl(eventId: Int): String? = repository.eventSnapshotUrl(eventId, thumbnail = true)
 
     fun download(url: String, fileName: String) {
         viewModelScope.launch {
