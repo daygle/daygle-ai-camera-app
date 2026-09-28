@@ -7,13 +7,16 @@ import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.Detection
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.ui.friendlyMessage
-import com.daygle.aicamera.ui.isMotionLabel
+import com.daygle.aicamera.ui.isMotion
+import com.daygle.aicamera.ui.isSound
 import com.daygle.aicamera.ui.isSoundLabel
 import com.daygle.aicamera.ui.parseTimestamp
 import dagger.hilt.android.lifecycle.HiltViewModel
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -91,6 +94,7 @@ class RecordingsViewModel @Inject constructor(
     val state: StateFlow<RecordingsUiState> = _state.asStateFlow()
 
     private var allRecordings: List<Recording> = emptyList()
+    private var loadJob: Job? = null
 
     /** Saved scroll index so returning from PlayerScreen restores the list position. */
     var scrollIndex by mutableIntStateOf(0)
@@ -111,9 +115,11 @@ class RecordingsViewModel @Inject constructor(
         else
             RecordingsUiState.Loading
 
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            val camerasDeferred = async { repository.cameras() }
             val recsRes = repository.recordings()
-            val camerasRes = repository.cameras()
+            val camerasRes = camerasDeferred.await()
 
             if (recsRes.isSuccess && camerasRes.isSuccess) {
                 val recordings = recsRes.getOrThrow()
@@ -224,17 +230,9 @@ class RecordingsViewModel @Inject constructor(
         // Mode filter
         if (filter.selectedModes.isNotEmpty()) {
             result = result.filter { r ->
-                val isSound = r.source?.lowercase() == "sound" ||
-                        r.triggerType?.lowercase() == "sound" ||
-                        isSoundLabel(r.triggerLabel) ||
-                        r.labels.any { isSoundLabel(it) }
-                val isMotion = r.source?.lowercase() == "motion" ||
-                        r.triggerType?.lowercase() == "motion" ||
-                        isMotionLabel(r.triggerLabel) ||
-                        r.labels.any { isMotionLabel(it) }
                 val mode = when {
-                    isSound -> "Sound"
-                    isMotion -> "Motion"
+                    r.isSound() -> "Sound"
+                    r.isMotion() -> "Motion"
                     else -> "Object"
                 }
                 mode in filter.selectedModes

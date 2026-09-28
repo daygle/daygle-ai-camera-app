@@ -62,7 +62,19 @@ internal class SecretStore(context: Context) {
         String(cipher.doFinal(encrypted), Charsets.UTF_8)
     }.getOrNull()
 
-    private fun secretKey(): SecretKey {
+    /**
+     * Loading the Keystore is a binder round-trip; every secret read/write
+     * needs the key, so resolve it once and reuse it.
+     */
+    @Volatile
+    private var cachedKey: SecretKey? = null
+
+    private fun secretKey(): SecretKey =
+        cachedKey ?: synchronized(this) {
+            cachedKey ?: loadOrCreateKey().also { cachedKey = it }
+        }
+
+    private fun loadOrCreateKey(): SecretKey {
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (keyStore.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
         return KeyGenerator.getInstance("AES", "AndroidKeyStore").apply {

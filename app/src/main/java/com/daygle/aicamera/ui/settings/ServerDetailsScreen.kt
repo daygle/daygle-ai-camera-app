@@ -34,6 +34,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,9 +62,15 @@ fun ServerDetailsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var passwordVisible by remember { mutableStateOf(false) }
     var cfSecretVisible by remember { mutableStateOf(false) }
-    var showCloudflare by remember { mutableStateOf(state.cfAccessClientId.isNotBlank() || state.cfAccessClientSecret.isNotBlank()) }
+    var showCloudflare by remember { mutableStateOf(false) }
     var customHeaderValueVisible by remember { mutableStateOf(false) }
-    var showCustomHeader by remember { mutableStateOf(state.customHeaderName.isNotBlank() || state.customHeaderValue.isNotBlank()) }
+    var showCustomHeader by remember { mutableStateOf(false) }
+    // Saved settings load asynchronously, so expand a section once its values
+    // arrive rather than deciding from the (still empty) initial state.
+    val hasCloudflare = state.cfAccessClientId.isNotBlank() || state.cfAccessClientSecret.isNotBlank()
+    val hasCustomHeader = state.customHeaderName.isNotBlank() || state.customHeaderValue.isNotBlank()
+    LaunchedEffect(hasCloudflare) { if (hasCloudflare) showCloudflare = true }
+    LaunchedEffect(hasCustomHeader) { if (hasCustomHeader) showCustomHeader = true }
 
     Scaffold(
         modifier = modifier,

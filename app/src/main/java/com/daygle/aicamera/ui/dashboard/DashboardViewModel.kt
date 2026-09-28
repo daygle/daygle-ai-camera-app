@@ -2,11 +2,13 @@ package com.daygle.aicamera.ui.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.daygle.aicamera.data.AppPreferencesStore
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.ui.friendlyMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,12 +38,16 @@ sealed interface DashboardUiState {
  * the configured refresh interval, so each tile shows a near-live feed.
  */
 @HiltViewModel
-class DashboardViewModel @Inject constructor(private val repository: CameraRepository) : ViewModel() {
+class DashboardViewModel @Inject constructor(
+    private val repository: CameraRepository,
+    private val prefs: AppPreferencesStore,
+) : ViewModel() {
 
     private val _state = MutableStateFlow<DashboardUiState>(DashboardUiState.Loading)
     val state: StateFlow<DashboardUiState> = _state.asStateFlow()
 
     private var pollJob: Job? = null
+    private var loadJob: Job? = null
 
     init {
         load()
@@ -55,13 +61,18 @@ class DashboardViewModel @Inject constructor(private val repository: CameraRepos
         } else {
             _state.value = DashboardUiState.Loading
         }
-        viewModelScope.launch {
-            val camerasResult = repository.cameras()
-            val cameras = camerasResult.getOrElse {
+        // A newer load supersedes an in-flight one so a slow, stale response
+        // can't overwrite fresher data.
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            // Health is optional; fetch it alongside the camera list.
+            val healthDeferred = async { repository.cameraHealth().getOrNull() }
+            val cameras = repository.cameras().getOrElse {
+                healthDeferred.cancel()
                 _state.value = DashboardUiState.Error(it.friendlyMessage())
                 return@launch
             }
-            val health = repository.cameraHealth().getOrNull()
+            val health = healthDeferred.await()
             val cards = cameras.map { camera ->
                 CameraCard(
                     camera = camera,
@@ -94,7 +105,7 @@ class DashboardViewModel @Inject constructor(private val repository: CameraRepos
     private fun startPolling() {
         pollJob?.cancel()
         pollJob = viewModelScope.launch {
-            repository.appPrefs().refreshIntervalMs.collectLatest { interval ->
+            prefs.refreshIntervalMs.collectLatest { interval ->
                 val safeInterval = interval.coerceAtLeast(500)
                 while (true) {
                     delay(safeInterval)

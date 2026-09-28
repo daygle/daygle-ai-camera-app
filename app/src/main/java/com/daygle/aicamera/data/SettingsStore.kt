@@ -10,6 +10,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
@@ -44,7 +45,6 @@ data class Connection(
  */
 class SettingsStore(private val context: Context) {
 
-    private val appPrefsStore = AppPreferencesStore(context)
     private val secrets = SecretStore(context)
 
     private object Keys {
@@ -56,30 +56,29 @@ class SettingsStore(private val context: Context) {
         val CUSTOM_HEADER_NAME = stringPreferencesKey("custom_header_name")
     }
 
+    // Secret decryption touches the Keystore, so keep it off the main thread.
     val connection: Flow<Connection> = context.dataStore.data.map { prefs ->
-        withContext(Dispatchers.IO) {
-            Connection(
-                baseUrl = prefs[Keys.BASE_URL].orEmpty(),
-                // Legacy fallback keeps old installations usable until restore()
-                // performs the one-time encrypted migration.
-                username = secrets.read(USERNAME_SECRET_KEY) ?: prefs[Keys.USERNAME].orEmpty(),
-                password = secrets.read(PASSWORD_SECRET_KEY) ?: prefs[Keys.PASSWORD].orEmpty(),
-                cfAccessClientId = secrets.read(CF_ACCESS_CLIENT_ID_KEY).orEmpty(),
-                cfAccessClientSecret = secrets.read(CF_ACCESS_CLIENT_SECRET_KEY).orEmpty(),
-                customHeaderName = prefs[Keys.CUSTOM_HEADER_NAME].orEmpty(),
-                customHeaderValue = secrets.read(CUSTOM_HEADER_VALUE_KEY).orEmpty(),
-            )
-        }
-    }
+        Connection(
+            baseUrl = prefs[Keys.BASE_URL].orEmpty(),
+            // Legacy fallback keeps old installations usable until restore()
+            // performs the one-time encrypted migration.
+            username = secrets.read(USERNAME_SECRET_KEY) ?: prefs[Keys.USERNAME].orEmpty(),
+            password = secrets.read(PASSWORD_SECRET_KEY) ?: prefs[Keys.PASSWORD].orEmpty(),
+            cfAccessClientId = secrets.read(CF_ACCESS_CLIENT_ID_KEY).orEmpty(),
+            cfAccessClientSecret = secrets.read(CF_ACCESS_CLIENT_SECRET_KEY).orEmpty(),
+            customHeaderName = prefs[Keys.CUSTOM_HEADER_NAME].orEmpty(),
+            customHeaderValue = secrets.read(CUSTOM_HEADER_VALUE_KEY).orEmpty(),
+        )
+    }.flowOn(Dispatchers.IO)
 
     suspend fun current(): Connection = connection.first()
 
     /** Migrate legacy plaintext account credentials before restoring a session. */
-    suspend fun migrateLegacyCredentials() {
+    suspend fun migrateLegacyCredentials(): Unit = withContext(Dispatchers.IO) {
         val legacy = context.dataStore.data.first()
         val username = legacy[Keys.USERNAME]
         val password = legacy[Keys.PASSWORD]
-        if (username == null && password == null) return
+        if (username == null && password == null) return@withContext
 
         if (username != null) secrets.write(USERNAME_SECRET_KEY, username)
         if (password != null) secrets.write(PASSWORD_SECRET_KEY, password)
@@ -89,7 +88,7 @@ class SettingsStore(private val context: Context) {
         }
     }
 
-    suspend fun save(connection: Connection) {
+    suspend fun save(connection: Connection): Unit = withContext(Dispatchers.IO) {
         // Write encrypted copies first. If Keystore access fails, retain the
         // legacy values rather than losing the user's saved connection.
         secrets.write(USERNAME_SECRET_KEY, connection.username)
@@ -126,7 +125,7 @@ class SettingsStore(private val context: Context) {
         context.dataStore.edit { it[Keys.ONBOARDING_DONE] = true }
     }
 
-    suspend fun clear() {
+    suspend fun clear(): Unit = withContext(Dispatchers.IO) {
         context.dataStore.edit { prefs ->
             prefs.remove(Keys.BASE_URL)
             prefs.remove(Keys.USERNAME)
@@ -139,6 +138,4 @@ class SettingsStore(private val context: Context) {
         secrets.remove(CF_ACCESS_CLIENT_SECRET_KEY)
         secrets.remove(CUSTOM_HEADER_VALUE_KEY)
     }
-
-    fun appPrefs(): AppPreferencesStore = appPrefsStore
 }

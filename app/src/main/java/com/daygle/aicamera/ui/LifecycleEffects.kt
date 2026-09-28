@@ -12,6 +12,11 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
  * Invoke [onPause] when the composition's lifecycle owner pauses and [onResume]
  * when it resumes. Used to stop live snapshot polling while the app is
  * backgrounded so it isn't wastefully hammering the server.
+ *
+ * [onPause] also runs when this effect leaves the composition (e.g. switching
+ * to another home tab while the app stays resumed); otherwise the screen's
+ * view model would keep polling for a screen nobody can see. Re-entering the
+ * composition re-registers the observer, which replays ON_RESUME.
  */
 @Composable
 fun LifecycleResumeEffect(onPause: () -> Unit, onResume: () -> Unit) {
@@ -27,6 +32,9 @@ fun LifecycleResumeEffect(onPause: () -> Unit, onResume: () -> Unit) {
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            currentOnPause()
+        }
     }
 }

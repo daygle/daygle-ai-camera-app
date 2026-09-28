@@ -54,7 +54,13 @@ fun DaygleNavHost(
             }
             StartDestination.CONNECT, StartDestination.HOME -> {
                 val navController = rememberNavController()
-                val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
+                val signOut: () -> Unit = {
+                    rootViewModel.disconnect {
+                        navController.navigate(Routes.CONNECT) {
+                            popUpTo(Routes.HOME) { inclusive = true }
+                        }
+                    }
+                }
                 val startRoute = if (start == StartDestination.HOME) Routes.HOME else Routes.CONNECT
 
                 // A tapped push alert can request a specific event snapshot.
@@ -87,14 +93,7 @@ fun DaygleNavHost(
                             onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
                             onOpenServerDetails = { navController.navigate(Routes.SERVER_DETAILS) },
                             onOpenAbout = { navController.navigate(Routes.ABOUT) },
-                            onSignOut = {
-                                com.daygle.aicamera.push.PushController.stop(appContext)
-                                rootViewModel.disconnect {
-                                    navController.navigate(Routes.CONNECT) {
-                                        popUpTo(Routes.HOME) { inclusive = true }
-                                    }
-                                }
-                            },
+                            onSignOut = signOut,
                         )
                     }
                     composable(Routes.GENERAL_SETTINGS) {
@@ -115,14 +114,7 @@ fun DaygleNavHost(
                     composable(Routes.SERVER_DETAILS) {
                         com.daygle.aicamera.ui.settings.ServerDetailsScreen(
                             onBack = { navController.popBackStack() },
-                            onSignOut = {
-                                com.daygle.aicamera.push.PushController.stop(appContext)
-                                rootViewModel.disconnect {
-                                    navController.navigate(Routes.CONNECT) {
-                                        popUpTo(Routes.HOME) { inclusive = true }
-                                    }
-                                }
-                            }
+                            onSignOut = signOut,
                         )
                     }
                     composable(Routes.NOTIFICATIONS) {

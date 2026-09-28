@@ -7,9 +7,12 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 
 private val Context.notificationDataStore: DataStore<Preferences> by preferencesDataStore(name = "notifications")
 
@@ -48,6 +51,7 @@ class NotificationSettingsStore(private val context: Context) {
         val PASSWORD = stringPreferencesKey("ntfy_password")
     }
 
+    // Secret decryption touches the Keystore, so keep it off the main thread.
     val config: Flow<NotificationConfig> = context.notificationDataStore.data.map { prefs ->
         NotificationConfig(
             enabled = prefs[Keys.ENABLED] ?: false,
@@ -56,18 +60,18 @@ class NotificationSettingsStore(private val context: Context) {
             username = secrets.read(NTFY_USERNAME_SECRET_KEY) ?: prefs[Keys.USERNAME].orEmpty(),
             password = secrets.read(NTFY_PASSWORD_SECRET_KEY) ?: prefs[Keys.PASSWORD].orEmpty(),
         )
-    }
+    }.flowOn(Dispatchers.IO)
 
     suspend fun current(): NotificationConfig {
         migrateLegacyCredentials()
         return config.first()
     }
 
-    private suspend fun migrateLegacyCredentials() {
+    private suspend fun migrateLegacyCredentials(): Unit = withContext(Dispatchers.IO) {
         val legacy = context.notificationDataStore.data.first()
         val username = legacy[Keys.USERNAME]
         val password = legacy[Keys.PASSWORD]
-        if (username == null && password == null) return
+        if (username == null && password == null) return@withContext
 
         if (username != null) secrets.write(NTFY_USERNAME_SECRET_KEY, username)
         if (password != null) secrets.write(NTFY_PASSWORD_SECRET_KEY, password)
@@ -77,7 +81,7 @@ class NotificationSettingsStore(private val context: Context) {
         }
     }
 
-    suspend fun save(config: NotificationConfig) {
+    suspend fun save(config: NotificationConfig): Unit = withContext(Dispatchers.IO) {
         secrets.write(NTFY_USERNAME_SECRET_KEY, config.username.trim())
         secrets.write(NTFY_PASSWORD_SECRET_KEY, config.password)
         context.notificationDataStore.edit { prefs ->
@@ -93,7 +97,7 @@ class NotificationSettingsStore(private val context: Context) {
         context.notificationDataStore.edit { it[Keys.ENABLED] = enabled }
     }
 
-    suspend fun clear() {
+    suspend fun clear(): Unit = withContext(Dispatchers.IO) {
         context.notificationDataStore.edit { it.clear() }
         secrets.remove(NTFY_USERNAME_SECRET_KEY)
         secrets.remove(NTFY_PASSWORD_SECRET_KEY)

@@ -15,11 +15,7 @@ class HomeViewModel @Inject constructor(
     private val prefs: AppPreferencesStore
 ) : ViewModel() {
 
-    val navItems: StateFlow<List<HomeTab>> = prefs.navItems.map { saved ->
-        saved?.split(",")?.mapNotNull { name ->
-            runCatching { HomeTab.valueOf(name) }.getOrNull()
-        } ?: HomeTab.entries
-    }.stateIn(
+    val navItems: StateFlow<List<HomeTab>> = prefs.navItems.map(HomeTab::parse).stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = HomeTab.entries

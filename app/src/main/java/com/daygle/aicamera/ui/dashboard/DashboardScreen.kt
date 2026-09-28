@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -83,7 +84,6 @@ private const val MAX_ZOOM = 5f
 @Composable
 fun DashboardScreen(
     modifier: Modifier = Modifier,
-    refreshTrigger: Int = 0,
     onFullscreenChanged: (Boolean) -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
@@ -92,24 +92,35 @@ fun DashboardScreen(
     // Keep polling while visible; stop while backgrounded or covered by another screen.
     LifecycleResumeEffect(onPause = viewModel::pause, onResume = viewModel::resume)
 
-    androidx.compose.runtime.LaunchedEffect(refreshTrigger) {
-        if (refreshTrigger > 0) viewModel.load()
-    }
-
     // The camera currently expanded into the full-screen live view (null = grid).
     var selectedCameraId by remember { mutableStateOf<String?>(null) }
-    androidx.compose.runtime.LaunchedEffect(selectedCameraId) {
+    LaunchedEffect(selectedCameraId) {
         onFullscreenChanged(selectedCameraId != null)
     }
+    // Hoisted so the grid keeps its scroll position while it is hidden behind
+    // the full-screen view.
+    val gridState = rememberLazyListState()
 
     when (val s = state) {
         DashboardUiState.Loading -> LoadingState(modifier)
         is DashboardUiState.Error -> ErrorState(s.message, onRetry = viewModel::load, modifier = modifier)
         is DashboardUiState.Ready -> {
+            // Full-screen live view lives on this page: tapping a tile expands the
+            // same feed with pinch-to-zoom instead of navigating to a separate screen.
+            val selectedCard = selectedCameraId?.let { id -> s.cameras.find { it.camera.id == id } }
+            if (selectedCameraId != null && selectedCard == null) {
+                // The expanded camera disappeared after a reload; drop back to
+                // the grid instead of staying in (blank) full-screen mode.
+                LaunchedEffect(Unit) { selectedCameraId = null }
+            }
             if (s.cameras.isEmpty()) {
                 EmptyState("No cameras are configured on this server yet.", modifier)
-            } else {
+            } else if (selectedCard == null) {
+                // The grid is only composed while visible: under the full-screen
+                // view every tile would otherwise keep downloading a full-size
+                // frame on each poll tick.
                 LazyColumn(
+                    state = gridState,
                     modifier = modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -124,9 +135,6 @@ fun DashboardScreen(
                 }
             }
 
-            // Full-screen live view lives on this page: tapping a tile expands the
-            // same feed with pinch-to-zoom instead of navigating to a separate screen.
-            val selectedCard = selectedCameraId?.let { id -> s.cameras.find { it.camera.id == id } }
             if (selectedCard != null) {
                 FullscreenCameraView(
                     card = selectedCard,

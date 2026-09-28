@@ -5,12 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Image
-import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.ViewTimeline
-import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -25,7 +20,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -58,7 +52,6 @@ fun HomeScreen(
     // Ensure selectedTab is valid for the current navItems
     val effectiveSelectedTab = selectedTab?.takeIf { it in navItems } ?: navItems.firstOrNull()
     
-    var refreshTrigger by remember { mutableIntStateOf(0) }
     var isDashboardFullscreen by remember { mutableStateOf(false) }
 
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -101,23 +94,19 @@ fun HomeScreen(
         when (effectiveSelectedTab) {
             HomeTab.Cameras -> DashboardScreen(
                 modifier = contentModifier,
-                refreshTrigger = refreshTrigger,
                 onFullscreenChanged = { isDashboardFullscreen = it },
             )
             HomeTab.Timeline -> com.daygle.aicamera.ui.timeline.TimelineScreen(
                 onOpenRecording = onOpenRecording,
                 modifier = contentModifier,
-                refreshTrigger = refreshTrigger,
             )
             HomeTab.Events -> EventsScreen(
                 onPlayRecording = onOpenRecording,
                 modifier = contentModifier,
-                refreshTrigger = refreshTrigger,
             )
             HomeTab.Clips -> ClipsScreen(
                 onOpenRecording = onOpenRecording,
                 modifier = contentModifier,
-                refreshTrigger = refreshTrigger,
             )
             HomeTab.Settings -> com.daygle.aicamera.ui.settings.SettingsScreen(
                 onSignOut = onSignOut,
@@ -137,7 +126,6 @@ fun HomeScreen(
 private fun ClipsScreen(
     onOpenRecording: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    refreshTrigger: Int = 0,
 ) {
     var selectedClipsTab by rememberSaveable { mutableStateOf(ClipsTab.Recordings) }
 
@@ -156,11 +144,9 @@ private fun ClipsScreen(
             ClipsTab.Recordings -> RecordingsScreen(
                 onPlay = onOpenRecording,
                 modifier = Modifier.fillMaxSize(),
-                refreshTrigger = refreshTrigger,
             )
             ClipsTab.Snapshots -> SnapshotsScreen(
                 modifier = Modifier.fillMaxSize(),
-                refreshTrigger = refreshTrigger,
             )
         }
     }
