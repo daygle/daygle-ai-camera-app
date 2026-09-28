@@ -6,6 +6,9 @@ import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFact
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.FormBody
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -162,14 +165,15 @@ class SessionManager {
         }
     }
 
+    // The server ignores width/height on the media endpoints: the live
+    // snapshot is the camera's latest frame and a recording is served as-is
+    // (with HTTP Range support for seeking).
     fun snapshotUrl(cameraId: String?, cacheBuster: Long): String? {
         val base = baseUrl ?: return null
         return base.newBuilder()
             .addPathSegments("api/live/snapshot")
             .apply {
                 if (!cameraId.isNullOrBlank()) addQueryParameter("camera_id", cameraId)
-                addQueryParameter("width", "1280")
-                addQueryParameter("height", "720")
             }
             .addQueryParameter("t", cacheBuster.toString())
             .build()
@@ -180,22 +184,66 @@ class SessionManager {
         val base = baseUrl ?: return null
         return base.newBuilder()
             .addPathSegments("api/recordings/$recordingId/stream")
-            .addQueryParameter("width", "1280")
-            .addQueryParameter("height", "720")
             .build()
             .toString()
     }
 
-    fun eventSnapshotUrl(eventId: Int): String? {
+    /** The recording as a file download (`Content-Disposition: attachment`). */
+    fun recordingDownloadUrl(recordingId: Int): String? {
+        val base = baseUrl ?: return null
+        return base.newBuilder()
+            .addPathSegments("api/recordings/$recordingId/download")
+            .build()
+            .toString()
+    }
+
+    /**
+     * The event's annotated snapshot. [thumbnail] requests the server's small
+     * (416px) capture-time thumbnail, for list rows; servers without that
+     * option ignore the parameter and return the full image.
+     */
+    fun eventSnapshotUrl(eventId: Int, thumbnail: Boolean = false): String? {
         val base = baseUrl ?: return null
         return base.newBuilder()
             .addPathSegments("api/events/$eventId/snapshot")
+            .apply { if (thumbnail) addQueryParameter("thumb", "true") }
             .build()
             .toString()
     }
 
     suspend fun login(): LoginResult = withContext(Dispatchers.IO) {
         synchronized(loginLock) { performLogin() }
+    }
+
+    /**
+     * Revoke the current session on the server (`POST /logout`). The server
+     * checks the session's CSRF token, which `GET /api/auth/me` returns.
+     * Best effort: failures are logged and ignored so signing out still works
+     * offline. Uses the bare auth client so a 401 never triggers a re-login.
+     */
+    suspend fun logout(): Unit = withContext(Dispatchers.IO) {
+        val base = baseUrl ?: return@withContext
+        val client = authClient.newBuilder().callTimeout(5, TimeUnit.SECONDS).build()
+        try {
+            val meUrl = base.newBuilder().addPathSegments("api/auth/me").build()
+            val csrfToken = client.newCall(Request.Builder().url(meUrl).get().build()).execute().use { me ->
+                // No live session (never signed in, or already expired): nothing to revoke.
+                if (!me.isSuccessful) return@withContext
+                json.parseToJsonElement(me.body.string())
+                    .jsonObject["csrf_token"]?.jsonPrimitive?.contentOrNull
+            }
+            val logoutRequest = Request.Builder()
+                .url(base.newBuilder().addPathSegment("logout").build())
+                .header("Origin", base.toString().trimEnd('/'))
+                .apply { if (!csrfToken.isNullOrEmpty()) header(CSRF_HEADER, csrfToken) }
+                .post(FormBody.Builder().build())
+                .build()
+            client.newCall(logoutRequest).execute().use { response ->
+                if (!response.isSuccessful) Log.w(TAG, "Server logout returned ${response.code}")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Server logout failed", e)
+        }
     }
 
     private fun isCloudflareAccessRejection(response: Response): Boolean {
@@ -289,6 +337,7 @@ class SessionManager {
 
     companion object {
         private const val TAG = "SessionManager"
+        private const val CSRF_HEADER = "X-CSRF-Token"
         const val CLOUDFLARE_ACCESS_MESSAGE =
             "This server is protected by Cloudflare Access. Add your service token in settings to sign in."
 

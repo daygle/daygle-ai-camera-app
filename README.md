@@ -39,6 +39,7 @@ The server uses browser-style **session-cookie authentication with a CSRF token*
 1. **Token Fetch**: Performs a `GET /login` to acquire a CSRF token.
 2. **Authentication**: Performs a `POST /login` with credentials and the token to establish a session.
 3. **Session Persistence**: The session cookie is managed by a shared OkHttp client, used transparently by Retrofit, Coil (images), and ExoPlayer (video).
+4. **Sign-out**: Signing out revokes the session on the server (`POST /logout`) before the app forgets it.
 
 > [!TIP]
 > Authentication is automatic. If your session expires, the app silently re-authenticates and retries your request without interrupting your workflow.
@@ -89,7 +90,7 @@ For environments requiring specific HTTP headers (like proxy API keys), configur
 | --- | --- |
 | **Language** | Kotlin 2.4.20 (JDK 21) |
 | **UI Framework** | Jetpack Compose (Material 3, Adaptive Layouts) |
-| **Build System** | Gradle 9.7.1 with AGP 9.4.1 |
+| **Build System** | Gradle 9.8.0 with AGP 9.4.1 |
 | **Networking** | OkHttp 5.5, Retrofit 3.0, Kotlinx Serialization |
 | **Dependency Injection** | Hilt 2.60.1 (KSP) |
 | **Image / Video** | Coil 3.6, Media3 / ExoPlayer 1.11.1 |
