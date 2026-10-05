@@ -31,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
@@ -101,7 +102,11 @@ import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.data.model.aiDescription
 import com.daygle.aicamera.data.model.aiVerdict
 import com.daygle.aicamera.data.model.faceIdentities
+import com.daygle.aicamera.data.model.FaceFacets
 import com.daygle.aicamera.ui.components.AiDescriptionText
+import com.daygle.aicamera.ui.library.FaceFilterChips
+import com.daygle.aicamera.ui.library.LoadMoreEffect
+import com.daygle.aicamera.ui.library.PagingFooter
 import com.daygle.aicamera.ui.components.InsightChips
 import com.daygle.aicamera.ui.formatDetectionSummary
 import com.daygle.aicamera.ui.components.EmptyState
@@ -156,6 +161,7 @@ fun SnapshotsScreen(
             availableObjectLabels = (state as? SnapshotsUiState.Ready)?.data?.availableObjectLabels ?: emptyList(),
             availableSoundLabels = (state as? SnapshotsUiState.Ready)?.data?.availableSoundLabels ?: emptyList(),
             availableAiTags = (state as? SnapshotsUiState.Ready)?.data?.availableAiTags ?: emptyList(),
+            faceFacets = (state as? SnapshotsUiState.Ready)?.data?.faceFacets,
             cameraMap = (state as? SnapshotsUiState.Ready)?.data?.cameras?.associate { it.id to it.displayName } ?: emptyMap(),
             onDismiss = { showFilterSheet = false },
             viewModel = viewModel
@@ -279,9 +285,9 @@ fun SnapshotsScreen(
 
                 Spacer(Modifier.height(8.dp))
 
-                if (data.snapshots.size != data.filtered.size) {
+                if (activeFilterCount > 0 && !data.refreshing) {
                     Text(
-                        "${data.filtered.size} items",
+                        "${data.filtered.size}${if (data.hasMore) "+" else ""} matching snapshots",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(horizontal = 16.dp)
@@ -293,7 +299,7 @@ fun SnapshotsScreen(
                     onRefresh = viewModel::load,
                     modifier = Modifier.weight(1f),
                 ) {
-                    if (data.filtered.isEmpty()) {
+                    if (data.filtered.isEmpty() && !data.hasMore && !data.loadingMore && data.loadMoreError == null) {
                         EmptyState(
                             if (activeFilterCount > 0) "No snapshots match your filters." else "No snapshots on the server yet.",
                         )
@@ -305,6 +311,7 @@ fun SnapshotsScreen(
                             snapshotFlow { lazyListState.firstVisibleItemIndex }
                                 .collect { index -> viewModel.saveScrollIndex(index) }
                         }
+                        LoadMoreEffect(lazyListState, hasMore = data.hasMore, onLoadMore = viewModel::loadMore)
                         LazyColumn(
                             state = lazyListState,
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -316,6 +323,14 @@ fun SnapshotsScreen(
                                     event = event,
                                     url = eventUrl,
                                     onClick = { openEventId = event.id },
+                                )
+                            }
+                            item(key = "paging-footer") {
+                                PagingFooter(
+                                    loadingMore = data.loadingMore,
+                                    loadMoreError = data.loadMoreError,
+                                    hasMore = data.hasMore,
+                                    onLoadMore = viewModel::loadMore,
                                 )
                             }
                         }
@@ -336,6 +351,7 @@ private fun SnapshotsFilterSheet(
     availableObjectLabels: List<String>,
     availableSoundLabels: List<String>,
     availableAiTags: List<String>,
+    faceFacets: FaceFacets?,
     cameraMap: Map<String, String>,
     onDismiss: () -> Unit,
     viewModel: SnapshotsViewModel
@@ -519,6 +535,12 @@ private fun SnapshotsFilterSheet(
                             )
                         }
                     }
+                }
+            }
+
+            if (faceFacets != null && (faceFacets.people.isNotEmpty() || faceFacets.unknown > 0)) {
+                FilterSection(title = "Faces", icon = Icons.Filled.Face) {
+                    FaceFilterChips(faces = faceFacets, selected = state.face, onSelect = viewModel::setFace)
                 }
             }
 

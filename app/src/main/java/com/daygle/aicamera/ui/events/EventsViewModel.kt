@@ -5,29 +5,27 @@ import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.Event
+import com.daygle.aicamera.data.model.FaceFacets
+import com.daygle.aicamera.data.model.LibraryFacets
+import com.daygle.aicamera.data.model.LibraryQuery
 import com.daygle.aicamera.data.model.SearchInterpretation
 import com.daygle.aicamera.data.model.aiDescription
-import com.daygle.aicamera.data.model.matchesAllWords
 import com.daygle.aicamera.data.model.metadataLabel
-import com.daygle.aicamera.data.model.searchableText
 import com.daygle.aicamera.ui.friendlyMessage
 import com.daygle.aicamera.ui.isSoundLabel
-import com.daygle.aicamera.ui.parseTimestamp
+import com.daygle.aicamera.ui.library.LibraryPager
+import com.daygle.aicamera.ui.library.PagerSnapshot
+import com.daygle.aicamera.ui.library.endOfDayIso
+import com.daygle.aicamera.ui.library.startOfDayIso
 import dagger.hilt.android.lifecycle.HiltViewModel
-import retrofit2.HttpException
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 import java.time.LocalDate
-import java.time.OffsetDateTime
-import java.time.ZoneId
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 enum class EventsSortOrder(val label: String) {
@@ -35,6 +33,13 @@ enum class EventsSortOrder(val label: String) {
     OLDEST("Oldest First")
 }
 
+/**
+ * Filters for the Events list. Search, time period, camera, label, face,
+ * alerts and sort run on the server over the full history (the same filters
+ * as the web UI's library bar). Camera, label and face are single choices to
+ * match. Type and trigger are applied to the loaded pages in the app, as the
+ * web UI does.
+ */
 data class EventsFilter(
     val query: String = "",
     val dateStart: LocalDate? = null,
@@ -43,6 +48,7 @@ data class EventsFilter(
     val selectedCameras: Set<String> = emptySet(),
     val selectedTriggerTypes: Set<String> = emptySet(),
     val selectedLabels: Set<String> = emptySet(),
+    val face: String? = null,
     val alertedOnly: Boolean = false,
     val sortOrder: EventsSortOrder = EventsSortOrder.NEWEST
 ) {
@@ -54,23 +60,22 @@ data class EventsFilter(
         count += selectedCameras.size
         count += selectedTriggerTypes.size
         count += selectedLabels.size
+        if (face != null) count++
         if (alertedOnly) count++
         return count
     }
-}
 
-/** Pre-parsed event for faster filtering. */
-private data class FilterableEvent(
-    val event: Event,
-    val timestamp: OffsetDateTime?,
-    val isSound: Boolean,
-    val isMotion: Boolean,
-    val isBehaviour: Boolean,
-    val cameraId: String?,
-    val metadataLabel: String?,
-    val aiTags: List<String>,
-    val searchText: String,
-)
+    fun toQuery(): LibraryQuery = LibraryQuery(
+        query = query,
+        since = startOfDayIso(dateStart),
+        until = endOfDayIso(dateEnd),
+        cameraId = selectedCameras.firstOrNull(),
+        label = selectedLabels.firstOrNull(),
+        face = face,
+        alertedOnly = alertedOnly,
+        oldestFirst = sortOrder == EventsSortOrder.OLDEST,
+    )
+}
 
 /**
  * A plain-English "Ask AI" search (`GET /api/event-search`). The server
@@ -86,40 +91,51 @@ data class AiSearchState(
 )
 
 data class EventsReady(
+    /** Every event loaded so far for the current server-side filters. */
     val events: List<Event>,
+    /** [events] after the in-app filters (type, trigger). */
     val filtered: List<Event>,
     val cameras: List<Camera>,
     val filter: EventsFilter,
     val refreshing: Boolean = false,
     /** Non-null while an Ask AI search is shown in place of the filtered list. */
     val aiSearch: AiSearchState? = null,
+    val hasMore: Boolean = false,
+    val loadingMore: Boolean = false,
+    val loadMoreError: String? = null,
+    /** Label and face options for the time window; null on servers without facets. */
+    val facets: LibraryFacets? = null,
 ) {
     val availableModes: List<String> = listOf("Object", "Motion", "Sound", "Behaviour")
 
-    /** Cameras that produced events; excludes non-camera sources like sound or rtsp. */
+    /** Configured cameras, falling back to those seen in loaded events. */
     val availableSources: List<String> by lazy {
-        events.mapNotNull { e ->
-            e.filterCameraId()
-        }.filter { it != "sound" && it != "rtsp" }.distinct().sorted()
+        cameras.map { it.id }.ifEmpty {
+            events.mapNotNull { it.filterCameraId() }.filter { it != "sound" && it != "rtsp" }.distinct().sorted()
+        }
     }
-    
+
     val availableTriggerTypes: List<String> by lazy {
         events.mapNotNull { it.triggerType }.distinct().sorted()
     }
-    
+
+    /** Detection labels in the window (from the server's facets when available). */
     val availableLabels: List<String> by lazy {
-        (events.flatMap { it.detections.map { d -> d.label } } +
-            events.mapNotNull { it.triggerLabel } +
-            events.mapNotNull { it.metadataLabel() }).distinct().sorted()
+        facets?.labels?.filter { !it.ai }?.map { it.value }
+            ?: (events.flatMap { it.detections.map { d -> d.label } } +
+                events.mapNotNull { it.triggerLabel } +
+                events.mapNotNull { it.metadataLabel() }).distinct().sorted()
     }
-    
+
     /** Objects the AI model tagged that the detector did not label. */
     val availableAiTags: List<String> by lazy {
-        events.flatMap { it.aiDescription()?.tags.orEmpty() }.distinct().sorted()
+        facets?.labels?.filter { it.ai }?.map { it.value }
+            ?: events.flatMap { it.aiDescription()?.tags.orEmpty() }.distinct().sorted()
     }
 
     val availableObjectLabels by lazy { availableLabels.filter { !isSoundLabel(it) } }
     val availableSoundLabels by lazy { availableLabels.filter { isSoundLabel(it) } }
+    val faceFacets: FaceFacets? get() = facets?.faces
 }
 
 sealed interface EventsUiState {
@@ -134,13 +150,17 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
     private val _state = MutableStateFlow<EventsUiState>(EventsUiState.Loading)
     val state: StateFlow<EventsUiState> = _state.asStateFlow()
 
-    private var allFilterableEvents: List<FilterableEvent> = emptyList()
+    private var filter = EventsFilter()
+    private var cameras: List<Camera> = emptyList()
+    private var facets: LibraryFacets? = null
+    private var aiSearch: AiSearchState? = null
 
-    /** Newest event timestamp seen, used as the `since` bound for incremental refresh. */
-    private var lastEventTimestamp: OffsetDateTime? = null
+    private val pager = LibraryPager<Event>(viewModelScope, idOf = { it.id }) { publish() }
 
     private var pollJob: Job? = null
-    private var loadJob: Job? = null
+    private var queryJob: Job? = null
+    private var facetsJob: Job? = null
+    private var aiSearchJob: Job? = null
 
     var scrollIndex: Int = 0
         private set
@@ -153,110 +173,30 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
         load()
     }
 
-    /**
-     * Full reload: fetches the entire events list, replacing local state. Used
-     * on first load and for explicit pull-to-refresh (authoritative state).
-     */
+    /** Reload cameras, filter options and the first page (pull-to-refresh). */
     fun load() {
-        _state.update { if (it is EventsUiState.Ready) it.copy(data = it.data.copy(refreshing = true)) else EventsUiState.Loading }
-        // A newer full reload supersedes both an in-flight reload and any
-        // incremental refresh, so stale responses can't overwrite it.
-        loadJob?.cancel()
-        loadJob = viewModelScope.launch {
-            val camerasDeferred = async { repository.cameras() }
-            val eventsResult = repository.events()
-            val camerasResult = camerasDeferred.await()
-
-            val events = eventsResult.getOrElse {
-                _state.value = EventsUiState.Error(it.friendlyMessage())
-                return@launch
+        viewModelScope.launch {
+            repository.cameras().onSuccess {
+                cameras = it
+                publish()
             }
-            val cameras = camerasResult.getOrDefault(emptyList())
-
-            allFilterableEvents = events.map(::toFilterable)
-            lastEventTimestamp = events.mapNotNull { parseTimestamp(it.createdAt) }.maxOrNull()
-
-            val current = (_state.value as? EventsUiState.Ready)?.data
-            val currentFilter = current?.filter ?: EventsFilter()
-            _state.value = EventsUiState.Ready(
-                EventsReady(
-                    events = events,
-                    filtered = applyFilters(allFilterableEvents, currentFilter),
-                    cameras = cameras,
-                    filter = currentFilter,
-                    aiSearch = current?.aiSearch,
-                )
-            )
         }
+        loadFacets()
+        reloadEvents()
     }
 
-    /**
-     * Incremental refresh: only fetches events newer than the newest one we
-     * hold, using the server's `since` filter, and merges them in (dedupe by
-     * id). Falls back to a full reload when we hold no timestamps yet.
-     *
-     * @param silent when true (background polling) the refreshing spinner is
-     * not shown, so the user isn't shown a busy indicator every poll tick.
-     */
-    fun refresh(silent: Boolean = false) {
-        // A full reload already in flight will bring in everything new.
-        if (loadJob?.isActive == true) return
-        val since = lastEventTimestamp
-        if (since == null || allFilterableEvents.isEmpty()) {
-            load()
-            return
-        }
-        if (!silent) {
-            _state.update { current ->
-                if (current is EventsUiState.Ready) current.copy(data = current.data.copy(refreshing = true)) else current
-            }
-        }
-        loadJob = viewModelScope.launch {
-            val eventsResult = repository.events(since = formatUtc(since))
-            val newEvents = eventsResult.getOrElse {
-                // Incremental fetch failed; keep the current data, just stop
-                // the spinner. The next poll retries.
-                if (!silent) {
-                    _state.update { current ->
-                        if (current is EventsUiState.Ready) current.copy(data = current.data.copy(refreshing = false)) else current
-                    }
-                }
-                return@launch
-            }
+    fun loadMore() = pager.loadMore()
 
-            val knownIds = allFilterableEvents.mapTo(mutableSetOf()) { it.event.id }
-            val added = newEvents.filter { it.id !in knownIds }
-            if (added.isNotEmpty()) {
-                allFilterableEvents = allFilterableEvents + added.map(::toFilterable)
-                lastEventTimestamp = (added.mapNotNull { parseTimestamp(it.createdAt) } + since).maxOrNull()
-            }
-
-            if (added.isEmpty() && silent) return@launch
-
-            _state.update { current ->
-                if (current !is EventsUiState.Ready) return@update current
-                val merged = allFilterableEvents.map { it.event }
-                current.copy(
-                    data = current.data.copy(
-                        events = merged,
-                        filtered = applyFilters(allFilterableEvents, current.data.filter),
-                        refreshing = false
-                    )
-                )
-            }
-        }
-    }
-
-    /** Start periodic incremental refresh (called when the screen is resumed). */
+    /** Start periodic refresh of the newest events (called when the screen is resumed). */
     fun startPolling() {
         pollJob?.cancel()
         pollJob = viewModelScope.launch {
             while (true) {
                 // Events change slowly compared to dashboard snapshots; a fixed
                 // 30 s cadence keeps the feed current without hammering the
-                // server (the faster user preference only drives snapshots).
+                // server. Only a newest-first list gains rows at its head.
                 delay(POLL_INTERVAL_MS)
-                refresh(silent = true)
+                if (filter.sortOrder == EventsSortOrder.NEWEST) pager.pollHead()
             }
         }
     }
@@ -267,57 +207,69 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
         pollJob = null
     }
 
-    private fun toFilterable(e: Event) = FilterableEvent(
-        event = e,
-        timestamp = parseTimestamp(e.createdAt),
-        isSound = isSoundEvent(e),
-        isMotion = isMotionEvent(e),
-        isBehaviour = e.isBehaviourEvent(),
-        cameraId = e.filterCameraId(),
-        metadataLabel = e.metadataLabel(),
-        aiTags = e.aiDescription()?.tags.orEmpty(),
-        searchText = e.searchableText(),
-    )
-
-    /** Canonical UTC `+00:00` form the server's `_normalize_iso_to_utc` expects. */
-    private fun formatUtc(ts: OffsetDateTime): String =
-        ts.withOffsetSameInstant(ZoneOffset.UTC).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-
-    fun setQuery(query: String) = updateFilter { it.copy(query = query) }
-
-    fun setDateRange(start: LocalDate?, end: LocalDate?) = updateFilter { it.copy(dateStart = start, dateEnd = end) }
-
-    fun toggleCamera(camera: String) = updateFilter {
-        val new = it.selectedCameras.toMutableSet()
-        if (!new.remove(camera)) new.add(camera)
-        it.copy(selectedCameras = new)
+    private fun reloadEvents() {
+        val query = filter.toQuery()
+        pager.reload({ cursor -> repository.eventsPage(query, cursor) })
     }
 
-    fun toggleMode(mode: String) = updateFilter {
+    private fun loadFacets() {
+        val query = filter.toQuery()
+        facetsJob?.cancel()
+        facetsJob = viewModelScope.launch {
+            // Older servers have no facets endpoint: the sheet then lists the
+            // labels seen in the loaded events instead.
+            facets = repository.libraryFacets("events", query.since, query.until).getOrNull()
+            publish()
+        }
+    }
+
+    /** Search runs on the server, so wait for a pause in typing before reloading. */
+    fun setQuery(query: String) {
+        filter = filter.copy(query = query)
+        publish()
+        queryJob?.cancel()
+        queryJob = viewModelScope.launch {
+            delay(SEARCH_DEBOUNCE_MS)
+            reloadEvents()
+        }
+    }
+
+    fun setDateRange(start: LocalDate?, end: LocalDate?) {
+        updateFilter { it.copy(dateStart = start, dateEnd = end) }
+        loadFacets()
+    }
+
+    fun toggleCamera(camera: String) = updateFilter {
+        it.copy(selectedCameras = if (camera in it.selectedCameras) emptySet() else setOf(camera))
+    }
+
+    fun toggleMode(mode: String) = updateLocalFilter {
         val new = it.selectedModes.toMutableSet()
         if (!new.remove(mode)) new.add(mode)
         it.copy(selectedModes = new)
     }
 
-    fun toggleTriggerType(type: String) = updateFilter {
+    fun toggleTriggerType(type: String) = updateLocalFilter {
         val new = it.selectedTriggerTypes.toMutableSet()
         if (!new.remove(type)) new.add(type)
         it.copy(selectedTriggerTypes = new)
     }
 
     fun toggleLabel(label: String) = updateFilter {
-        val new = it.selectedLabels.toMutableSet()
-        if (!new.remove(label)) new.add(label)
-        it.copy(selectedLabels = new)
+        it.copy(selectedLabels = if (label in it.selectedLabels) emptySet() else setOf(label))
     }
+
+    fun setFace(face: String?) = updateFilter { it.copy(face = face) }
 
     fun setAlertedOnly(value: Boolean) = updateFilter { it.copy(alertedOnly = value) }
 
     fun setSortOrder(order: EventsSortOrder) = updateFilter { it.copy(sortOrder = order) }
 
-    fun clearFilters() = updateFilter { EventsFilter() }
-
-    private var aiSearchJob: Job? = null
+    fun clearFilters() {
+        val hadWindow = filter.dateStart != null || filter.dateEnd != null
+        updateFilter { EventsFilter() }
+        if (hadWindow) loadFacets()
+    }
 
     /** Run a plain-English search; results replace the list until [clearAiSearch]. */
     fun runAiSearch(query: String) {
@@ -327,9 +279,10 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
             return
         }
         aiSearchJob?.cancel()
-        setAiSearch(AiSearchState(query = question))
+        aiSearch = AiSearchState(query = question)
+        publish()
         aiSearchJob = viewModelScope.launch {
-            val next = repository.searchEvents(question).fold(
+            aiSearch = repository.searchEvents(question).fold(
                 onSuccess = { response ->
                     AiSearchState(
                         query = question,
@@ -347,99 +300,85 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
                     AiSearchState(query = question, loading = false, error = message)
                 },
             )
-            setAiSearch(next)
+            publish()
         }
     }
 
     fun clearAiSearch() {
         aiSearchJob?.cancel()
         aiSearchJob = null
-        setAiSearch(null)
-    }
-
-    private fun setAiSearch(value: AiSearchState?) {
-        _state.update { current ->
-            if (current is EventsUiState.Ready) current.copy(data = current.data.copy(aiSearch = value)) else current
-        }
+        aiSearch = null
+        publish()
     }
 
     fun snapshotUrl(eventId: Int): String? = repository.eventSnapshotUrl(eventId)
 
+    /** A filter the server applies: reload from the first page. */
     private fun updateFilter(block: (EventsFilter) -> EventsFilter) {
-        val current = (_state.value as? EventsUiState.Ready)?.data ?: return
-        val nextFilter = block(current.filter)
-        _state.value = EventsUiState.Ready(
-            current.copy(
-                filter = nextFilter,
-                filtered = applyFilters(allFilterableEvents, nextFilter)
-            )
-        )
+        val next = block(filter)
+        if (next == filter) return
+        queryJob?.cancel()
+        filter = next
+        publish()
+        reloadEvents()
     }
 
-    private fun applyFilters(filterable: List<FilterableEvent>, filter: EventsFilter): List<Event> {
-        var seq = filterable.asSequence()
+    /** A filter applied to the loaded pages only. */
+    private fun updateLocalFilter(block: (EventsFilter) -> EventsFilter) {
+        filter = block(filter)
+        publish()
+    }
 
-        if (filter.query.isNotBlank()) {
-            // Every word must match a label, zone, camera, AI tag/description
-            // or face name, the same as the server's library keyword filter.
-            seq = seq.filter { fe -> matchesAllWords(fe.searchText, filter.query) }
+    private fun publish() {
+        val page: PagerSnapshot<Event> = pager.snapshot
+        if (page.initialLoading && _state.value !is EventsUiState.Ready) {
+            _state.value = EventsUiState.Loading
+            return
         }
-
-        if (filter.dateStart != null || filter.dateEnd != null) {
-            val start = filter.dateStart?.atStartOfDay(ZoneId.systemDefault())?.toOffsetDateTime()
-            val end = filter.dateEnd?.plusDays(1)?.atStartOfDay(ZoneId.systemDefault())?.toOffsetDateTime()
-            seq = seq.filter { fe ->
-                val ts = fe.timestamp ?: return@filter true
-                if (start != null && ts.isBefore(start)) return@filter false
-                if (end != null && !ts.isBefore(end)) return@filter false
-                true
-            }
+        val error = page.error
+        if (error != null) {
+            _state.value = EventsUiState.Error(error)
+            return
         }
-
-        if (filter.selectedModes.isNotEmpty()) {
-            seq = seq.filter { fe ->
-                val mode = when {
-                    fe.isSound -> "Sound"
-                    fe.isMotion -> "Motion"
-                    fe.isBehaviour -> "Behaviour"
-                    else -> "Object"
-                }
-                mode in filter.selectedModes
-            }
-        }
-
-        if (filter.selectedCameras.isNotEmpty()) {
-            seq = seq.filter { fe -> fe.cameraId in filter.selectedCameras }
-        }
-
-        if (filter.selectedTriggerTypes.isNotEmpty()) {
-            seq = seq.filter { fe -> fe.event.triggerType in filter.selectedTriggerTypes }
-        }
-
-        if (filter.selectedLabels.isNotEmpty()) {
-            seq = seq.filter { fe ->
-                filter.selectedLabels.any { sel ->
-                    fe.event.detections.any { it.label == sel } ||
-                        fe.event.triggerLabel == sel ||
-                        fe.metadataLabel == sel ||
-                        sel in fe.aiTags
-                }
-            }
-        }
-
-        if (filter.alertedOnly) {
-            seq = seq.filter { it.event.alerted }
-        }
-
-        val result = seq.map { it.event }.toList()
-
-        return when (filter.sortOrder) {
-            EventsSortOrder.NEWEST -> result.sortedByDescending { it.id }
-            EventsSortOrder.OLDEST -> result.sortedBy { it.id }
-        }
+        val filtered = applyLocalFilters(page.items, filter)
+        _state.value = EventsUiState.Ready(
+            EventsReady(
+                events = page.items,
+                filtered = filtered,
+                cameras = cameras,
+                filter = filter,
+                refreshing = page.refreshing || page.initialLoading,
+                aiSearch = aiSearch,
+                hasMore = page.hasMore,
+                loadingMore = page.loadingMore,
+                loadMoreError = page.loadMoreError,
+                facets = facets,
+            )
+        )
+        if (!page.initialLoading && !page.refreshing) pager.fillTo(filtered.size)
     }
 
     companion object {
         private const val POLL_INTERVAL_MS = 30_000L
+        private const val SEARCH_DEBOUNCE_MS = 400L
+
+        /** The in-app filters (type and trigger) the server has no parameter for. */
+        internal fun applyLocalFilters(events: List<Event>, filter: EventsFilter): List<Event> {
+            var result = events
+            if (filter.selectedModes.isNotEmpty()) {
+                result = result.filter { event -> eventMode(event) in filter.selectedModes }
+            }
+            if (filter.selectedTriggerTypes.isNotEmpty()) {
+                result = result.filter { it.triggerType in filter.selectedTriggerTypes }
+            }
+            return result
+        }
+
+        private fun eventMode(event: Event): String = when {
+            isSoundEvent(event) -> "Sound"
+            isMotionEvent(event) -> "Motion"
+            event.isBehaviourEvent() -> "Behaviour"
+            else -> "Object"
+        }
     }
 }

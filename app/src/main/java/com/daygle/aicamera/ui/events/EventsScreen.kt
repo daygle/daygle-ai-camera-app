@@ -69,6 +69,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.daygle.aicamera.ui.LocalUse24Hour
 import com.daygle.aicamera.ui.formatTimestamp
 import com.daygle.aicamera.ui.LifecycleResumeEffect
+import com.daygle.aicamera.ui.library.LoadMoreEffect
+import com.daygle.aicamera.ui.library.PagingFooter
 import com.daygle.aicamera.ui.components.EmptyState
 import com.daygle.aicamera.ui.components.ErrorState
 import com.daygle.aicamera.ui.components.LoadingState
@@ -110,6 +112,7 @@ fun EventsScreen(
             availableObjectLabels = s?.data?.availableObjectLabels ?: emptyList(),
             availableSoundLabels = s?.data?.availableSoundLabels ?: emptyList(),
             availableAiTags = s?.data?.availableAiTags ?: emptyList(),
+            faceFacets = s?.data?.faceFacets,
             cameraMap = s?.data?.cameras?.associate { it.id to it.displayName } ?: emptyMap(),
             onDismiss = { showFilterSheet = false },
             viewModel = viewModel,
@@ -274,9 +277,9 @@ fun EventsScreen(
 
                 Spacer(Modifier.height(8.dp))
 
-                if (data.events.size != data.filtered.size) {
+                if (activeFilterCount > 0 && data.aiSearch == null && !data.refreshing) {
                     Text(
-                        "${data.filtered.size} items",
+                        "${data.filtered.size}${if (data.hasMore) "+" else ""} matching events",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(horizontal = 16.dp)
@@ -301,7 +304,7 @@ fun EventsScreen(
                     onRefresh = viewModel::load,
                     modifier = Modifier.weight(1f),
                 ) {
-                    if (data.filtered.isEmpty()) {
+                    if (data.filtered.isEmpty() && !data.hasMore && !data.loadingMore && data.loadMoreError == null) {
                         EmptyState(
                             if (activeFilterCount > 0) "No events match your filters." else "No events recorded yet.",
                         )
@@ -313,6 +316,7 @@ fun EventsScreen(
                             snapshotFlow { lazyListState.firstVisibleItemIndex }
                                 .collect { index -> viewModel.saveScrollIndex(index) }
                         }
+                        LoadMoreEffect(lazyListState, hasMore = data.hasMore, onLoadMore = viewModel::loadMore)
                         LazyColumn(
                             state = lazyListState,
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -323,6 +327,14 @@ fun EventsScreen(
                                     event,
                                     onPlayRecording = onPlayRecording,
                                 ) { snapshotEventId = it }
+                            }
+                            item(key = "paging-footer") {
+                                PagingFooter(
+                                    loadingMore = data.loadingMore,
+                                    loadMoreError = data.loadMoreError,
+                                    hasMore = data.hasMore,
+                                    onLoadMore = viewModel::loadMore,
+                                )
                             }
                         }
                     }

@@ -1,32 +1,31 @@
 package com.daygle.aicamera.ui.recordings
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.model.Camera
-import com.daygle.aicamera.data.model.Detection
+import com.daygle.aicamera.data.model.FaceFacets
+import com.daygle.aicamera.data.model.LibraryFacets
+import com.daygle.aicamera.data.model.LibraryQuery
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.data.model.aiTags
-import com.daygle.aicamera.data.model.matchesAllWords
-import com.daygle.aicamera.data.model.searchableText
-import com.daygle.aicamera.ui.friendlyMessage
 import com.daygle.aicamera.ui.isMotion
 import com.daygle.aicamera.ui.isSound
 import com.daygle.aicamera.ui.isSoundLabel
-import com.daygle.aicamera.ui.parseTimestamp
+import com.daygle.aicamera.ui.library.LibraryPager
+import com.daygle.aicamera.ui.library.endOfDayIso
+import com.daygle.aicamera.ui.library.startOfDayIso
 import dagger.hilt.android.lifecycle.HiltViewModel
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.setValue
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
-import java.time.ZoneId
 import javax.inject.Inject
 
 enum class SortOrder(val label: String) {
@@ -34,6 +33,11 @@ enum class SortOrder(val label: String) {
     OLDEST("Oldest"),
 }
 
+/**
+ * Filters for the Recordings list. Search, time period, camera, label, face
+ * and sort run on the server over the full history; camera, label and face
+ * are single choices to match. Type and trigger apply to the loaded pages.
+ */
 data class RecordingsFilter(
     val query: String = "",
     val dateStart: LocalDate? = LocalDate.now(),
@@ -42,6 +46,7 @@ data class RecordingsFilter(
     val selectedCameras: Set<String> = emptySet(),
     val selectedTriggerTypes: Set<String> = emptySet(),
     val selectedLabels: Set<String> = emptySet(),
+    val face: String? = null,
     val sortOrder: SortOrder = SortOrder.NEWEST,
 ) {
     fun activeCount(): Int {
@@ -51,23 +56,44 @@ data class RecordingsFilter(
         count += selectedCameras.size
         count += selectedTriggerTypes.size
         count += selectedLabels.size
+        if (face != null) count++
         return count
     }
+
+    fun toQuery(): LibraryQuery = LibraryQuery(
+        query = query,
+        since = startOfDayIso(dateStart),
+        until = endOfDayIso(dateEnd),
+        cameraId = selectedCameras.firstOrNull(),
+        label = selectedLabels.firstOrNull(),
+        face = face,
+        oldestFirst = sortOrder == SortOrder.OLDEST,
+    )
 }
 
 data class RecordingsReady(
+    /** Every recording loaded so far for the current server-side filters. */
     val recordings: List<Recording>,
+    /** [recordings] after the in-app filters (type, trigger). */
     val filtered: List<Recording>,
     val cameras: List<Camera> = emptyList(),
     val filter: RecordingsFilter = RecordingsFilter(),
     val refreshing: Boolean = false,
+    val hasMore: Boolean = false,
+    val loadingMore: Boolean = false,
+    val loadMoreError: String? = null,
+    /** Label and face options for the time window; null on servers without facets. */
+    val facets: LibraryFacets? = null,
 ) {
     val availableModes: List<String> = listOf("Object", "Sound", "Motion")
 
-    // Derived collections are lazy: the Ready state is rebuilt on every filter
-    // edit, and these only depend on the full recording list.
+    // Derived collections are lazy: the Ready state is rebuilt on every change.
+
+    /** Configured cameras, falling back to those seen in loaded recordings. */
     val availableCameras: List<String> by lazy {
-        recordings.mapNotNull { it.source }.filter { it != "sound" && it != "rtsp" }.distinct().sorted()
+        cameras.map { it.id }.ifEmpty {
+            recordings.mapNotNull { it.source }.filter { it != "sound" && it != "rtsp" }.distinct().sorted()
+        }
     }
 
     val availableTriggerTypes: List<String> by lazy {
@@ -75,16 +101,19 @@ data class RecordingsReady(
     }
 
     val availableLabels: List<String> by lazy {
-        recordings.flatMap { it.labels }.distinct().sorted()
+        facets?.labels?.filter { !it.ai }?.map { it.value }
+            ?: recordings.flatMap { it.labels }.distinct().sorted()
     }
 
     /** Objects the AI model tagged on clips, apart from detector labels. */
     val availableAiTags: List<String> by lazy {
-        recordings.flatMap { it.aiTags() }.distinct().filter { it !in availableLabels }.sorted()
+        facets?.labels?.filter { it.ai }?.map { it.value }
+            ?: recordings.flatMap { it.aiTags() }.distinct().filter { it !in availableLabels }.sorted()
     }
 
     val availableObjectLabels: List<String> by lazy { availableLabels.filter { !isSoundLabel(it) } }
     val availableSoundLabels: List<String> by lazy { availableLabels.filter { isSoundLabel(it) } }
+    val faceFacets: FaceFacets? get() = facets?.faces
 }
 
 sealed interface RecordingsUiState {
@@ -101,8 +130,13 @@ class RecordingsViewModel @Inject constructor(
     private val _state = MutableStateFlow<RecordingsUiState>(RecordingsUiState.Loading)
     val state: StateFlow<RecordingsUiState> = _state.asStateFlow()
 
-    private var allRecordings: List<Recording> = emptyList()
-    private var loadJob: Job? = null
+    private var filter = RecordingsFilter()
+    private var cameras: List<Camera> = emptyList()
+    private var facets: LibraryFacets? = null
+
+    private val pager = LibraryPager<Recording>(viewModelScope, idOf = { it.id }) { publish() }
+    private var queryJob: Job? = null
+    private var facetsJob: Job? = null
 
     /** Saved scroll index so returning from PlayerScreen restores the list position. */
     var scrollIndex by mutableIntStateOf(0)
@@ -116,155 +150,146 @@ class RecordingsViewModel @Inject constructor(
         load()
     }
 
+    /** Reload cameras, filter options and the first page (pull-to-refresh). */
     fun load() {
-        val current = _state.value
-        _state.value = if (current is RecordingsUiState.Ready)
-            RecordingsUiState.Ready(current.data.copy(refreshing = true))
-        else
-            RecordingsUiState.Loading
-
-        loadJob?.cancel()
-        loadJob = viewModelScope.launch {
-            val camerasDeferred = async { repository.cameras() }
-            val recsRes = repository.recordings()
-            val camerasRes = camerasDeferred.await()
-
-            if (recsRes.isSuccess && camerasRes.isSuccess) {
-                val recordings = recsRes.getOrThrow()
-                val cameras = camerasRes.getOrThrow()
-                allRecordings = recordings
-                val currentFilter = (_state.value as? RecordingsUiState.Ready)?.data?.filter ?: RecordingsFilter()
-                _state.value = RecordingsUiState.Ready(
-                    RecordingsReady(
-                        recordings = recordings,
-                        filtered = applyFilters(recordings, currentFilter),
-                        cameras = cameras,
-                        filter = currentFilter,
-                    )
-                )
-            } else {
-                val error = recsRes.exceptionOrNull() ?: camerasRes.exceptionOrNull()
-                _state.value = RecordingsUiState.Error(error?.friendlyMessage() ?: "Unknown error")
+        viewModelScope.launch {
+            repository.cameras().onSuccess {
+                cameras = it
+                publish()
             }
+        }
+        loadFacets()
+        reloadRecordings()
+    }
+
+    fun loadMore() = pager.loadMore()
+
+    private fun reloadRecordings() {
+        val query = filter.toQuery()
+        pager.reload({ cursor -> repository.recordingsPage(query, cursor) })
+    }
+
+    private fun loadFacets() {
+        val query = filter.toQuery()
+        facetsJob?.cancel()
+        facetsJob = viewModelScope.launch {
+            facets = repository.libraryFacets("recordings", query.since, query.until).getOrNull()
+            publish()
         }
     }
 
+    /** Search runs on the server, so wait for a pause in typing before reloading. */
     fun setQuery(query: String) {
-        updateFilter { it.copy(query = query) }
+        filter = filter.copy(query = query)
+        publish()
+        queryJob?.cancel()
+        queryJob = viewModelScope.launch {
+            delay(SEARCH_DEBOUNCE_MS)
+            reloadRecordings()
+        }
     }
 
     fun setDateRange(start: LocalDate?, end: LocalDate?) {
         updateFilter { it.copy(dateStart = start, dateEnd = end) }
+        loadFacets()
     }
 
-    fun toggleCamera(cameraId: String) {
-        updateFilter { current ->
-            val selected = current.selectedCameras.toMutableSet()
-            if (!selected.add(cameraId)) selected.remove(cameraId)
-            current.copy(selectedCameras = selected)
-        }
+    fun toggleCamera(cameraId: String) = updateFilter {
+        it.copy(selectedCameras = if (cameraId in it.selectedCameras) emptySet() else setOf(cameraId))
     }
 
-    fun toggleMode(mode: String) {
-        updateFilter { current ->
-            val selected = current.selectedModes.toMutableSet()
-            if (!selected.add(mode)) selected.remove(mode)
-            current.copy(selectedModes = selected)
-        }
+    fun toggleMode(mode: String) = updateLocalFilter { current ->
+        val selected = current.selectedModes.toMutableSet()
+        if (!selected.add(mode)) selected.remove(mode)
+        current.copy(selectedModes = selected)
     }
 
-    fun toggleTriggerType(type: String) {
-        updateFilter { current ->
-            val selected = current.selectedTriggerTypes.toMutableSet()
-            if (!selected.add(type)) selected.remove(type)
-            current.copy(selectedTriggerTypes = selected)
-        }
+    fun toggleTriggerType(type: String) = updateLocalFilter { current ->
+        val selected = current.selectedTriggerTypes.toMutableSet()
+        if (!selected.add(type)) selected.remove(type)
+        current.copy(selectedTriggerTypes = selected)
     }
 
-    fun toggleLabel(label: String) {
-        updateFilter { current ->
-            val selected = current.selectedLabels.toMutableSet()
-            if (!selected.add(label)) selected.remove(label)
-            current.copy(selectedLabels = selected)
-        }
+    fun toggleLabel(label: String) = updateFilter {
+        it.copy(selectedLabels = if (label in it.selectedLabels) emptySet() else setOf(label))
     }
 
-    fun setSortOrder(sortOrder: SortOrder) {
-        updateFilter { it.copy(sortOrder = sortOrder) }
-    }
+    fun setFace(face: String?) = updateFilter { it.copy(face = face) }
+
+    fun setSortOrder(sortOrder: SortOrder) = updateFilter { it.copy(sortOrder = sortOrder) }
 
     fun clearFilters() {
         updateFilter { RecordingsFilter(dateStart = null, dateEnd = null) }
+        loadFacets()
     }
 
     /** Absolute URL for streaming or downloading a recording's MP4. */
     fun streamUrl(recordingId: Int): String? = repository.recordingStreamUrl(recordingId)
 
+    /** A filter the server applies: reload from the first page. */
     private fun updateFilter(transform: (RecordingsFilter) -> RecordingsFilter) {
-        _state.update { current ->
-            if (current is RecordingsUiState.Ready) {
-                val filter = transform(current.data.filter)
-                RecordingsUiState.Ready(current.data.copy(filter = filter, filtered = applyFilters(allRecordings, filter)))
-            } else current
-        }
+        val next = transform(filter)
+        if (next == filter) return
+        queryJob?.cancel()
+        filter = next
+        publish()
+        reloadRecordings()
     }
 
-    private fun applyFilters(recordings: List<Recording>, filter: RecordingsFilter): List<Recording> {
-        var result = recordings
+    /** A filter applied to the loaded pages only. */
+    private fun updateLocalFilter(transform: (RecordingsFilter) -> RecordingsFilter) {
+        filter = transform(filter)
+        publish()
+    }
 
-        // Every word must match the camera, a label or AI tag, or a linked
-        // event's zone, AI description or face name (as the server's filter).
-        if (filter.query.isNotBlank()) {
-            result = result.filter { r -> matchesAllWords(r.searchableText(), filter.query) }
+    private fun publish() {
+        val page = pager.snapshot
+        if (page.initialLoading && _state.value !is RecordingsUiState.Ready) {
+            _state.value = RecordingsUiState.Loading
+            return
         }
-
-        // Date range filter
-        if (filter.dateStart != null || filter.dateEnd != null) {
-            val start = filter.dateStart?.atStartOfDay(ZoneId.systemDefault())?.toOffsetDateTime()
-            val end = filter.dateEnd?.plusDays(1)?.atStartOfDay(ZoneId.systemDefault())?.toOffsetDateTime()
-            result = result.filter { r ->
-                val ts = parseTimestamp(r.startedAt) ?: return@filter true
-                if (start != null && ts.isBefore(start)) return@filter false
-                if (end != null && !ts.isBefore(end)) return@filter false
-                true
-            }
+        val error = page.error
+        if (error != null) {
+            _state.value = RecordingsUiState.Error(error)
+            return
         }
+        val filtered = applyLocalFilters(page.items, filter)
+        _state.value = RecordingsUiState.Ready(
+            RecordingsReady(
+                recordings = page.items,
+                filtered = filtered,
+                cameras = cameras,
+                filter = filter,
+                refreshing = page.refreshing || page.initialLoading,
+                hasMore = page.hasMore,
+                loadingMore = page.loadingMore,
+                loadMoreError = page.loadMoreError,
+                facets = facets,
+            )
+        )
+        if (!page.initialLoading && !page.refreshing) pager.fillTo(filtered.size)
+    }
 
-        // Mode filter
-        if (filter.selectedModes.isNotEmpty()) {
-            result = result.filter { r ->
-                val mode = when {
-                    r.isSound() -> "Sound"
-                    r.isMotion() -> "Motion"
-                    else -> "Object"
+    private companion object {
+        const val SEARCH_DEBOUNCE_MS = 400L
+
+        /** The in-app filters (type and trigger) the server has no parameter for. */
+        fun applyLocalFilters(recordings: List<Recording>, filter: RecordingsFilter): List<Recording> {
+            var result = recordings
+            if (filter.selectedModes.isNotEmpty()) {
+                result = result.filter { r ->
+                    val mode = when {
+                        r.isSound() -> "Sound"
+                        r.isMotion() -> "Motion"
+                        else -> "Object"
+                    }
+                    mode in filter.selectedModes
                 }
-                mode in filter.selectedModes
             }
-        }
-
-        // Camera filter
-        if (filter.selectedCameras.isNotEmpty()) {
-            result = result.filter { r -> r.source in filter.selectedCameras }
-        }
-
-        // Trigger type filter
-        if (filter.selectedTriggerTypes.isNotEmpty()) {
-            result = result.filter { r -> r.triggerType in filter.selectedTriggerTypes }
-        }
-
-        // Label filter
-        if (filter.selectedLabels.isNotEmpty()) {
-            result = result.filter { r ->
-                filter.selectedLabels.any { it in r.labels || it in r.aiTags() }
+            if (filter.selectedTriggerTypes.isNotEmpty()) {
+                result = result.filter { it.triggerType in filter.selectedTriggerTypes }
             }
+            return result
         }
-
-        // Sort
-        result = when (filter.sortOrder) {
-            SortOrder.NEWEST -> result.sortedByDescending { it.id }
-            SortOrder.OLDEST -> result.sortedBy { it.id }
-        }
-
-        return result
     }
 }

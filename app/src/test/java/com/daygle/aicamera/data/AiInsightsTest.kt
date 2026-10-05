@@ -9,12 +9,9 @@ import com.daygle.aicamera.data.model.aiDescription
 import com.daygle.aicamera.data.model.aiTags
 import com.daygle.aicamera.data.model.aiVerdict
 import com.daygle.aicamera.data.model.faceIdentities
-import com.daygle.aicamera.data.model.matchesAllWords
 import com.daygle.aicamera.data.model.motionFraction
-import com.daygle.aicamera.data.model.searchableText
 import kotlinx.serialization.decodeFromString
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -64,23 +61,12 @@ class AiInsightsTest {
     }
 
     @Test
-    fun keywordSearchRequiresEveryWord() {
-        val text = describedEvent.searchableText()
-        assertTrue(matchesAllWords(text, "parcel driveway"))
-        assertTrue(matchesAllWords(text, "ALICE vest"))
-        assertTrue(matchesAllWords(text, "front door"))
-        assertFalse(matchesAllWords(text, "parcel ladder"))
-        assertTrue(matchesAllWords(text, "   "))
-    }
-
-    @Test
     fun recordingTagsPreferServerAiLabels() {
         val recording = json.decodeFromString<Recording>(
             """{"id": 9, "labels": ["person"], "ai_labels": ["ladder"],
                 "event": {"id": 42, "metadata": {"ai_description": {"text": "x", "tags": ["parcel"]}}}}"""
         )
         assertEquals(listOf("ladder"), recording.aiTags())
-        assertTrue(matchesAllWords(recording.searchableText(), "ladder parcel"))
 
         val older = json.decodeFromString<Recording>(
             """{"id": 9, "events": [{"id": 42, "metadata": {"ai_description": {"tags": ["parcel"]}}}]}"""

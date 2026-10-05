@@ -116,44 +116,6 @@ fun Recording.faceIdentities(): FaceIdentities =
     linkedEvents().fold(FaceIdentities()) { acc, event -> acc + event.faceIdentities() }
 
 /**
- * Lower-cased text a keyword search may match on an event, mirroring the
- * server's library filter: labels, zones, source/camera, AI description and
- * tags, and recognised face names.
- */
-fun Event.searchableText(): String = buildList {
-    addAll(detections.map { it.label })
-    addAll(detections.mapNotNull { it.zoneName })
-    add(source)
-    add(triggerLabel)
-    add(triggerType)
-    listOf("camera_name", "camera_id", "label", "class_label", "zone_name").forEach { add(metadataString(it)) }
-    aiDescription()?.let { description ->
-        add(description.text)
-        addAll(description.tags)
-    }
-    addAll(faceIdentities().people.map { it.name })
-}.filterNotNull().joinToString(" ").lowercase()
-
-/** Searchable text for a recording: its own labels and AI tags plus every linked event. */
-fun Recording.searchableText(): String = buildList {
-    add(cameraId)
-    add(source)
-    add(triggerLabel)
-    add(triggerType)
-    addAll(labels)
-    addAll(aiLabels)
-    addAll(linkedEvents().map { it.searchableText() })
-}.filterNotNull().joinToString(" ").lowercase()
-
-/**
- * True when every whitespace-separated word of [query] appears in [haystack]
- * (AND semantics, as the server's keyword filter: "red car" narrows rather
- * than widens). A blank query matches everything.
- */
-fun matchesAllWords(haystack: String, query: String): Boolean =
-    query.lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }.all { haystack.contains(it) }
-
-/**
  * How the server understood a plain-English search (`GET /api/event-search`):
  * concept groups (each a list of synonyms), an optional camera and time
  * window, and whether the model or the keyword fallback interpreted it.

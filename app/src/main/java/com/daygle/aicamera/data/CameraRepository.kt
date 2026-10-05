@@ -4,6 +4,9 @@ import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.CameraHealthResponse
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.data.model.EventSearchResponse
+import com.daygle.aicamera.data.model.LibraryFacets
+import com.daygle.aicamera.data.model.LibraryQuery
+import com.daygle.aicamera.data.model.Page
 import com.daygle.aicamera.data.model.PushSettings
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.data.model.TimelineResponse
@@ -64,23 +67,86 @@ class CameraRepository(
 
     suspend fun cameraHealth(): Result<CameraHealthResponse> = suspendRunCatching { session.api.cameraHealth() }
 
-    suspend fun events(alertedOnly: Boolean = false, since: String? = null): Result<List<Event>> =
-        suspendRunCatching { session.api.events(alertedOnly = alertedOnly, since = since).items }
+    /** One server-filtered cursor page of events (`GET /api/events`). */
+    suspend fun eventsPage(query: LibraryQuery, cursor: String? = null): Result<Page<Event>> =
+        suspendRunCatching {
+            session.api.events(
+                limit = PAGE_SIZE,
+                cursor = cursor,
+                alertedOnly = query.alertedOnly,
+                since = query.since,
+                until = query.until,
+                cameraId = query.cameraId,
+                label = query.label,
+                query = query.q,
+                face = query.face,
+                sort = query.sort,
+            )
+        }
 
     /**
-     * Events with a stored snapshot (`GET /api/snapshots`), including ones not
-     * linked to a recording. Servers without that endpoint fall back to the
-     * events feed filtered to entries that advertise a snapshot.
+     * One server-filtered cursor page of events with a stored snapshot
+     * (`GET /api/snapshots`), including ones not linked to a recording.
+     * Servers without that endpoint fall back to the events feed filtered to
+     * entries that advertise a snapshot.
      */
-    suspend fun snapshots(): Result<List<Event>> = suspendRunCatching {
-        try {
-            session.api.snapshots().items
-        } catch (e: HttpException) {
-            if (e.code() != 404) throw e
-            session.api.events(withRecording = false).items
-                .filter { it.hasSnapshot || !it.snapshotPath.isNullOrBlank() }
+    suspend fun snapshotsPage(query: LibraryQuery, cursor: String? = null): Result<Page<Event>> =
+        suspendRunCatching {
+            try {
+                session.api.snapshots(
+                    limit = PAGE_SIZE,
+                    cursor = cursor,
+                    since = query.since,
+                    until = query.until,
+                    cameraId = query.cameraId,
+                    label = query.label,
+                    query = query.q,
+                    alertedOnly = query.alertedOnly,
+                    face = query.face,
+                    sort = query.sort,
+                )
+            } catch (e: HttpException) {
+                if (e.code() != 404) throw e
+                val page = session.api.events(
+                    limit = PAGE_SIZE,
+                    cursor = cursor,
+                    withRecording = false,
+                    alertedOnly = query.alertedOnly,
+                    since = query.since,
+                    until = query.until,
+                    cameraId = query.cameraId,
+                    label = query.label,
+                    query = query.q,
+                    face = query.face,
+                    sort = query.sort,
+                )
+                page.copy(items = page.items.filter { it.hasSnapshot || !it.snapshotPath.isNullOrBlank() })
+            }
         }
-    }
+
+    /** One server-filtered cursor page of recordings (`GET /api/recordings`). */
+    suspend fun recordingsPage(query: LibraryQuery, cursor: String? = null): Result<Page<Recording>> =
+        suspendRunCatching {
+            session.api.recordings(
+                limit = PAGE_SIZE,
+                cursor = cursor,
+                cameraId = query.cameraId,
+                startedAfter = query.since,
+                startedBefore = query.until,
+                label = query.label,
+                query = query.q,
+                alertedOnly = query.alertedOnly,
+                face = query.face,
+                sort = query.sort,
+            )
+        }
+
+    /**
+     * Label and face filter options for a library list ([kind] is `events`,
+     * `snapshots` or `recordings`) over the given window.
+     */
+    suspend fun libraryFacets(kind: String, since: String?, until: String?): Result<LibraryFacets> =
+        suspendRunCatching { session.api.libraryFacets(kind, since, until) }
 
     suspend fun recordings(cameraId: String? = null): Result<List<Recording>> =
         suspendRunCatching { session.api.recordings(cameraId = cameraId).items }
@@ -117,4 +183,9 @@ class CameraRepository(
     fun httpClient() = session.httpClient
 
     fun currentSettingsStore(): SettingsStore = settings
+
+    companion object {
+        /** Rows per list page; more load as the user scrolls. */
+        const val PAGE_SIZE = 50
+    }
 }

@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.History
@@ -42,7 +43,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.daygle.aicamera.data.model.FaceFacets
 import com.daygle.aicamera.ui.formatEventLabel
+import com.daygle.aicamera.ui.library.FaceFilterChips
 import java.time.Instant
 import java.time.ZoneId
 
@@ -56,6 +59,7 @@ internal fun EventsFilterSheet(
     availableObjectLabels: List<String>,
     availableSoundLabels: List<String>,
     availableAiTags: List<String> = emptyList(),
+    faceFacets: FaceFacets? = null,
     cameraMap: Map<String, String>,
     onDismiss: () -> Unit,
     viewModel: EventsViewModel
@@ -255,6 +259,12 @@ internal fun EventsFilterSheet(
                             )
                         }
                     }
+                }
+            }
+
+            if (faceFacets != null && (faceFacets.people.isNotEmpty() || faceFacets.unknown > 0)) {
+                FilterSection(title = "Faces", icon = Icons.Filled.Face) {
+                    FaceFilterChips(faces = faceFacets, selected = state.face, onSelect = viewModel::setFace)
                 }
             }
 

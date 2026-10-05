@@ -5,6 +5,7 @@ import com.daygle.aicamera.data.model.CameraHealthResponse
 import com.daygle.aicamera.data.model.CamerasResponse
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.data.model.EventSearchResponse
+import com.daygle.aicamera.data.model.LibraryFacets
 import com.daygle.aicamera.data.model.Page
 import com.daygle.aicamera.data.model.PushSettings
 import com.daygle.aicamera.data.model.Recording
@@ -22,15 +23,25 @@ interface DaygleApi {
     @GET("api/cameras/health")
     suspend fun cameraHealth(): CameraHealthResponse
 
+    /**
+     * A cursor page of events. The filters match the server's shared library
+     * filter bar: `q` needs every word to appear in a label, zone, camera, AI
+     * tag/description or face name; `face` is `any`, `unknown`, `id:<id>` or
+     * `name:<name>`. Older servers ignore parameters they do not know.
+     */
     @GET("api/events")
     suspend fun events(
         @Query("limit") limit: Int = 100,
         @Query("alerted_only") alertedOnly: Boolean = false,
         @Query("with_recording") withRecording: Boolean = true,
-        // Supported by newer servers for incremental refresh; older servers
-        // simply ignore the unknown parameter.
         @Query("since") since: String? = null,
         @Query("cursor") cursor: String? = null,
+        @Query("until") until: String? = null,
+        @Query("camera_id") cameraId: String? = null,
+        @Query("label") label: String? = null,
+        @Query("q") query: String? = null,
+        @Query("face") face: String? = null,
+        @Query("sort") sort: String? = null,
     ): Page<Event>
 
     /** One event with its detections, alert and metadata (AI description, faces). */
@@ -42,6 +53,14 @@ interface DaygleApi {
     suspend fun snapshots(
         @Query("limit") limit: Int = 100,
         @Query("cursor") cursor: String? = null,
+        @Query("since") since: String? = null,
+        @Query("until") until: String? = null,
+        @Query("camera_id") cameraId: String? = null,
+        @Query("label") label: String? = null,
+        @Query("q") query: String? = null,
+        @Query("alerted_only") alertedOnly: Boolean = false,
+        @Query("face") face: String? = null,
+        @Query("sort") sort: String? = null,
     ): Page<Event>
 
     /**
@@ -64,7 +83,22 @@ interface DaygleApi {
         @Query("camera_id") cameraId: String? = null,
         @Query("limit") limit: Int = 100,
         @Query("cursor") cursor: String? = null,
+        @Query("started_after") startedAfter: String? = null,
+        @Query("started_before") startedBefore: String? = null,
+        @Query("label") label: String? = null,
+        @Query("q") query: String? = null,
+        @Query("alerted_only") alertedOnly: Boolean = false,
+        @Query("face") face: String? = null,
+        @Query("sort") sort: String? = null,
     ): Page<Recording>
+
+    /** Label and face options, with counts, for one library list's time window. */
+    @GET("api/library/facets")
+    suspend fun libraryFacets(
+        @Query("kind") kind: String,
+        @Query("since") since: String? = null,
+        @Query("until") until: String? = null,
+    ): LibraryFacets
 
     /** Pre-grouped timeline segments for one camera-day in the given timezone. */
     @GET("api/recordings/timeline")

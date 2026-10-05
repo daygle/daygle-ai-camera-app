@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FilterList
@@ -81,7 +82,11 @@ import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.data.model.aiDescription
 import com.daygle.aicamera.data.model.aiTags
 import com.daygle.aicamera.data.model.faceIdentities
+import com.daygle.aicamera.data.model.FaceFacets
 import com.daygle.aicamera.ui.components.AiDescriptionText
+import com.daygle.aicamera.ui.library.FaceFilterChips
+import com.daygle.aicamera.ui.library.LoadMoreEffect
+import com.daygle.aicamera.ui.library.PagingFooter
 import com.daygle.aicamera.ui.components.InsightChips
 import com.daygle.aicamera.ui.formatDetectionSummary
 import com.daygle.aicamera.ui.components.EmptyState
@@ -116,6 +121,7 @@ fun RecordingsScreen(
             availableObjectLabels = (state as? RecordingsUiState.Ready)?.data?.availableObjectLabels ?: emptyList(),
             availableSoundLabels = (state as? RecordingsUiState.Ready)?.data?.availableSoundLabels ?: emptyList(),
             availableAiTags = (state as? RecordingsUiState.Ready)?.data?.availableAiTags ?: emptyList(),
+            faceFacets = (state as? RecordingsUiState.Ready)?.data?.faceFacets,
             cameraMap = (state as? RecordingsUiState.Ready)?.data?.cameras?.associate { it.id to it.displayName } ?: emptyMap(),
             onDismiss = { showFilterSheet = false },
             viewModel = viewModel
@@ -239,9 +245,9 @@ fun RecordingsScreen(
                 Spacer(Modifier.height(8.dp))
 
                 // List count status
-                if (data.recordings.size != data.filtered.size) {
+                if (activeFilterCount > 0 && !data.refreshing) {
                     Text(
-                        "${data.filtered.size} items",
+                        "${data.filtered.size}${if (data.hasMore) "+" else ""} matching recordings",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(horizontal = 16.dp)
@@ -254,7 +260,7 @@ fun RecordingsScreen(
                     onRefresh = viewModel::load,
                     modifier = Modifier.weight(1f),
                 ) {
-                    if (data.filtered.isEmpty()) {
+                    if (data.filtered.isEmpty() && !data.hasMore && !data.loadingMore && data.loadMoreError == null) {
                         EmptyState(
                             if (activeFilterCount > 0) "No recordings match your filters." else "No recordings on the server yet.",
                         )
@@ -266,6 +272,7 @@ fun RecordingsScreen(
                             snapshotFlow { lazyListState.firstVisibleItemIndex }
                                 .collect { index -> viewModel.saveScrollIndex(index) }
                         }
+                        LoadMoreEffect(lazyListState, hasMore = data.hasMore, onLoadMore = viewModel::loadMore)
                         LazyColumn(
                             state = lazyListState,
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -275,6 +282,14 @@ fun RecordingsScreen(
                                 RecordingRow(
                                     recording = recording,
                                     onPlay = { onPlay(recording.id) },
+                                )
+                            }
+                            item(key = "paging-footer") {
+                                PagingFooter(
+                                    loadingMore = data.loadingMore,
+                                    loadMoreError = data.loadMoreError,
+                                    hasMore = data.hasMore,
+                                    onLoadMore = viewModel::loadMore,
                                 )
                             }
                         }
@@ -295,6 +310,7 @@ private fun RecordingsFilterSheet(
     availableObjectLabels: List<String>,
     availableSoundLabels: List<String>,
     availableAiTags: List<String>,
+    faceFacets: FaceFacets?,
     cameraMap: Map<String, String>,
     onDismiss: () -> Unit,
     viewModel: RecordingsViewModel
@@ -484,6 +500,12 @@ private fun RecordingsFilterSheet(
                             )
                         }
                     }
+                }
+            }
+
+            if (faceFacets != null && (faceFacets.people.isNotEmpty() || faceFacets.unknown > 0)) {
+                FilterSection(title = "Faces", icon = Icons.Filled.Face) {
+                    FaceFilterChips(faces = faceFacets, selected = state.face, onSelect = viewModel::setFace)
                 }
             }
 
