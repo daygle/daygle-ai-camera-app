@@ -6,6 +6,9 @@ import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.Detection
 import com.daygle.aicamera.data.model.Recording
+import com.daygle.aicamera.data.model.aiTags
+import com.daygle.aicamera.data.model.matchesAllWords
+import com.daygle.aicamera.data.model.searchableText
 import com.daygle.aicamera.ui.friendlyMessage
 import com.daygle.aicamera.ui.isMotion
 import com.daygle.aicamera.ui.isSound
@@ -73,6 +76,11 @@ data class RecordingsReady(
 
     val availableLabels: List<String> by lazy {
         recordings.flatMap { it.labels }.distinct().sorted()
+    }
+
+    /** Objects the AI model tagged on clips, apart from detector labels. */
+    val availableAiTags: List<String> by lazy {
+        recordings.flatMap { it.aiTags() }.distinct().filter { it !in availableLabels }.sorted()
     }
 
     val availableObjectLabels: List<String> by lazy { availableLabels.filter { !isSoundLabel(it) } }
@@ -204,15 +212,10 @@ class RecordingsViewModel @Inject constructor(
     private fun applyFilters(recordings: List<Recording>, filter: RecordingsFilter): List<Recording> {
         var result = recordings
 
-        // Text search on labels, source
+        // Every word must match the camera, a label or AI tag, or a linked
+        // event's zone, AI description or face name (as the server's filter).
         if (filter.query.isNotBlank()) {
-            val q = filter.query.lowercase()
-            result = result.filter { r ->
-                r.labels.any { it.lowercase().contains(q) } ||
-                    r.source?.lowercase()?.contains(q) == true ||
-                    r.triggerLabel?.lowercase()?.contains(q) == true ||
-                    r.triggerType?.lowercase()?.contains(q) == true
-            }
+            result = result.filter { r -> matchesAllWords(r.searchableText(), filter.query) }
         }
 
         // Date range filter
@@ -252,7 +255,7 @@ class RecordingsViewModel @Inject constructor(
         // Label filter
         if (filter.selectedLabels.isNotEmpty()) {
             result = result.filter { r ->
-                filter.selectedLabels.any { it in r.labels }
+                filter.selectedLabels.any { it in r.labels || it in r.aiTags() }
             }
         }
 

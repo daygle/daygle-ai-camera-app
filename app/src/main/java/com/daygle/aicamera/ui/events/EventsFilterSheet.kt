@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GraphicEq
@@ -54,6 +55,7 @@ internal fun EventsFilterSheet(
     availableSources: List<String>,
     availableObjectLabels: List<String>,
     availableSoundLabels: List<String>,
+    availableAiTags: List<String> = emptyList(),
     cameraMap: Map<String, String>,
     onDismiss: () -> Unit,
     viewModel: EventsViewModel
@@ -249,6 +251,26 @@ internal fun EventsFilterSheet(
                                 selected = label in state.selectedLabels,
                                 onClick = { viewModel.toggleLabel(label) },
                                 label = { Text(formatEventLabel(label)) },
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (availableAiTags.isNotEmpty()) {
+                FilterSection(title = "AI Tags", icon = Icons.Filled.AutoAwesome) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        availableAiTags.forEach { tag ->
+                            FilterChip(
+                                selected = tag in state.selectedLabels,
+                                onClick = { viewModel.toggleLabel(tag) },
+                                label = { Text(formatEventLabel(tag)) },
                                 shape = RoundedCornerShape(12.dp)
                             )
                         }

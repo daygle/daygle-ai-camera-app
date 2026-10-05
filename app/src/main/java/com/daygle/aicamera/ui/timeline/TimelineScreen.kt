@@ -1,5 +1,7 @@
 package com.daygle.aicamera.ui.timeline
 
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material3.FilterChip
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -228,7 +230,15 @@ fun TimelineScreen(
                                 }
                             }
                         }
-                        Row {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            FilterChip(
+                                selected = data.alertOnly,
+                                onClick = { viewModel.setAlertOnly(!data.alertOnly) },
+                                label = { Text("Alert Only") },
+                                leadingIcon = {
+                                    Icon(Icons.Filled.NotificationsActive, contentDescription = null, modifier = Modifier.size(16.dp))
+                                },
+                            )
                             IconButton(onClick = { showDatePicker = true }) {
                                 Icon(Icons.Filled.CalendarMonth, contentDescription = "Change Date")
                             }
@@ -247,7 +257,7 @@ fun TimelineScreen(
 
                     if (!hasSegments) {
                         EmptyState(
-                            "No activity on ${data.date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))}.",
+                            (if (data.alertOnly) "No alerts on " else "No activity on ") + "${data.date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))}.",
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {

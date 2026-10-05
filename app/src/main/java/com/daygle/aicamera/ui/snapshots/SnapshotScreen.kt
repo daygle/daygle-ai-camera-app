@@ -13,12 +13,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.daygle.aicamera.ui.components.ZoomableImage
 
 /**
@@ -33,6 +35,7 @@ fun SnapshotScreen(
     viewModel: SnapshotViewModel = hiltViewModel(),
 ) {
     val url = remember(eventId) { viewModel.snapshotUrl(eventId) }
+    val event by viewModel.event.collectAsStateWithLifecycle()
 
     BackHandler(onBack = onBack)
 
@@ -63,6 +66,9 @@ fun SnapshotScreen(
                 .padding(16.dp),
         ) {
             Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color.White)
+        }
+        event?.takeIf { it.id == eventId }?.let { loaded ->
+            Box(Modifier.align(Alignment.BottomCenter)) { SnapshotDetails(loaded) }
         }
     }
 }

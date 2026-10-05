@@ -6,7 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.Event
+import com.daygle.aicamera.data.model.aiDescription
+import com.daygle.aicamera.data.model.matchesAllWords
 import com.daygle.aicamera.data.model.metadataLabel
+import com.daygle.aicamera.data.model.searchableText
 import com.daygle.aicamera.ui.friendlyMessage
 import com.daygle.aicamera.ui.events.isMotionEvent
 import com.daygle.aicamera.ui.events.isSoundEvent
@@ -79,6 +82,11 @@ data class SnapshotsReady(
             event.detections.map { it.label } +
                 listOfNotNull(event.triggerLabel, event.metadataLabel())
         }.distinct().sorted()
+    }
+
+    /** Objects the AI model tagged on snapshots, apart from detector labels. */
+    val availableAiTags: List<String> by lazy {
+        snapshots.flatMap { it.aiDescription()?.tags.orEmpty() }.distinct().filter { it !in availableLabels }.sorted()
     }
 
     val availableObjectLabels: List<String> by lazy { availableLabels.filter { !isSoundLabel(it) } }
@@ -223,15 +231,10 @@ class SnapshotsViewModel @Inject constructor(
         var result = events
 
         // Text search
+        // Every word must match a label, zone, camera, AI tag/description or
+        // face name, the same as the server's library keyword filter.
         if (filter.query.isNotBlank()) {
-            val q = filter.query.lowercase()
-            result = result.filter { e ->
-                e.detections.any { it.label.lowercase().contains(q) } ||
-                    e.source?.lowercase()?.contains(q) == true ||
-                    e.triggerLabel?.lowercase()?.contains(q) == true ||
-                    e.triggerType?.lowercase()?.contains(q) == true ||
-                    e.metadataLabel()?.lowercase()?.contains(q) == true
-            }
+            result = result.filter { e -> matchesAllWords(e.searchableText(), filter.query) }
         }
 
         // Date range
@@ -274,7 +277,8 @@ class SnapshotsViewModel @Inject constructor(
                 filter.selectedLabels.any { sel ->
                     e.detections.any { it.label == sel } ||
                         e.triggerLabel == sel ||
-                        e.metadataLabel() == sel
+                        e.metadataLabel() == sel ||
+                        e.aiDescription()?.tags?.contains(sel) == true
                 }
             }
         }

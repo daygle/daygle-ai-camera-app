@@ -5,11 +5,16 @@ import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.Event
+import com.daygle.aicamera.data.model.SearchInterpretation
+import com.daygle.aicamera.data.model.aiDescription
+import com.daygle.aicamera.data.model.matchesAllWords
 import com.daygle.aicamera.data.model.metadataLabel
+import com.daygle.aicamera.data.model.searchableText
 import com.daygle.aicamera.ui.friendlyMessage
 import com.daygle.aicamera.ui.isSoundLabel
 import com.daygle.aicamera.ui.parseTimestamp
 import dagger.hilt.android.lifecycle.HiltViewModel
+import retrofit2.HttpException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -62,7 +67,22 @@ private data class FilterableEvent(
     val isMotion: Boolean,
     val isBehaviour: Boolean,
     val cameraId: String?,
-    val metadataLabel: String?
+    val metadataLabel: String?,
+    val aiTags: List<String>,
+    val searchText: String,
+)
+
+/**
+ * A plain-English "Ask AI" search (`GET /api/event-search`). The server
+ * interprets the question with its vision model (or a keyword fallback) and
+ * searches the AI event descriptions and tags.
+ */
+data class AiSearchState(
+    val query: String,
+    val loading: Boolean = true,
+    val results: List<Event> = emptyList(),
+    val interpretation: SearchInterpretation? = null,
+    val error: String? = null,
 )
 
 data class EventsReady(
@@ -71,6 +91,8 @@ data class EventsReady(
     val cameras: List<Camera>,
     val filter: EventsFilter,
     val refreshing: Boolean = false,
+    /** Non-null while an Ask AI search is shown in place of the filtered list. */
+    val aiSearch: AiSearchState? = null,
 ) {
     val availableModes: List<String> = listOf("Object", "Motion", "Sound", "Behaviour")
 
@@ -91,6 +113,11 @@ data class EventsReady(
             events.mapNotNull { it.metadataLabel() }).distinct().sorted()
     }
     
+    /** Objects the AI model tagged that the detector did not label. */
+    val availableAiTags: List<String> by lazy {
+        events.flatMap { it.aiDescription()?.tags.orEmpty() }.distinct().sorted()
+    }
+
     val availableObjectLabels by lazy { availableLabels.filter { !isSoundLabel(it) } }
     val availableSoundLabels by lazy { availableLabels.filter { isSoundLabel(it) } }
 }
@@ -149,13 +176,15 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
             allFilterableEvents = events.map(::toFilterable)
             lastEventTimestamp = events.mapNotNull { parseTimestamp(it.createdAt) }.maxOrNull()
 
-            val currentFilter = (_state.value as? EventsUiState.Ready)?.data?.filter ?: EventsFilter()
+            val current = (_state.value as? EventsUiState.Ready)?.data
+            val currentFilter = current?.filter ?: EventsFilter()
             _state.value = EventsUiState.Ready(
                 EventsReady(
                     events = events,
                     filtered = applyFilters(allFilterableEvents, currentFilter),
                     cameras = cameras,
-                    filter = currentFilter
+                    filter = currentFilter,
+                    aiSearch = current?.aiSearch,
                 )
             )
         }
@@ -245,7 +274,9 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
         isMotion = isMotionEvent(e),
         isBehaviour = e.isBehaviourEvent(),
         cameraId = e.filterCameraId(),
-        metadataLabel = e.metadataLabel()
+        metadataLabel = e.metadataLabel(),
+        aiTags = e.aiDescription()?.tags.orEmpty(),
+        searchText = e.searchableText(),
     )
 
     /** Canonical UTC `+00:00` form the server's `_normalize_iso_to_utc` expects. */
@@ -286,6 +317,52 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
 
     fun clearFilters() = updateFilter { EventsFilter() }
 
+    private var aiSearchJob: Job? = null
+
+    /** Run a plain-English search; results replace the list until [clearAiSearch]. */
+    fun runAiSearch(query: String) {
+        val question = query.trim()
+        if (question.isEmpty()) {
+            clearAiSearch()
+            return
+        }
+        aiSearchJob?.cancel()
+        setAiSearch(AiSearchState(query = question))
+        aiSearchJob = viewModelScope.launch {
+            val next = repository.searchEvents(question).fold(
+                onSuccess = { response ->
+                    AiSearchState(
+                        query = question,
+                        loading = false,
+                        results = response.items,
+                        interpretation = response.interpretation,
+                    )
+                },
+                onFailure = { error ->
+                    val message = if (error is HttpException && error.code() == 404) {
+                        "AI search needs a newer Daygle server. Update the server to search events in plain English."
+                    } else {
+                        error.friendlyMessage()
+                    }
+                    AiSearchState(query = question, loading = false, error = message)
+                },
+            )
+            setAiSearch(next)
+        }
+    }
+
+    fun clearAiSearch() {
+        aiSearchJob?.cancel()
+        aiSearchJob = null
+        setAiSearch(null)
+    }
+
+    private fun setAiSearch(value: AiSearchState?) {
+        _state.update { current ->
+            if (current is EventsUiState.Ready) current.copy(data = current.data.copy(aiSearch = value)) else current
+        }
+    }
+
     fun snapshotUrl(eventId: Int): String? = repository.eventSnapshotUrl(eventId)
 
     private fun updateFilter(block: (EventsFilter) -> EventsFilter) {
@@ -303,14 +380,9 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
         var seq = filterable.asSequence()
 
         if (filter.query.isNotBlank()) {
-            val q = filter.query.lowercase()
-            seq = seq.filter { fe ->
-                fe.event.detections.any { it.label.lowercase().contains(q) } ||
-                    fe.event.source?.lowercase()?.contains(q) == true ||
-                    fe.event.triggerLabel?.lowercase()?.contains(q) == true ||
-                    fe.event.triggerType?.lowercase()?.contains(q) == true ||
-                    fe.metadataLabel?.lowercase()?.contains(q) == true
-            }
+            // Every word must match a label, zone, camera, AI tag/description
+            // or face name, the same as the server's library keyword filter.
+            seq = seq.filter { fe -> matchesAllWords(fe.searchText, filter.query) }
         }
 
         if (filter.dateStart != null || filter.dateEnd != null) {
@@ -349,7 +421,8 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
                 filter.selectedLabels.any { sel ->
                     fe.event.detections.any { it.label == sel } ||
                         fe.event.triggerLabel == sel ||
-                        fe.metadataLabel == sel
+                        fe.metadataLabel == sel ||
+                        sel in fe.aiTags
                 }
             }
         }

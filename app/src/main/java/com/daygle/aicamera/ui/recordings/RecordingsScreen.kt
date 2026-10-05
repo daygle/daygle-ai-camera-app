@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FilterList
@@ -77,6 +78,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.daygle.aicamera.data.model.Detection
 import com.daygle.aicamera.data.model.Recording
+import com.daygle.aicamera.data.model.aiDescription
+import com.daygle.aicamera.data.model.aiTags
+import com.daygle.aicamera.data.model.faceIdentities
+import com.daygle.aicamera.ui.components.AiDescriptionText
+import com.daygle.aicamera.ui.components.InsightChips
+import com.daygle.aicamera.ui.formatDetectionSummary
 import com.daygle.aicamera.ui.components.EmptyState
 import com.daygle.aicamera.ui.components.ErrorState
 import com.daygle.aicamera.ui.components.LoadingState
@@ -108,6 +115,7 @@ fun RecordingsScreen(
             availableTriggerTypes = (state as? RecordingsUiState.Ready)?.data?.availableTriggerTypes ?: emptyList(),
             availableObjectLabels = (state as? RecordingsUiState.Ready)?.data?.availableObjectLabels ?: emptyList(),
             availableSoundLabels = (state as? RecordingsUiState.Ready)?.data?.availableSoundLabels ?: emptyList(),
+            availableAiTags = (state as? RecordingsUiState.Ready)?.data?.availableAiTags ?: emptyList(),
             cameraMap = (state as? RecordingsUiState.Ready)?.data?.cameras?.associate { it.id to it.displayName } ?: emptyMap(),
             onDismiss = { showFilterSheet = false },
             viewModel = viewModel
@@ -138,7 +146,7 @@ fun RecordingsScreen(
                             value = data.filter.query,
                             onValueChange = viewModel::setQuery,
                             modifier = Modifier.weight(1f),
-                            placeholder = { Text("Search recordings...") },
+                            placeholder = { Text("Search recordings, AI tags, faces…", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                             trailingIcon = {
                                 if (data.filter.query.isNotBlank()) {
@@ -286,6 +294,7 @@ private fun RecordingsFilterSheet(
     availableTriggerTypes: List<String>,
     availableObjectLabels: List<String>,
     availableSoundLabels: List<String>,
+    availableAiTags: List<String>,
     cameraMap: Map<String, String>,
     onDismiss: () -> Unit,
     viewModel: RecordingsViewModel
@@ -478,6 +487,26 @@ private fun RecordingsFilterSheet(
                 }
             }
 
+            if (availableAiTags.isNotEmpty()) {
+                FilterSection(title = "AI Tags", icon = Icons.Filled.AutoAwesome) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        availableAiTags.forEach { tag ->
+                            FilterChip(
+                                selected = tag in state.selectedLabels,
+                                onClick = { viewModel.toggleLabel(tag) },
+                                label = { Text(formatEventLabel(tag)) },
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
             Button(
                 onClick = onDismiss,
                 modifier = Modifier.fillMaxWidth(),
@@ -515,6 +544,9 @@ private fun RecordingRow(
     val isSound = remember(recording) { recording.isSound() }
     val isMotion = remember(recording) { recording.isMotion() }
     val detectionsToShow = remember(recording) { recording.combinedDetections() }
+    val aiTags = remember(recording) { recording.aiTags() }
+    val faces = remember(recording) { recording.faceIdentities() }
+    val description = remember(recording) { recording.aiDescription() }
     Card(
         onClick = onPlay,
         enabled = recording.mediaReady,
@@ -558,15 +590,15 @@ private fun RecordingRow(
                     }
                     if (detectionsToShow.isNotEmpty()) {
                         Text(
-                            detectionsToShow.joinToString(", ") {
-                                "${formatEventLabel(it.label)} (${(it.confidence * 100).toInt()}%)"
-                            },
+                            formatDetectionSummary(detectionsToShow),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
+                    InsightChips(aiTags = aiTags, faces = faces, maxTags = 4)
+                    AiDescriptionText(description?.text)
                 }
             },
             leadingContent = {
@@ -654,7 +686,12 @@ private fun Recording.combinedDetections(): List<Detection> {
     return (detections + eventDetections + confidenceDetections)
         .filter { it.label.isNotBlank() }
         .groupBy { it.label.lowercase() }
-        .map { (_, grouped) -> grouped.maxBy { it.confidence } }
+        .map { (_, grouped) ->
+            // Keep the most confident entry, carrying over the motion share
+            // when only another copy recorded it.
+            val best = grouped.maxBy { it.confidence }
+            best.copy(motionFraction = best.motionFraction ?: grouped.mapNotNull { it.motionFraction }.maxOrNull())
+        }
         .sortedByDescending { it.confidence }
 }
 

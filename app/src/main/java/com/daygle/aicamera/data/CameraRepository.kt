@@ -3,6 +3,7 @@ package com.daygle.aicamera.data
 import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.CameraHealthResponse
 import com.daygle.aicamera.data.model.Event
+import com.daygle.aicamera.data.model.EventSearchResponse
 import com.daygle.aicamera.data.model.PushSettings
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.data.model.TimelineResponse
@@ -83,6 +84,15 @@ class CameraRepository(
 
     suspend fun recordings(cameraId: String? = null): Result<List<Recording>> =
         suspendRunCatching { session.api.recordings(cameraId = cameraId).items }
+
+    suspend fun event(eventId: Int): Result<Event> = suspendRunCatching { session.api.event(eventId) }
+
+    /** Plain-English AI search over described events (`GET /api/event-search`). */
+    suspend fun searchEvents(query: String): Result<EventSearchResponse> =
+        suspendRunCatching { session.api.eventSearch(query) }
+
+    suspend fun recording(recordingId: Int): Result<Recording> =
+        suspendRunCatching { session.api.recording(recordingId) }
 
     /** Pre-grouped timeline for a camera-day; server clamps to the day and localizes via [tzOffsetMinutes]. */
     suspend fun recordingsTimeline(

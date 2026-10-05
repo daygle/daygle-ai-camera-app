@@ -56,6 +56,18 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
+import com.daygle.aicamera.ui.LocalUse24Hour
+import com.daygle.aicamera.ui.formatTimestamp
 import com.daygle.aicamera.ui.LifecycleResumeEffect
 import com.daygle.aicamera.ui.components.EmptyState
 import com.daygle.aicamera.ui.components.ErrorState
@@ -72,6 +84,11 @@ fun EventsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showFilterSheet by remember { mutableStateOf(value = false) }
     var snapshotEventId by remember { mutableStateOf<Int?>(null) }
+    // "Ask AI" mode sends the question to the server's plain-English search
+    // instead of filtering the loaded list by keyword.
+    var aiMode by rememberSaveable { mutableStateOf(false) }
+    var aiQuery by rememberSaveable { mutableStateOf("") }
+    val keyboard = LocalSoftwareKeyboardController.current
 
     // Poll for new events incrementally while the screen is visible; stop when
     // the app is backgrounded so we don't hammer the server.
@@ -92,6 +109,7 @@ fun EventsScreen(
             availableSources = s?.data?.availableSources ?: emptyList(),
             availableObjectLabels = s?.data?.availableObjectLabels ?: emptyList(),
             availableSoundLabels = s?.data?.availableSoundLabels ?: emptyList(),
+            availableAiTags = s?.data?.availableAiTags ?: emptyList(),
             cameraMap = s?.data?.cameras?.associate { it.id to it.displayName } ?: emptyMap(),
             onDismiss = { showFilterSheet = false },
             viewModel = viewModel,
@@ -119,18 +137,43 @@ fun EventsScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         OutlinedTextField(
-                            value = data.filter.query,
-                            onValueChange = viewModel::setQuery,
+                            value = if (aiMode) aiQuery else data.filter.query,
+                            onValueChange = { if (aiMode) aiQuery = it else viewModel.setQuery(it) },
                             modifier = Modifier.weight(1f),
-                            placeholder = { Text("Search alerts...") },
-                            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                            placeholder = {
+                                Text(
+                                    if (aiMode) "Ask AI: red car yesterday…" else "Search events, AI tags, faces…",
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    if (aiMode) Icons.Filled.AutoAwesome else Icons.Filled.Search,
+                                    contentDescription = null,
+                                    tint = if (aiMode) MaterialTheme.colorScheme.tertiary else LocalContentColor.current,
+                                )
+                            },
                             trailingIcon = {
-                                if (data.filter.query.isNotBlank()) {
-                                    IconButton(onClick = { viewModel.setQuery("") }) {
+                                val current = if (aiMode) aiQuery else data.filter.query
+                                if (current.isNotBlank()) {
+                                    IconButton(onClick = {
+                                        if (aiMode) {
+                                            aiQuery = ""
+                                            viewModel.clearAiSearch()
+                                        } else {
+                                            viewModel.setQuery("")
+                                        }
+                                    }) {
                                         Icon(Icons.Filled.Clear, contentDescription = "Clear search")
                                     }
                                 }
                             },
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(onSearch = {
+                                if (aiMode) viewModel.runAiSearch(aiQuery)
+                                keyboard?.hide()
+                            }),
                             singleLine = true,
                             shape = RoundedCornerShape(16.dp),
                             colors = OutlinedTextFieldDefaults.colors(
@@ -138,6 +181,26 @@ fun EventsScreen(
                                 focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
                             )
                         )
+
+                        IconButton(
+                            onClick = {
+                                aiMode = !aiMode
+                                if (!aiMode) viewModel.clearAiSearch()
+                            },
+                            modifier = Modifier
+                                .size(52.dp)
+                                .background(
+                                    if (aiMode) MaterialTheme.colorScheme.tertiaryContainer
+                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                    RoundedCornerShape(16.dp)
+                                )
+                        ) {
+                            Icon(
+                                Icons.Filled.AutoAwesome,
+                                contentDescription = if (aiMode) "Turn off Ask AI" else "Ask AI",
+                                tint = if (aiMode) MaterialTheme.colorScheme.onTertiaryContainer else LocalContentColor.current,
+                            )
+                        }
 
                         BadgedBox(
                             badge = {
@@ -220,7 +283,20 @@ fun EventsScreen(
                     )
                 }
 
-                PullToRefreshBox(
+                val aiSearch = data.aiSearch
+                if (aiSearch != null) {
+                    AiSearchResults(
+                        search = aiSearch,
+                        onRetry = { viewModel.runAiSearch(aiSearch.query) },
+                        onClose = {
+                            aiQuery = ""
+                            viewModel.clearAiSearch()
+                        },
+                        onPlayRecording = onPlayRecording,
+                        onOpenSnapshot = { snapshotEventId = it },
+                        modifier = Modifier.weight(1f),
+                    )
+                } else PullToRefreshBox(
                     isRefreshing = data.refreshing,
                     onRefresh = viewModel::load,
                     modifier = Modifier.weight(1f),
@@ -251,6 +327,139 @@ fun EventsScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiSearchResults(
+    search: AiSearchState,
+    onRetry: () -> Unit,
+    onClose: () -> Unit,
+    onPlayRecording: (Int) -> Unit,
+    onOpenSnapshot: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LazyColumn(
+        modifier = modifier,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item(key = "ai-search-header") {
+            AiSearchHeader(search = search, onClose = onClose)
+        }
+        when {
+            search.loading -> item(key = "ai-search-loading") {
+                Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+            search.error != null -> item(key = "ai-search-error") {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(
+                        search.error.orEmpty(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                    TextButton(onClick = onRetry) { Text("Try Again") }
+                }
+            }
+            search.results.isEmpty() -> item(key = "ai-search-empty") {
+                Text(
+                    "No described events match. Only events the AI model has described can be found this way.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                )
+            }
+            else -> items(search.results, key = { it.id }) { event ->
+                EventRow(event, onPlayRecording = onPlayRecording, onOpenSnapshot = onOpenSnapshot)
+            }
+        }
+    }
+}
+
+/** Shows how the server understood the question, so the user can rephrase. */
+@Composable
+private fun AiSearchHeader(search: AiSearchState, onClose: () -> Unit) {
+    val use24Hour = LocalUse24Hour.current
+    Surface(
+        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 4.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Icon(
+                Icons.Filled.AutoAwesome,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier.padding(top = 2.dp).size(18.dp),
+            )
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    "\u201C${search.query}\u201D",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                val interpretation = search.interpretation
+                if (interpretation != null) {
+                    val parts = buildList {
+                        if (interpretation.terms.isNotEmpty()) {
+                            val joiner = if (interpretation.relaxed) " or " else " + "
+                            add("Looking for " + interpretation.terms.joinToString(joiner) { group -> group.firstOrNull().orEmpty() })
+                        }
+                        interpretation.camera?.let { add("on $it") }
+                        if (interpretation.since != null || interpretation.until != null) {
+                            add(
+                                listOfNotNull(
+                                    interpretation.since?.let { "from ${formatTimestamp(it, use24Hour)}" },
+                                    interpretation.until?.let { "to ${formatTimestamp(it, use24Hour)}" },
+                                ).joinToString(" ")
+                            )
+                        }
+                    }
+                    if (parts.isNotEmpty()) {
+                        Text(
+                            parts.joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    val by = if (interpretation.interpretedBy == "model") "Understood by the AI model" else "Matched by keywords (AI model unavailable)"
+                    val count = if (search.loading) "" else " · ${search.results.size} result${if (search.results.size == 1) "" else "s"}"
+                    Text(
+                        by + count,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                    )
+                    if (interpretation.relaxed) {
+                        Text(
+                            "Nothing matched every term, so these match any of them.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                        )
+                    }
+                } else if (search.loading) {
+                    Text(
+                        "Searching AI descriptions…",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            IconButton(onClick = onClose) {
+                Icon(Icons.Filled.Close, contentDescription = "Close AI search")
             }
         }
     }
