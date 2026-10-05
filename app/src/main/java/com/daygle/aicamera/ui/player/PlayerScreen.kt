@@ -6,7 +6,11 @@ import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -58,6 +62,19 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
 import com.daygle.aicamera.R
+import com.daygle.aicamera.data.model.Recording
+import com.daygle.aicamera.data.model.aiDescription
+import com.daygle.aicamera.data.model.aiTags
+import com.daygle.aicamera.data.model.aiVerdict
+import com.daygle.aicamera.data.model.faceIdentities
+import com.daygle.aicamera.data.model.linkedEvents
+import com.daygle.aicamera.ui.LocalUse24Hour
+import com.daygle.aicamera.ui.components.AiDescriptionText
+import com.daygle.aicamera.ui.components.InsightChips
+import com.daygle.aicamera.ui.formatDetectionSummary
+import com.daygle.aicamera.ui.formatDuration
+import com.daygle.aicamera.ui.formatEventLabel
+import com.daygle.aicamera.ui.formatTimestamp
 import com.daygle.aicamera.ui.ForceLandscape
 import com.daygle.aicamera.ui.components.ErrorState
 
@@ -73,6 +90,7 @@ fun PlayerScreen(
     viewModel: PlayerViewModel = hiltViewModel()
 ) {
     val error by viewModel.error.collectAsStateWithLifecycle()
+    val details by viewModel.details.collectAsStateWithLifecycle()
     val player = viewModel.player
 
     var fullscreen by rememberSaveable { mutableStateOf(false) }
@@ -138,16 +156,95 @@ fun PlayerScreen(
                     .padding(padding),
                 color = MaterialTheme.colorScheme.surface
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                        .clip(RoundedCornerShape(24.dp))
-                        .aspectRatio(16f / 9f)
-                        .background(Color.Black),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    ZoomablePlayerSurface(player = player, modifier = Modifier.fillMaxSize())
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .aspectRatio(16f / 9f)
+                            .background(Color.Black),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        ZoomablePlayerSurface(player = player, modifier = Modifier.fillMaxSize())
+                    }
+                    details?.let { ClipDetails(it) }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * What happened in the clip: when and where, what was detected, and what the
+ * server's AI model made of it (description, tags, faces, alert verdict).
+ */
+@Composable
+private fun ClipDetails(recording: Recording) {
+    val use24Hour = LocalUse24Hour.current
+    val linked = remember(recording) { recording.linkedEvents() }
+    val description = remember(recording) { recording.aiDescription() }
+    val aiTags = remember(recording) { recording.aiTags() }
+    val faces = remember(recording) { recording.faceIdentities() }
+    val verdict = remember(recording) { linked.firstNotNullOfOrNull { it.aiVerdict() } }
+    val detections = remember(recording) {
+        (recording.detections + linked.flatMap { it.detections })
+            .filter { it.label.isNotBlank() }
+            .groupBy { it.label.lowercase() }
+            .map { (_, grouped) ->
+                // Keep the most confident entry, carrying over the motion share
+                // when only another copy recorded it.
+                val best = grouped.maxBy { it.confidence }
+                best.copy(motionFraction = best.motionFraction ?: grouped.mapNotNull { it.motionFraction }.maxOrNull())
+            }
+            .sortedByDescending { it.confidence }
+    }
+    val alerted = remember(recording) { linked.any { it.alerted } }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            formatEventLabel(recording.topLabel ?: "Recording"),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            listOfNotNull(
+                formatTimestamp(recording.startedAt, use24Hour),
+                recording.cameraId ?: recording.source,
+                recording.durationSeconds.takeIf { it > 0 }?.let { formatDuration(it) },
+                if (alerted) "Alert sent" else null,
+            ).joinToString(" · "),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (detections.isNotEmpty()) {
+            Text(
+                formatDetectionSummary(detections),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        InsightChips(aiTags = aiTags, faces = faces, verdict = verdict)
+        if (description?.text != null) {
+            Surface(
+                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.35f),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        "AI Description",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.tertiary,
+                    )
+                    AiDescriptionText(description.text, expandable = false)
                 }
             }
         }

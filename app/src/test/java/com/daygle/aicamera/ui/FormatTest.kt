@@ -45,4 +45,25 @@ class FormatTest {
         assertEquals("1:05", formatDuration(65.9))
         assertEquals("0:00", formatDuration(-3.0))
     }
+
+    @Test
+    fun formatMotionFraction_matchesServerPills() {
+        assertEquals("3.4%", formatMotionFraction(0.034))
+        assertEquals("<0.1%", formatMotionFraction(0.0004))
+        assertEquals("0.0%", formatMotionFraction(0.0))
+        assertEquals("42%", formatMotionFraction(0.42))
+        assertEquals("100%", formatMotionFraction(1.7))
+    }
+
+    @Test
+    fun formatDetectionSummary_showsMotionShareWhenKnown() {
+        val summary = formatDetectionSummary(
+            listOf(
+                com.daygle.aicamera.data.model.Detection("person", 0.92),
+                com.daygle.aicamera.data.model.Detection("motion", 1.0, motionFraction = 0.034),
+                com.daygle.aicamera.data.model.Detection("motion", 0.5),
+            )
+        )
+        assertEquals("Person (92%), Motion · 3.4%, Motion (50%)", summary)
+    }
 }

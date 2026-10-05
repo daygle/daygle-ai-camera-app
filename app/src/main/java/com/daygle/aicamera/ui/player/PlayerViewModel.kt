@@ -15,6 +15,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import com.daygle.aicamera.data.CameraRepository
+import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.util.FileDownloader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -34,6 +35,10 @@ class PlayerViewModel @Inject constructor(
 
     private val recordingId: Int = savedStateHandle.get<Int>("recordingId") ?: 0
 
+    /** Clip metadata (detections, AI description and tags, faces); null until loaded or if unavailable. */
+    private val _details = MutableStateFlow<Recording?>(null)
+    val details: StateFlow<Recording?> = _details.asStateFlow()
+
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
@@ -46,6 +51,15 @@ class PlayerViewModel @Inject constructor(
 
     init {
         preparePlayer()
+        loadDetails()
+    }
+
+    private fun loadDetails() {
+        if (recordingId <= 0) return
+        viewModelScope.launch {
+            // Best effort: playback works without the details panel.
+            repository.recording(recordingId).onSuccess { recording -> _details.value = recording }
+        }
     }
 
     /** Save the current recording's MP4 to the device's downloads. */

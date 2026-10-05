@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -29,6 +30,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
@@ -96,6 +99,16 @@ import coil3.compose.AsyncImage
 import com.daygle.aicamera.R
 import com.daygle.aicamera.data.model.Detection
 import com.daygle.aicamera.data.model.Event
+import com.daygle.aicamera.data.model.aiDescription
+import com.daygle.aicamera.data.model.aiVerdict
+import com.daygle.aicamera.data.model.faceIdentities
+import com.daygle.aicamera.data.model.FaceFacets
+import com.daygle.aicamera.ui.components.AiDescriptionText
+import com.daygle.aicamera.ui.library.FaceFilterChips
+import com.daygle.aicamera.ui.library.LoadMoreEffect
+import com.daygle.aicamera.ui.library.PagingFooter
+import com.daygle.aicamera.ui.components.InsightChips
+import com.daygle.aicamera.ui.formatDetectionSummary
 import com.daygle.aicamera.ui.components.EmptyState
 import com.daygle.aicamera.ui.components.ErrorState
 import com.daygle.aicamera.ui.components.LoadingState
@@ -128,6 +141,7 @@ fun SnapshotsScreen(
         val url = viewModel.snapshotUrl(eventId)
         SnapshotDialog(
             url = url,
+            event = (state as? SnapshotsUiState.Ready)?.data?.snapshots?.firstOrNull { it.id == eventId },
             onDismiss = { openEventId = null },
             onDownload = {
                 url?.let {
@@ -146,6 +160,8 @@ fun SnapshotsScreen(
             availableTriggerTypes = (state as? SnapshotsUiState.Ready)?.data?.availableTriggerTypes ?: emptyList(),
             availableObjectLabels = (state as? SnapshotsUiState.Ready)?.data?.availableObjectLabels ?: emptyList(),
             availableSoundLabels = (state as? SnapshotsUiState.Ready)?.data?.availableSoundLabels ?: emptyList(),
+            availableAiTags = (state as? SnapshotsUiState.Ready)?.data?.availableAiTags ?: emptyList(),
+            faceFacets = (state as? SnapshotsUiState.Ready)?.data?.faceFacets,
             cameraMap = (state as? SnapshotsUiState.Ready)?.data?.cameras?.associate { it.id to it.displayName } ?: emptyMap(),
             onDismiss = { showFilterSheet = false },
             viewModel = viewModel
@@ -180,7 +196,7 @@ fun SnapshotsScreen(
                             value = data.filter.query,
                             onValueChange = viewModel::setQuery,
                             modifier = Modifier.weight(1f),
-                            placeholder = { Text("Search snapshots...") },
+                            placeholder = { Text("Search snapshots, AI tags, faces…", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                             trailingIcon = {
                                 if (data.filter.query.isNotBlank()) {
@@ -269,9 +285,9 @@ fun SnapshotsScreen(
 
                 Spacer(Modifier.height(8.dp))
 
-                if (data.snapshots.size != data.filtered.size) {
+                if (activeFilterCount > 0 && !data.refreshing) {
                     Text(
-                        "${data.filtered.size} items",
+                        "${data.filtered.size}${if (data.hasMore) "+" else ""} matching snapshots",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(horizontal = 16.dp)
@@ -283,7 +299,7 @@ fun SnapshotsScreen(
                     onRefresh = viewModel::load,
                     modifier = Modifier.weight(1f),
                 ) {
-                    if (data.filtered.isEmpty()) {
+                    if (data.filtered.isEmpty() && !data.hasMore && !data.loadingMore && data.loadMoreError == null) {
                         EmptyState(
                             if (activeFilterCount > 0) "No snapshots match your filters." else "No snapshots on the server yet.",
                         )
@@ -295,6 +311,7 @@ fun SnapshotsScreen(
                             snapshotFlow { lazyListState.firstVisibleItemIndex }
                                 .collect { index -> viewModel.saveScrollIndex(index) }
                         }
+                        LoadMoreEffect(lazyListState, hasMore = data.hasMore, onLoadMore = viewModel::loadMore)
                         LazyColumn(
                             state = lazyListState,
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -306,6 +323,14 @@ fun SnapshotsScreen(
                                     event = event,
                                     url = eventUrl,
                                     onClick = { openEventId = event.id },
+                                )
+                            }
+                            item(key = "paging-footer") {
+                                PagingFooter(
+                                    loadingMore = data.loadingMore,
+                                    loadMoreError = data.loadMoreError,
+                                    hasMore = data.hasMore,
+                                    onLoadMore = viewModel::loadMore,
                                 )
                             }
                         }
@@ -325,6 +350,8 @@ private fun SnapshotsFilterSheet(
     availableTriggerTypes: List<String>,
     availableObjectLabels: List<String>,
     availableSoundLabels: List<String>,
+    availableAiTags: List<String>,
+    faceFacets: FaceFacets?,
     cameraMap: Map<String, String>,
     onDismiss: () -> Unit,
     viewModel: SnapshotsViewModel
@@ -511,6 +538,32 @@ private fun SnapshotsFilterSheet(
                 }
             }
 
+            if (faceFacets != null && (faceFacets.people.isNotEmpty() || faceFacets.unknown > 0)) {
+                FilterSection(title = "Faces", icon = Icons.Filled.Face) {
+                    FaceFilterChips(faces = faceFacets, selected = state.face, onSelect = viewModel::setFace)
+                }
+            }
+
+            if (availableAiTags.isNotEmpty()) {
+                FilterSection(title = "AI Tags", icon = Icons.Filled.AutoAwesome) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        availableAiTags.forEach { tag ->
+                            FilterChip(
+                                selected = tag in state.selectedLabels,
+                                onClick = { viewModel.toggleLabel(tag) },
+                                label = { Text(formatEventLabel(tag)) },
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
             Button(
                 onClick = onDismiss,
                 modifier = Modifier.fillMaxWidth(),
@@ -627,15 +680,17 @@ private fun SnapshotRow(
 
                 if (detectionsToShow.isNotEmpty()) {
                     Text(
-                        detectionsToShow.joinToString(", ") {
-                            "${formatEventLabel(it.label)} (${(it.confidence * 100).toInt()}%)"
-                        },
+                        formatDetectionSummary(detectionsToShow),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+                val description = remember(event) { event.aiDescription() }
+                val faces = remember(event) { event.faceIdentities() }
+                InsightChips(aiTags = description?.tags.orEmpty(), faces = faces, maxTags = 3)
+                AiDescriptionText(description?.text)
             }
             // Action buttons
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -688,6 +743,7 @@ private fun EventTypeBadge(mode: String) {
 @Composable
 private fun SnapshotDialog(
     url: String?,
+    event: Event?,
     onDismiss: () -> Unit,
     onDownload: () -> Unit
 ) {
@@ -736,6 +792,7 @@ private fun SnapshotDialog(
                         ),
                     )
                 },
+                bottomBar = { if (event != null) SnapshotDetails(event) },
             ) { padding ->
                 Surface(
                     modifier = Modifier
@@ -759,6 +816,43 @@ private fun SnapshotDialog(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * What the snapshot shows beyond the image: detections, the AI model's
+ * description and tags, recognised faces and the AI alert verdict.
+ */
+@Composable
+internal fun SnapshotDetails(event: Event) {
+    val description = remember(event) { event.aiDescription() }
+    val faces = remember(event) { event.faceIdentities() }
+    val verdict = remember(event) { event.aiVerdict() }
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                "${formatEventLabel(event.topLabel ?: "Snapshot")} · ${formatTimestamp(event.createdAt, LocalUse24Hour.current)}",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (event.detections.isNotEmpty()) {
+                Text(
+                    formatDetectionSummary(event.detections),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            InsightChips(aiTags = description?.tags.orEmpty(), faces = faces, verdict = verdict)
+            AiDescriptionText(description?.text, expandable = false)
         }
     }
 }

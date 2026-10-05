@@ -12,7 +12,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.History
@@ -41,7 +43,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.daygle.aicamera.data.model.FaceFacets
 import com.daygle.aicamera.ui.formatEventLabel
+import com.daygle.aicamera.ui.library.FaceFilterChips
 import java.time.Instant
 import java.time.ZoneId
 
@@ -54,6 +58,8 @@ internal fun EventsFilterSheet(
     availableSources: List<String>,
     availableObjectLabels: List<String>,
     availableSoundLabels: List<String>,
+    availableAiTags: List<String> = emptyList(),
+    faceFacets: FaceFacets? = null,
     cameraMap: Map<String, String>,
     onDismiss: () -> Unit,
     viewModel: EventsViewModel
@@ -249,6 +255,32 @@ internal fun EventsFilterSheet(
                                 selected = label in state.selectedLabels,
                                 onClick = { viewModel.toggleLabel(label) },
                                 label = { Text(formatEventLabel(label)) },
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (faceFacets != null && (faceFacets.people.isNotEmpty() || faceFacets.unknown > 0)) {
+                FilterSection(title = "Faces", icon = Icons.Filled.Face) {
+                    FaceFilterChips(faces = faceFacets, selected = state.face, onSelect = viewModel::setFace)
+                }
+            }
+
+            if (availableAiTags.isNotEmpty()) {
+                FilterSection(title = "AI Tags", icon = Icons.Filled.AutoAwesome) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        availableAiTags.forEach { tag ->
+                            FilterChip(
+                                selected = tag in state.selectedLabels,
+                                onClick = { viewModel.toggleLabel(tag) },
+                                label = { Text(formatEventLabel(tag)) },
                                 shape = RoundedCornerShape(12.dp)
                             )
                         }

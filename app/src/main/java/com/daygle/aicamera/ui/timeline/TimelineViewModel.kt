@@ -38,6 +38,8 @@ data class TimelineReady(
     val soundSegments: List<TimelineSegment>,
     val motionSegments: List<TimelineSegment>,
     val refreshing: Boolean = false,
+    /** Only clips that fired an alert are shown. */
+    val alertOnly: Boolean = false,
 )
 
 sealed interface TimelineUiState {
@@ -64,7 +66,13 @@ class TimelineViewModel @Inject constructor(
     private var selectedDate: LocalDate = LocalDate.now()
     private var startTime: LocalTime = LocalTime.MIN
     private var endTime: LocalTime = LocalTime.MAX
+    private var alertOnly: Boolean = false
     private var loadJob: Job? = null
+
+    // The last loaded day, kept so toggling Alert Only re-filters it locally
+    // instead of refetching (the server flags alerted clips per segment).
+    private var lastTimeline: TimelineResponse? = null
+    private var lastRecordings: List<Recording>? = null
 
     init {
         load()
@@ -79,6 +87,19 @@ class TimelineViewModel @Inject constructor(
         startTime = start
         endTime = end
         load()
+    }
+
+    fun setAlertOnly(value: Boolean) {
+        alertOnly = value
+        val rebuilt = lastTimeline?.let(::buildReady) ?: lastRecordings?.let(::buildReadyFromRecordings)
+        _state.update { current ->
+            when {
+                rebuilt != null && current is TimelineUiState.Ready ->
+                    TimelineUiState.Ready(rebuilt.copy(refreshing = current.data.refreshing))
+                current is TimelineUiState.Ready -> TimelineUiState.Ready(current.data.copy(alertOnly = value))
+                else -> current
+            }
+        }
     }
 
     fun load() {
@@ -107,12 +128,16 @@ class TimelineViewModel @Inject constructor(
             )
             val timeline = timelineResult.getOrNull()
             if (timeline != null) {
+                lastTimeline = timeline
+                lastRecordings = null
                 _state.value = TimelineUiState.Ready(buildReady(timeline))
             } else {
                 // Older server without the timeline endpoint: group full
                 // recordings client-side, preserving the previous behaviour.
                 val recordingsResult = repository.recordings()
                 if (recordingsResult.isSuccess) {
+                    lastTimeline = null
+                    lastRecordings = recordingsResult.getOrThrow()
                     _state.value = TimelineUiState.Ready(
                         buildReadyFromRecordings(recordingsResult.getOrThrow())
                     )
@@ -131,6 +156,7 @@ class TimelineViewModel @Inject constructor(
         val motions = mutableListOf<TimelineSegment>()
 
         timeline.recordings.forEach { dto ->
+            if (alertOnly && !dto.alerted) return@forEach
             val segment = dto.toSegment() ?: return@forEach
             if (!inTimeRange(segment.startMinute * 60f)) return@forEach
             when {
@@ -147,6 +173,7 @@ class TimelineViewModel @Inject constructor(
             objectSegments = objects,
             soundSegments = sounds,
             motionSegments = motions,
+            alertOnly = alertOnly,
         )
     }
 
@@ -157,6 +184,7 @@ class TimelineViewModel @Inject constructor(
         val motions = mutableListOf<TimelineSegment>()
 
         recordings.forEach { recording ->
+            if (alertOnly && recording.events.none { it.alerted }) return@forEach
             val startTs = parseTimestamp(recording.startedAt) ?: return@forEach
 
             // Normalize to the device's local zone so the day boundary, the
@@ -190,6 +218,7 @@ class TimelineViewModel @Inject constructor(
             objectSegments = objects,
             soundSegments = sounds,
             motionSegments = motions,
+            alertOnly = alertOnly,
         )
     }
 

@@ -24,6 +24,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FilterList
@@ -77,6 +79,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.daygle.aicamera.data.model.Detection
 import com.daygle.aicamera.data.model.Recording
+import com.daygle.aicamera.data.model.aiDescription
+import com.daygle.aicamera.data.model.aiTags
+import com.daygle.aicamera.data.model.faceIdentities
+import com.daygle.aicamera.data.model.FaceFacets
+import com.daygle.aicamera.ui.components.AiDescriptionText
+import com.daygle.aicamera.ui.library.FaceFilterChips
+import com.daygle.aicamera.ui.library.LoadMoreEffect
+import com.daygle.aicamera.ui.library.PagingFooter
+import com.daygle.aicamera.ui.components.InsightChips
+import com.daygle.aicamera.ui.formatDetectionSummary
 import com.daygle.aicamera.ui.components.EmptyState
 import com.daygle.aicamera.ui.components.ErrorState
 import com.daygle.aicamera.ui.components.LoadingState
@@ -108,6 +120,8 @@ fun RecordingsScreen(
             availableTriggerTypes = (state as? RecordingsUiState.Ready)?.data?.availableTriggerTypes ?: emptyList(),
             availableObjectLabels = (state as? RecordingsUiState.Ready)?.data?.availableObjectLabels ?: emptyList(),
             availableSoundLabels = (state as? RecordingsUiState.Ready)?.data?.availableSoundLabels ?: emptyList(),
+            availableAiTags = (state as? RecordingsUiState.Ready)?.data?.availableAiTags ?: emptyList(),
+            faceFacets = (state as? RecordingsUiState.Ready)?.data?.faceFacets,
             cameraMap = (state as? RecordingsUiState.Ready)?.data?.cameras?.associate { it.id to it.displayName } ?: emptyMap(),
             onDismiss = { showFilterSheet = false },
             viewModel = viewModel
@@ -138,7 +152,7 @@ fun RecordingsScreen(
                             value = data.filter.query,
                             onValueChange = viewModel::setQuery,
                             modifier = Modifier.weight(1f),
-                            placeholder = { Text("Search recordings...") },
+                            placeholder = { Text("Search recordings, AI tags, faces…", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                             trailingIcon = {
                                 if (data.filter.query.isNotBlank()) {
@@ -231,9 +245,9 @@ fun RecordingsScreen(
                 Spacer(Modifier.height(8.dp))
 
                 // List count status
-                if (data.recordings.size != data.filtered.size) {
+                if (activeFilterCount > 0 && !data.refreshing) {
                     Text(
-                        "${data.filtered.size} items",
+                        "${data.filtered.size}${if (data.hasMore) "+" else ""} matching recordings",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(horizontal = 16.dp)
@@ -246,7 +260,7 @@ fun RecordingsScreen(
                     onRefresh = viewModel::load,
                     modifier = Modifier.weight(1f),
                 ) {
-                    if (data.filtered.isEmpty()) {
+                    if (data.filtered.isEmpty() && !data.hasMore && !data.loadingMore && data.loadMoreError == null) {
                         EmptyState(
                             if (activeFilterCount > 0) "No recordings match your filters." else "No recordings on the server yet.",
                         )
@@ -258,6 +272,7 @@ fun RecordingsScreen(
                             snapshotFlow { lazyListState.firstVisibleItemIndex }
                                 .collect { index -> viewModel.saveScrollIndex(index) }
                         }
+                        LoadMoreEffect(lazyListState, hasMore = data.hasMore, onLoadMore = viewModel::loadMore)
                         LazyColumn(
                             state = lazyListState,
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -267,6 +282,14 @@ fun RecordingsScreen(
                                 RecordingRow(
                                     recording = recording,
                                     onPlay = { onPlay(recording.id) },
+                                )
+                            }
+                            item(key = "paging-footer") {
+                                PagingFooter(
+                                    loadingMore = data.loadingMore,
+                                    loadMoreError = data.loadMoreError,
+                                    hasMore = data.hasMore,
+                                    onLoadMore = viewModel::loadMore,
                                 )
                             }
                         }
@@ -286,6 +309,8 @@ private fun RecordingsFilterSheet(
     availableTriggerTypes: List<String>,
     availableObjectLabels: List<String>,
     availableSoundLabels: List<String>,
+    availableAiTags: List<String>,
+    faceFacets: FaceFacets?,
     cameraMap: Map<String, String>,
     onDismiss: () -> Unit,
     viewModel: RecordingsViewModel
@@ -478,6 +503,32 @@ private fun RecordingsFilterSheet(
                 }
             }
 
+            if (faceFacets != null && (faceFacets.people.isNotEmpty() || faceFacets.unknown > 0)) {
+                FilterSection(title = "Faces", icon = Icons.Filled.Face) {
+                    FaceFilterChips(faces = faceFacets, selected = state.face, onSelect = viewModel::setFace)
+                }
+            }
+
+            if (availableAiTags.isNotEmpty()) {
+                FilterSection(title = "AI Tags", icon = Icons.Filled.AutoAwesome) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        availableAiTags.forEach { tag ->
+                            FilterChip(
+                                selected = tag in state.selectedLabels,
+                                onClick = { viewModel.toggleLabel(tag) },
+                                label = { Text(formatEventLabel(tag)) },
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
             Button(
                 onClick = onDismiss,
                 modifier = Modifier.fillMaxWidth(),
@@ -515,6 +566,9 @@ private fun RecordingRow(
     val isSound = remember(recording) { recording.isSound() }
     val isMotion = remember(recording) { recording.isMotion() }
     val detectionsToShow = remember(recording) { recording.combinedDetections() }
+    val aiTags = remember(recording) { recording.aiTags() }
+    val faces = remember(recording) { recording.faceIdentities() }
+    val description = remember(recording) { recording.aiDescription() }
     Card(
         onClick = onPlay,
         enabled = recording.mediaReady,
@@ -558,15 +612,15 @@ private fun RecordingRow(
                     }
                     if (detectionsToShow.isNotEmpty()) {
                         Text(
-                            detectionsToShow.joinToString(", ") {
-                                "${formatEventLabel(it.label)} (${(it.confidence * 100).toInt()}%)"
-                            },
+                            formatDetectionSummary(detectionsToShow),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
+                    InsightChips(aiTags = aiTags, faces = faces, maxTags = 4)
+                    AiDescriptionText(description?.text)
                 }
             },
             leadingContent = {
@@ -654,7 +708,12 @@ private fun Recording.combinedDetections(): List<Detection> {
     return (detections + eventDetections + confidenceDetections)
         .filter { it.label.isNotBlank() }
         .groupBy { it.label.lowercase() }
-        .map { (_, grouped) -> grouped.maxBy { it.confidence } }
+        .map { (_, grouped) ->
+            // Keep the most confident entry, carrying over the motion share
+            // when only another copy recorded it.
+            val best = grouped.maxBy { it.confidence }
+            best.copy(motionFraction = best.motionFraction ?: grouped.mapNotNull { it.motionFraction }.maxOrNull())
+        }
         .sortedByDescending { it.confidence }
 }
 

@@ -29,6 +29,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,10 +39,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.daygle.aicamera.data.model.Detection
 import com.daygle.aicamera.data.model.Event
+import com.daygle.aicamera.data.model.aiDescription
+import com.daygle.aicamera.data.model.aiVerdict
+import com.daygle.aicamera.data.model.faceIdentities
+import com.daygle.aicamera.ui.components.AiDescriptionText
+import com.daygle.aicamera.ui.components.InsightChips
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import com.daygle.aicamera.ui.LocalUse24Hour
+import com.daygle.aicamera.ui.formatDetectionSummary
 import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatTimestamp
 
@@ -65,6 +72,10 @@ internal fun EventRow(
     } else {
         event.detections
     }
+
+    val description = remember(event) { event.aiDescription() }
+    val faces = remember(event) { event.faceIdentities() }
+    val verdict = remember(event) { event.aiVerdict() }
 
     Card(
         onClick = {
@@ -122,9 +133,7 @@ internal fun EventRow(
                     }
                     if (detectionsToShow.isNotEmpty()) {
                         Text(
-                            detectionsToShow.joinToString(", ") {
-                                "${formatEventLabel(it.label)} (${(it.confidence * 100).toInt()}%)"
-                            },
+                            formatDetectionSummary(detectionsToShow),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                             maxLines = 1,
@@ -140,6 +149,13 @@ internal fun EventRow(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
+                    InsightChips(
+                        aiTags = description?.tags.orEmpty(),
+                        faces = faces,
+                        verdict = verdict,
+                        maxTags = 4,
+                    )
+                    AiDescriptionText(description?.text)
                 }
             },
             leadingContent = {

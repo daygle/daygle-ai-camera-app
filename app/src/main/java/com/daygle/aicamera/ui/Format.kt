@@ -2,6 +2,7 @@ package com.daygle.aicamera.ui
 
 import android.text.format.DateFormat
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.daygle.aicamera.data.model.Detection
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.data.model.TimelineSegmentDto
 import java.time.LocalDateTime
@@ -152,3 +153,28 @@ fun formatDuration(seconds: Double): String {
     val secs = total % 60
     return String.format(Locale.getDefault(), "%d:%02d", minutes, secs)
 }
+
+/**
+ * Changed-pixel share as a percentage, matching the server's motion pills:
+ * one decimal below 10% (small moves are the common case), whole numbers above.
+ */
+fun formatMotionFraction(fraction: Double): String {
+    val percent = fraction.coerceIn(0.0, 1.0) * 100
+    if (percent > 0 && percent < 0.1) return "<0.1%"
+    return if (percent < 10) String.format(Locale.US, "%.1f%%", percent) else "${Math.round(percent)}%"
+}
+
+/**
+ * One-line detection summary, e.g. "Person (92%), Motion · 3.4%". Motion shows
+ * the share of the zone that changed when the server recorded it, since its
+ * confidence is capped at 100% for most movement.
+ */
+fun formatDetectionSummary(detections: List<Detection>): String =
+    detections.joinToString(", ") { detection ->
+        val fraction = detection.motionFraction
+        if (fraction != null && isMotionLabel(detection.label)) {
+            "${formatEventLabel(detection.label)} · ${formatMotionFraction(fraction)}"
+        } else {
+            "${formatEventLabel(detection.label)} (${(detection.confidence * 100).toInt()}%)"
+        }
+    }

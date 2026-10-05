@@ -43,6 +43,9 @@ data class CameraHealthState(
 data class Detection(
     val label: String = "",
     val confidence: Double = 0.0,
+    @SerialName("zone_name") val zoneName: String? = null,
+    // Share (0-1) of the zone's pixels that changed, on motion detections.
+    @SerialName("motion_fraction") val motionFraction: Double? = null,
 )
 
 /**
@@ -130,6 +133,11 @@ data class Recording(
     val labels: List<String> = emptyList(),
     val detections: List<Detection> = emptyList(),
     @SerialName("label_confidences") val labelConfidences: Map<String, Double> = emptyMap(),
+    // Objects the server's vision model tagged on this clip, kept apart from
+    // detector [labels] (recording_labels rows with source='ai').
+    @SerialName("ai_labels") val aiLabels: List<String> = emptyList(),
+    // The event that started the clip, carrying its AI description and faces.
+    val event: Event? = null,
     // Every event that occurred during this clip (recording : events = 1:many).
     val events: List<Event> = emptyList(),
 ) {
@@ -151,6 +159,8 @@ data class TimelineSegmentDto(
     @SerialName("trigger_type") val triggerType: String? = null,
     @SerialName("trigger_label") val triggerLabel: String? = null,
     val labels: List<String> = emptyList(),
+    // True when the clip fired an alert (servers that predate the flag omit it).
+    val alerted: Boolean = false,
     @SerialName("timeline_start_seconds") val timelineStartSeconds: Double = 0.0,
     @SerialName("timeline_end_seconds") val timelineEndSeconds: Double = 0.0,
     @SerialName("timeline_duration_seconds") val timelineDurationSeconds: Double = 0.0,
