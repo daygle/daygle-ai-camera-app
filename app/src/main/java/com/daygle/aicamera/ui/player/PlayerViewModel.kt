@@ -16,6 +16,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.model.Recording
+import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.util.FileDownloader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -39,6 +40,10 @@ class PlayerViewModel @Inject constructor(
     private val _details = MutableStateFlow<Recording?>(null)
     val details: StateFlow<Recording?> = _details.asStateFlow()
 
+    /** Camera id -> display name lookup, populated once cameras are loaded. */
+    private val _cameraNames = MutableStateFlow<Map<String, String>>(emptyMap())
+    val cameraNames: StateFlow<Map<String, String>> = _cameraNames.asStateFlow()
+
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
@@ -52,6 +57,16 @@ class PlayerViewModel @Inject constructor(
     init {
         preparePlayer()
         loadDetails()
+        loadCameraNames()
+    }
+
+    /** Best-effort camera name lookup; playback works without it. */
+    private fun loadCameraNames() {
+        viewModelScope.launch {
+            repository.cameras().onSuccess { cameras ->
+                _cameraNames.value = cameras.associate { it.id to it.displayName }
+            }
+        }
     }
 
     private fun loadDetails() {

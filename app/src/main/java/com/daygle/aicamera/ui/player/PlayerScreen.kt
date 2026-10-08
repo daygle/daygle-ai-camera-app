@@ -91,6 +91,7 @@ fun PlayerScreen(
 ) {
     val error by viewModel.error.collectAsStateWithLifecycle()
     val details by viewModel.details.collectAsStateWithLifecycle()
+    val cameraNames by viewModel.cameraNames.collectAsStateWithLifecycle()
     val player = viewModel.player
 
     var fullscreen by rememberSaveable { mutableStateOf(false) }
@@ -168,7 +169,7 @@ fun PlayerScreen(
                     ) {
                         ZoomablePlayerSurface(player = player, modifier = Modifier.fillMaxSize())
                     }
-                    details?.let { ClipDetails(it) }
+                    details?.let { ClipDetails(it, cameraNames) }
                 }
             }
         }
@@ -180,7 +181,7 @@ fun PlayerScreen(
  * server's AI model made of it (description, tags, faces, alert verdict).
  */
 @Composable
-private fun ClipDetails(recording: Recording) {
+private fun ClipDetails(recording: Recording, cameraNames: Map<String, String>) {
     val use24Hour = LocalUse24Hour.current
     val linked = remember(recording) { recording.linkedEvents() }
     val description = remember(recording) { recording.aiDescription() }
@@ -200,6 +201,7 @@ private fun ClipDetails(recording: Recording) {
             .sortedByDescending { it.confidence }
     }
     val alerted = remember(recording) { linked.any { it.alerted } }
+    val cameraName = recording.cameraId?.let { cameraNames[it] }
 
     Column(
         modifier = Modifier
@@ -216,7 +218,7 @@ private fun ClipDetails(recording: Recording) {
         Text(
             listOfNotNull(
                 formatTimestamp(recording.startedAt, use24Hour),
-                recording.cameraId ?: recording.source,
+                cameraName ?: recording.cameraId ?: recording.source,
                 recording.durationSeconds.takeIf { it > 0 }?.let { formatDuration(it) },
                 if (alerted) "Alert sent" else null,
             ).joinToString(" · "),
@@ -251,11 +253,7 @@ private fun ClipDetails(recording: Recording) {
     }
 }
 
-/**
- * Immersive full-screen playback. Hides the system bars while active and fills
- * the display; the Media3 transport controls and pinch-to-zoom remain available.
- * Exits on back press or the on-screen control; system bars are restored on dispose.
- */
+/** ... (FullscreenPlayer and ZoomablePlayerSurface unchanged) */
 @Composable
 private fun FullscreenPlayer(
     player: Player,
@@ -307,14 +305,7 @@ private fun FullscreenPlayer(
     }
 }
 
-/**
- * ExoPlayer video surface with digital pinch-to-zoom. The [PlayerView] is inflated
- * with a TextureView surface (see res/layout/view_zoomable_player.xml) so the video
- * follows the [graphicsLayer] transform. Only transform gestures are handled here -
- * no tap detector - so single taps still reach the Media3 controller (play/pause,
- * scrub, show/hide). Zoom is clamped and panning is kept within the view bounds;
- * pinching back to 1x recenters.
- */
+/** ... (ZoomablePlayerSurface unchanged) */
 @Composable
 private fun ZoomablePlayerSurface(
     player: Player,
