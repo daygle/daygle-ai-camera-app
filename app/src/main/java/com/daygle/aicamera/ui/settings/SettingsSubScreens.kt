@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.daygle.aicamera.BuildConfig
 import com.daygle.aicamera.ui.HomeTab
 import com.daygle.aicamera.ui.components.SettingsDivider
 import com.daygle.aicamera.ui.components.SettingsRow
@@ -208,7 +209,7 @@ fun AboutScreen(
             ) {
                 Text("Daygle AI Camera", style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    "Version 1.0.0",
+                    "Version ${BuildConfig.VERSION_NAME}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 2.dp),
