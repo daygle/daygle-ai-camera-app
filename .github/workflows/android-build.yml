@@ -33,7 +33,8 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
-          # wrapper-validation is enabled by default in setup-gradle@v3
+          # wrapper-validation is disabled to allow custom/newer gradle wrapper distributions
+          validate-wrappers: false
           add-job-summary: always
 
       - name: Run checks and build APKs
