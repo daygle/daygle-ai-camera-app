@@ -14,12 +14,15 @@ android {
     }
     compileSdk = 37
 
+    val gitVersionName = System.getenv("VERSION_NAME") ?: project.findProperty("VERSION_NAME") as? String ?: "1.0.0"
+    val gitVersionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: (project.findProperty("VERSION_CODE") as? String)?.toIntOrNull() ?: 1
+
     defaultConfig {
         applicationId = "com.daygle.aicamera"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = gitVersionCode
+        versionName = gitVersionName
 
         vectorDrawables {
             useSupportLibrary = true

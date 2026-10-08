@@ -1,15 +1,17 @@
-name: Android CI
+name: Android CI & Release
 
 on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
   pull_request:
     branches:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: android-ci-${{ github.workflow }}-${{ github.ref }}
@@ -17,7 +19,7 @@ concurrency:
 
 jobs:
   build:
-    name: Validate and build Android app
+    name: Validate, build, and release Android app
     runs-on: ubuntu-latest
 
     steps:
@@ -33,17 +35,31 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
-          # wrapper-validation is disabled to allow custom/newer gradle wrapper distributions
           validate-wrappers: false
           add-job-summary: always
 
+      - name: Extract Version from Tag / Run
+        id: get_version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION="1.0.0-${{ github.run_number }}"
+          fi
+          echo "VERSION_NAME=$VERSION" >> $GITHUB_ENV
+          echo "VERSION_CODE=${{ github.run_number }}" >> $GITHUB_ENV
+          echo "Building version: $VERSION (Code: ${{ github.run_number }})"
+
       - name: Run checks and build APKs
+        env:
+          VERSION_NAME: ${{ env.VERSION_NAME }}
+          VERSION_CODE: ${{ env.VERSION_CODE }}
         run: ./gradlew lintDebug testDebugUnitTest assembleDebug assembleRelease --warning-mode=all --stacktrace
 
-      - name: Upload APKs
+      - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: DaygleAICamera-apks
+          name: DaygleAICamera-apks-${{ env.VERSION_NAME }}
           path: app/build/outputs/apk/**/*.apk
           if-no-files-found: error
           retention-days: 14
@@ -58,3 +74,12 @@ jobs:
             app/build/test-results/**
           if-no-files-found: ignore
           retention-days: 14
+
+      - name: Release APKs on Tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/apk/**/*.apk
+          generate-release-notes: true
+          draft: false
+          prerelease: false
