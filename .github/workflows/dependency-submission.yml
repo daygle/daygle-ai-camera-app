@@ -1,0 +1,36 @@
+name: Dependency Submission
+
+# Replaces GitHub's automatic dependency submission (disabled in repo settings).
+# The buildscript/plugin classpath is excluded from the graph: packages resolved
+# there (Android Gradle Plugin tooling such as bouncycastle, jose4j, jdom2,
+# commons-lang3, httpclient) are build-only transitive dependencies that are not
+# declared in any manifest, so Dependabot can never update them and its
+# security-update jobs fail daily with `dependency_not_found`.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  dependency-submission:
+    name: Submit Gradle dependency graph
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Generate and submit dependency graph
+        uses: gradle/actions/dependency-submission@v6
+        with:
+          dependency-graph-exclude-configurations: classpath

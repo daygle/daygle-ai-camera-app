@@ -16,6 +16,17 @@ updates:
     commit-message:
       prefix: "gradle"
       include: "scope"
+    # Build-only transitive dependencies resolved on the Gradle buildscript
+    # classpath (children of the Android Gradle Plugin and its tooling). They
+    # are not declared in any manifest, so Dependabot cannot update them and
+    # security-update jobs targeting them fail with `dependency_not_found`.
+    ignore:
+      - dependency-name: "org.apache.commons:commons-lang3"
+      - dependency-name: "org.apache.httpcomponents:httpclient"
+      - dependency-name: "org.bitbucket.b_c:jose4j"
+      - dependency-name: "org.bouncycastle:bcpkix-jdk18on"
+      - dependency-name: "org.bouncycastle:bcprov-jdk18on"
+      - dependency-name: "org.jdom:jdom2"
     groups:
       compose:
         patterns:
