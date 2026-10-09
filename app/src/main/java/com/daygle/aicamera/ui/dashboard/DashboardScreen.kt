@@ -1,6 +1,7 @@
 package com.daygle.aicamera.ui.dashboard
 
 import android.app.Activity
+import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -91,6 +92,18 @@ fun DashboardScreen(
 
     // Keep polling while visible; stop while backgrounded or covered by another screen.
     LifecycleResumeEffect(onPause = viewModel::pause, onResume = viewModel::resume)
+
+    // Keep the display awake while the live page is in front - both the camera
+    // grid and the full-screen view show a live feed that shouldn't time out
+    // mid-watch. Cleared when another tab replaces this screen.
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        DisposableEffect(Unit) {
+            val window = (view.context as? Activity)?.window
+            window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+        }
+    }
 
     // The camera currently expanded into the full-screen live view (null = grid).
     var selectedCameraId by remember { mutableStateOf<String?>(null) }
@@ -247,7 +260,8 @@ private fun LiveThumbnail(snapshotUrl: String?) {
  * tile is tapped. Hides the system bars while active, fills the display with the
  * selected camera's feed, supports pinch-to-zoom / pan / double-tap-to-zoom and
  * play-pause, and exits on back press or the close control. System bars are
- * restored on dispose.
+ * restored on dispose. The display itself is kept awake by [DashboardScreen]
+ * while this page is in front.
  */
 @Composable
 private fun FullscreenCameraView(
