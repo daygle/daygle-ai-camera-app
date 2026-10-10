@@ -55,7 +55,8 @@ The server uses browser-style **session-cookie authentication with a CSRF token*
 Daygle uses [ntfy](https://ntfy.sh) for secure, real-time alerts without relying on cloud push infrastructure (FCM/Firebase).
 
 - **Instant Delivery**: The app subscribes to your server's ntfy topic via a lightweight foreground service.
-- **Auto-Config**: Tap the **bell icon** → **Auto-fill from server** to instantly sync your ntfy settings from your Daygle dashboard.
+- **Server-Managed**: By default (**Use Server's Settings**) the ntfy server and topic come from your Daygle dashboard and are re-read every time the app opens, so changing them on the server is enough. Turn it off to enter them by hand, e.g. when the server's ntfy address is only reachable on its own network.
+- **Tap to Open**: Tapping an alert opens the event that triggered it (the server tags each alert with its event id).
 - **Persistence**: A WorkManager-backed keep-alive ensures you never miss an alert, even if Android restarts the background service.
 
 ---

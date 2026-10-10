@@ -21,6 +21,8 @@ data class NotificationsUiState(
     val topic: String = "",
     val username: String = "",
     val password: String = "",
+    /** The ntfy server and topic follow the Daygle server's push settings. */
+    val followServer: Boolean = true,
     val discovering: Boolean = false,
     val message: String? = null,
 ) {
@@ -47,9 +49,20 @@ class NotificationsViewModel @Inject constructor(
                     topic = config.topic,
                     username = config.username,
                     password = config.password,
+                    followServer = config.followServer != false,
                 )
             }
         }
+    }
+
+    /**
+     * Switch between following the server's push settings and entering them
+     * by hand. Turning it on reads them from the server straight away; either
+     * way the choice is kept by the next save.
+     */
+    fun setFollowServer(follow: Boolean) {
+        _state.update { it.copy(followServer = follow, message = null) }
+        if (follow) autofillFromServer()
     }
 
     fun onServerUrl(value: String) = _state.update { it.copy(serverUrl = value, message = null) }
@@ -58,7 +71,7 @@ class NotificationsViewModel @Inject constructor(
     fun onPassword(value: String) = _state.update { it.copy(password = value, message = null) }
 
     /** Pull the ntfy server/topic (and credentials, if the account is admin) from the server. */
-    fun autofillFromServer() {
+    private fun autofillFromServer() {
         _state.update { it.copy(discovering = true, message = null) }
         viewModelScope.launch {
             repository.pushSettings()
@@ -96,6 +109,7 @@ class NotificationsViewModel @Inject constructor(
             topic = s.topic,
             username = s.username,
             password = s.password,
+            followServer = s.followServer,
         )
         _state.update { it.copy(enabled = config.enabled) }
         viewModelScope.launch {

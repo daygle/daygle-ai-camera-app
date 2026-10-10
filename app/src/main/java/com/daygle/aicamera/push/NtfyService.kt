@@ -205,9 +205,10 @@ class NtfyService : Service() {
         val title = message.title?.takeIf { it.isNotBlank() } ?: "Camera alert"
         val text = message.message?.takeIf { it.isNotBlank() } ?: "A detection alert was triggered."
 
-        // The Daygle server embeds the triggering event's id in the alert body
-        // ("Event ID: 123"). Carry it through the tap intent so tapping the
-        // notification opens that event's annotated snapshot directly.
+        // The Daygle server names the triggering event in an ntfy tag
+        // ("daygle-event-123"; older servers only in the body text). Carry it
+        // through the tap intent so tapping the notification opens that
+        // event's annotated snapshot directly.
         val eventId = eventIdFrom(message)
         // Derive the id from ntfy's unique message id so a restarted service
         // (whose counter starts over) doesn't replace alerts still on screen.
@@ -365,7 +366,7 @@ internal fun streamUrl(config: NotificationConfig): HttpUrl? {
 }
 
 @Serializable
-private data class NtfyMessage(
+internal data class NtfyMessage(
     val id: String? = null,
     val time: Long = 0,
     val event: String? = null,
@@ -373,10 +374,19 @@ private data class NtfyMessage(
     val message: String? = null,
     val title: String? = null,
     val priority: Int = 3,
+    val tags: List<String> = emptyList(),
 )
+
+/** ntfy tag the Daygle server puts on detection alerts, e.g. `daygle-event-123`. */
+private const val EVENT_TAG_PREFIX = "daygle-event-"
 
 private val EVENT_ID_PATTERN = Regex("""Event\s*ID\s*[:=]\s*(\d+)""", RegexOption.IGNORE_CASE)
 
-/** Extract the Daygle event id from an alert body (e.g. "Event ID: 123"). */
-private fun eventIdFrom(message: NtfyMessage): Int? =
-    message.message?.let { EVENT_ID_PATTERN.find(it)?.groupValues?.get(1)?.toIntOrNull() }
+/**
+ * The Daygle event an alert is about: from its `daygle-event-<id>` tag, or,
+ * for servers that predate the tag, the "Event ID: 123" line in its body.
+ */
+internal fun eventIdFrom(message: NtfyMessage): Int? =
+    message.tags.firstNotNullOfOrNull { tag ->
+        tag.trim().takeIf { it.startsWith(EVENT_TAG_PREFIX) }?.removePrefix(EVENT_TAG_PREFIX)?.toIntOrNull()
+    } ?: message.message?.let { EVENT_ID_PATTERN.find(it)?.groupValues?.get(1)?.toIntOrNull() }

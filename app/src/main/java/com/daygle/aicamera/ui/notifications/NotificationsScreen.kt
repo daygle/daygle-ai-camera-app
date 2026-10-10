@@ -118,26 +118,17 @@ fun NotificationsScreen(
 
             // Configuration Section
             SettingsSection(title = "Connection Details", icon = Icons.Filled.Dns) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(
-                        onClick = viewModel::autofillFromServer,
-                        enabled = !state.discovering,
-                    ) {
-                        if (state.discovering) {
-                            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                        } else {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Icon(Icons.Filled.AutoAwesome, null, Modifier.size(16.dp))
-                                Text("Auto-Fill")
-                            }
-                        }
-                    }
-                }
+                SettingsSwitchRow(
+                    title = "Use Server's Settings",
+                    subtitle = when {
+                        state.discovering -> "Reading push settings from the server…"
+                        state.followServer -> "The ntfy server and topic come from your Daygle server and update each time the app opens."
+                        else -> "Enter the ntfy server and topic by hand, e.g. when the server's ntfy address isn't reachable from this phone."
+                    },
+                    checked = state.followServer,
+                    enabled = !state.discovering,
+                    onCheckedChange = viewModel::setFollowServer,
+                )
 
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -147,6 +138,7 @@ fun NotificationsScreen(
                         value = state.serverUrl,
                         onValueChange = viewModel::onServerUrl,
                         label = { Text("Ntfy Server URL") },
+                        enabled = !state.followServer,
                         placeholder = { Text("https://ntfy.sh") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
@@ -161,6 +153,7 @@ fun NotificationsScreen(
                         value = state.topic,
                         onValueChange = viewModel::onTopic,
                         label = { Text("Topic") },
+                        enabled = !state.followServer,
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                         modifier = Modifier.fillMaxWidth(),
