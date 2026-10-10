@@ -54,9 +54,8 @@ fun HomeScreen(
     
     var isDashboardFullscreen by remember { mutableStateOf(false) }
 
-    val context = androidx.compose.ui.platform.LocalContext.current
     androidx.compose.runtime.LaunchedEffect(Unit) {
-        com.daygle.aicamera.push.PushController.sync(context)
+        viewModel.syncPush()
     }
 
     Scaffold(
