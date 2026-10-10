@@ -23,6 +23,12 @@ coil = "3.6.3"
 media3 = "1.11.1"
 work = "2.12.0"
 junit = "4.13.2"
+# Patched versions of libraries pulled in by Android Lint (see build.gradle.kts).
+bouncycastle = "1.86"
+commonsLang3 = "3.21.0"
+httpclient = "4.5.14"
+jdom2 = "2.0.6.1"
+jose4j = "0.9.7"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -61,6 +67,15 @@ hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-com
 androidx-compose-material3-adaptive = { group = "androidx.compose.material3.adaptive", name = "adaptive", version.ref = "adaptive" }
 androidx-compose-material3-adaptive-layout = { group = "androidx.compose.material3.adaptive", name = "adaptive-layout", version.ref = "adaptive" }
 androidx-compose-material3-adaptive-navigation = { group = "androidx.compose.material3.adaptive", name = "adaptive-navigation", version.ref = "adaptive" }
+
+# Not app dependencies: patched versions forced onto Android Lint's classpath (see build.gradle.kts).
+patched-bcpkix = { group = "org.bouncycastle", name = "bcpkix-jdk18on", version.ref = "bouncycastle" }
+patched-bcprov = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
+patched-bcutil = { group = "org.bouncycastle", name = "bcutil-jdk18on", version.ref = "bouncycastle" }
+patched-commons-lang3 = { group = "org.apache.commons", name = "commons-lang3", version.ref = "commonsLang3" }
+patched-httpclient = { group = "org.apache.httpcomponents", name = "httpclient", version.ref = "httpclient" }
+patched-jdom2 = { group = "org.jdom", name = "jdom2", version.ref = "jdom2" }
+patched-jose4j = { group = "org.bitbucket.b_c", name = "jose4j", version.ref = "jose4j" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
