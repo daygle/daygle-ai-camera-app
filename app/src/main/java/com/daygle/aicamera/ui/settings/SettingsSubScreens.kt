@@ -144,7 +144,10 @@ fun NavigationSettingsScreen(
 
     SettingsSubScaffold(title = "Navigation", onBack = onBack, modifier = modifier) {
         SettingsSection(title = "Tabs", icon = Icons.Filled.Dashboard) {
-            HomeTab.entries.forEachIndexed { index, tab ->
+            // Shown tabs in their saved order (so a move is visible at once),
+            // then the hidden ones.
+            val rows = state.navItems + HomeTab.entries.filterNot { it in state.navItems }
+            rows.forEachIndexed { index, tab ->
                 val isActive = state.navItems.contains(tab)
                 val currentIndex = state.navItems.indexOf(tab)
 
@@ -187,7 +190,7 @@ fun NavigationSettingsScreen(
                         modifier = Modifier.scale(0.8f),
                     )
                 }
-                if (index < HomeTab.entries.size - 1) SettingsDivider()
+                if (index < rows.size - 1) SettingsDivider()
             }
         }
     }
