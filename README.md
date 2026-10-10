@@ -87,16 +87,7 @@ For environments requiring specific HTTP headers (like proxy API keys), configur
 ```
 
 ### Releases
-Pushing a `vMAJOR.MINOR.PATCH` tag (e.g. `v1.2.3`, or `v1.3.0-beta.1` for a pre-release) builds, tests and publishes the release APK to GitHub Releases. The `versionCode` is derived from the tag (`v1.2.3` → `1002003`) so it always increases.
-
-To produce an installable, signed APK, add these repository secrets (otherwise the APK is published unsigned):
-
-| Secret | Value |
-| --- | --- |
-| `RELEASE_KEYSTORE_BASE64` | The upload keystore, base64-encoded (`base64 -w0 release.keystore`) |
-| `RELEASE_KEYSTORE_PASSWORD` | Keystore password |
-| `RELEASE_KEY_ALIAS` | Key alias |
-| `RELEASE_KEY_PASSWORD` | Key password |
+Pushing a `vMAJOR.MINOR.PATCH` tag (e.g. `v1.2.3`, or `v1.3.0-beta.1` for a pre-release) runs the unit tests, builds the debug APK and publishes it to GitHub Releases as `DaygleAICamera-<version>-debug.apk`. The `versionCode` is derived from the tag (`v1.2.3` → `1002003`) so it always increases.
 
 ---
 

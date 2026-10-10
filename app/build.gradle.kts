@@ -29,25 +29,8 @@ android {
         }
     }
 
-    // Release signing is supplied by CI (see .github/workflows/release.yml); without it
-    // assembleRelease produces an unsigned APK.
-    val releaseKeystore = System.getenv("RELEASE_KEYSTORE_FILE")?.let { file(it) }?.takeIf { it.exists() }
-    signingConfigs {
-        if (releaseKeystore != null) {
-            create("release") {
-                storeFile = releaseKeystore
-                storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("RELEASE_KEY_ALIAS")
-                keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
-            }
-        }
-    }
-
     buildTypes {
         release {
-            if (releaseKeystore != null) {
-                signingConfig = signingConfigs.getByName("release")
-            }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

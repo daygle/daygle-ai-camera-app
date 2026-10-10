@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   release:
-    name: Build Release APK and Publish to GitHub Releases
+    name: Build debug APK and publish to GitHub Releases
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -61,43 +61,24 @@ jobs:
           } >> "$GITHUB_ENV"
           echo "Releasing version $VERSION (versionCode $VERSION_CODE, prerelease $PRERELEASE)"
 
-      # Sign with the upload keystore when the repository secrets are configured.
-      # Without them the APK is unsigned and Android will refuse to install it.
-      - name: Decode signing keystore
-        env:
-          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
-        run: |
-          if [[ -z "$RELEASE_KEYSTORE_BASE64" ]]; then
-            echo "::warning::RELEASE_KEYSTORE_BASE64 secret is not set; the release APK will be unsigned and cannot be installed."
-            exit 0
-          fi
-          KEYSTORE="$RUNNER_TEMP/release.keystore"
-          echo "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
-          echo "RELEASE_KEYSTORE_FILE=$KEYSTORE" >> "$GITHUB_ENV"
+      - name: Test and build debug APK
+        run: ./gradlew testDebugUnitTest assembleDebug --warning-mode=all --stacktrace
 
-      - name: Test and build release APK
-        env:
-          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
-          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
-          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-        run: ./gradlew testReleaseUnitTest assembleRelease --warning-mode=all --stacktrace
+      - name: Name APK after the version
+        run: mv app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/DaygleAICamera-$VERSION_NAME-debug.apk"
 
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v7
         with:
           name: DaygleAICamera-apks-${{ env.VERSION_NAME }}
-          path: app/build/outputs/apk/release/*.apk
+          path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
 
       - name: Create GitHub Release and Upload APKs
         uses: softprops/action-gh-release@v3
         with:
-          files: app/build/outputs/apk/release/*.apk
+          files: app/build/outputs/apk/debug/*.apk
           generate_release_notes: true
           draft: false
           prerelease: ${{ env.PRERELEASE }}
-
-      - name: Remove signing keystore
-        if: always()
-        run: rm -f "$RUNNER_TEMP/release.keystore"
