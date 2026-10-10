@@ -46,6 +46,44 @@ class LibraryPagerTest {
     }
 
     @Test
+    fun replaceSwapsLoadedRowsInPlaceAndIgnoresUnknownOnes() {
+        val pager = LibraryPager<Pair<Int, String>>(scope, idOf = { it.first }) {}
+        pager.reload({ Result.success(Page(listOf(1 to "old", 2 to "old", 3 to "old"))) })
+        pager.replace(listOf(2 to "new", 9 to "new"))
+        assertEquals(listOf(1 to "old", 2 to "new", 3 to "old"), pager.snapshot.items)
+    }
+
+    @Test
+    fun refreshStaleSwapsInFreshCopiesOfStaleRowsOnly() {
+        val pager = LibraryPager<Pair<Int, String>>(scope, idOf = { it.first }) {}
+        pager.reload({ Result.success(Page(listOf(1 to "ready", 2 to "preparing", 3 to "preparing"))) })
+        val fetched = mutableListOf<Int>()
+        pager.refreshStale(
+            isStale = { it.second == "preparing" },
+            fetchOne = { id -> fetched += id; if (id == 3) Result.failure(IOException()) else Result.success(id to "ready") },
+            delayMs = 0,
+        )
+        assertEquals(listOf(2, 3), fetched)
+        // A failed fetch keeps the old row.
+        assertEquals(listOf(1 to "ready", 2 to "ready", 3 to "preparing"), pager.snapshot.items)
+    }
+
+    @Test
+    fun refreshStaleGivesUpOnARowThatNeverBecomesReady() {
+        val pager = LibraryPager<Pair<Int, String>>(scope, idOf = { it.first }) {}
+        pager.reload({ Result.success(Page(listOf(1 to "preparing"))) })
+        var fetches = 0
+        repeat(LibraryPager.MAX_STALE_CHECKS + 5) {
+            pager.refreshStale(
+                isStale = { it.second == "preparing" },
+                fetchOne = { id -> fetches++; Result.success(id to "preparing") },
+                delayMs = 0,
+            )
+        }
+        assertEquals(LibraryPager.MAX_STALE_CHECKS, fetches)
+    }
+
+    @Test
     fun aSlowOldQueryCannotOverwriteTheNewOne() {
         val pager = pager()
         val slow = CompletableDeferred<Result<Page<Int>>>()

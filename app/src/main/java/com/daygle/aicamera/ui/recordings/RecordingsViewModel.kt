@@ -164,6 +164,31 @@ class RecordingsViewModel @Inject constructor(
 
     fun loadMore() = pager.loadMore()
 
+    /** True while the screen is resumed; rows being prepared are only re-checked then. */
+    private var visible = false
+
+    /** The screen resumed: start re-checking clips the server is still writing. */
+    fun onScreenResumed() {
+        visible = true
+        refreshProcessing()
+    }
+
+    /** The screen paused: stop re-checking. */
+    fun onScreenPaused() {
+        visible = false
+        pager.cancelStaleRefresh()
+    }
+
+    /**
+     * While a loaded clip is still being written ("Processing"), re-check it
+     * every few seconds so its row becomes playable on its own, with its final
+     * duration, instead of waiting for a pull-to-refresh.
+     */
+    private fun refreshProcessing() {
+        if (!visible) return
+        pager.refreshStale(isStale = { !it.mediaReady }, fetchOne = repository::recording)
+    }
+
     private fun reloadRecordings() {
         val query = filter.toQuery()
         pager.reload({ cursor -> repository.recordingsPage(query, cursor) })
@@ -267,7 +292,10 @@ class RecordingsViewModel @Inject constructor(
                 facets = facets,
             )
         )
-        if (!page.initialLoading && !page.refreshing) pager.fillTo(filtered.size)
+        if (!page.initialLoading && !page.refreshing) {
+            pager.fillTo(filtered.size)
+            refreshProcessing()
+        }
     }
 
     private companion object {

@@ -197,14 +197,28 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
                 // server. Only a newest-first list gains rows at its head.
                 delay(POLL_INTERVAL_MS)
                 if (filter.sortOrder == EventsSortOrder.NEWEST) pager.pollHead()
+                refreshPreparing()
             }
         }
+        refreshPreparing()
     }
 
     /** Stop periodic refresh (called when the screen is paused). */
     fun pausePolling() {
         pollJob?.cancel()
         pollJob = null
+        pager.cancelStaleRefresh()
+    }
+
+    /**
+     * While a loaded event's clip is still being written, re-check those
+     * events every few seconds (as the web Events page does) so their Play
+     * action enables itself once the server reports the file ready. Runs only
+     * while the screen is resumed.
+     */
+    private fun refreshPreparing() {
+        if (pollJob == null) return
+        pager.refreshStale(isStale = { it.recordingPreparing }, fetchOne = repository::event)
     }
 
     private fun reloadEvents() {
@@ -355,7 +369,10 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
                 facets = facets,
             )
         )
-        if (!page.initialLoading && !page.refreshing) pager.fillTo(filtered.size)
+        if (!page.initialLoading && !page.refreshing) {
+            pager.fillTo(filtered.size)
+            refreshPreparing()
+        }
     }
 
     companion object {

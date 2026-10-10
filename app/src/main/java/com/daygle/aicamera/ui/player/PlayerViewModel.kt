@@ -8,8 +8,10 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -25,6 +27,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 @HiltViewModel
@@ -87,7 +90,14 @@ class PlayerViewModel @Inject constructor(
 
     @OptIn(UnstableApi::class)
     private fun createPlayer(): ExoPlayer {
-        val dataSourceFactory = androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(repository.httpClient())
+        // The server converts an H.265 clip to H.264 on its first play (event
+        // clips are usually converted in the background beforehand, continuous
+        // chunks are not), and answers only once the copy is written. Allow
+        // for that instead of the API client's 30 s read timeout.
+        val streamClient = repository.httpClient().newBuilder()
+            .readTimeout(STREAM_READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .build()
+        val dataSourceFactory = androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(streamClient)
         val renderersFactory = DefaultRenderersFactory(context)
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
             .setEnableDecoderFallback(true)
@@ -105,15 +115,8 @@ class PlayerViewModel @Inject constructor(
             .build()
             .apply {
                 addListener(object : Player.Listener {
-                    override fun onPlayerError(playbackError: androidx.media3.common.PlaybackException) {
-                        val message = when (playbackError.errorCode) {
-                            androidx.media3.common.PlaybackException.ERROR_CODE_DECODING_FAILED -> 
-                                "Video decoding failed. The resolution might be too high for this device."
-                            androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
-                            androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ->
-                                "Network connection failed. Check your server address."
-                            else -> "Playback error: ${playbackError.localizedMessage}"
-                        }
+                    override fun onPlayerError(playbackError: PlaybackException) {
+                        val message = playbackErrorMessage(playbackError)
                         _error.update { message }
                     }
                 })
@@ -136,6 +139,27 @@ class PlayerViewModel @Inject constructor(
         player.stop()
         player.clearMediaItems()
         preparePlayer()
+    }
+
+    @OptIn(UnstableApi::class)
+    private fun playbackErrorMessage(error: PlaybackException): String {
+        when ((error.cause as? HttpDataSource.InvalidResponseCodeException)?.responseCode) {
+            415 -> return "The server could not convert this recording into a playable video."
+            404 -> return "This recording's video file is no longer on the server."
+        }
+        return when (error.errorCode) {
+            PlaybackException.ERROR_CODE_DECODING_FAILED ->
+                "Video decoding failed. The resolution might be too high for this device."
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ->
+                "Network connection failed. Check your server address."
+            else -> "Playback error: ${error.localizedMessage}"
+        }
+    }
+
+    private companion object {
+        /** Long enough for the server to finish a first-play H.265 conversion. */
+        const val STREAM_READ_TIMEOUT_SECONDS = 180L
     }
 
     override fun onCleared() {

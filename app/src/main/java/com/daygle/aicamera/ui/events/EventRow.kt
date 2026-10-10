@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.FollowTheSigns
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PlayCircle
@@ -58,7 +59,10 @@ internal fun EventRow(
     onPlayRecording: (Int) -> Unit = {},
     onOpenSnapshot: (Int) -> Unit = {},
 ) {
-    val firstRecordingId = event.recordingId ?: event.recordings.firstOrNull()?.id
+    // A clip the server is still writing cannot play yet: hold the Play
+    // action (as the web Events page does) until a refresh reports it ready.
+    val preparing = event.recordingPreparing
+    val firstRecordingId = event.playableRecordingId?.takeUnless { preparing }
     val isSound = isSoundEvent(event)
     val isMotion = isMotionEvent(event)
     val isBehaviour = event.isBehaviourEvent()
@@ -209,7 +213,9 @@ internal fun EventRow(
                             )
                         }
                     }
-                    if (firstRecordingId != null) {
+                    if (preparing) {
+                        PreparingBadge()
+                    } else if (firstRecordingId != null) {
                         IconButton(
                             onClick = { onPlayRecording(firstRecordingId) },
                             modifier = Modifier
@@ -228,6 +234,33 @@ internal fun EventRow(
             },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         )
+    }
+}
+
+/** Stands in for the Play action while the event's clip is still being written. */
+@Composable
+private fun PreparingBadge() {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = CircleShape,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Filled.HourglassTop,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(14.dp),
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                "Preparing…",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

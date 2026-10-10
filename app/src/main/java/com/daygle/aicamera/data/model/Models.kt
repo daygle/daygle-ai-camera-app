@@ -87,6 +87,20 @@ data class Event(
     val metadata: Map<String, JsonElement> = emptyMap(),
 ) {
     val alerted: Boolean get() = alert != null
+
+    /** The clip this event plays: its own [recordingId], else the first linked recording. */
+    val playableRecordingId: Int? get() = recordingId ?: recordings.firstOrNull()?.id
+
+    /**
+     * True while the clip this event links to is still being written
+     * (`media_ready: false` on the matching entry in [recordings]). Payloads
+     * without that entry read as ready, so a playable clip is never held back.
+     */
+    val recordingPreparing: Boolean
+        get() {
+            val id = playableRecordingId ?: return false
+            return recordings.firstOrNull { it.id == id }?.mediaReady == false
+        }
     val topLabel: String? get() = triggerLabel ?: triggerType
         ?: detections.maxByOrNull { it.confidence }?.label
         ?: metadataLabel()
@@ -129,7 +143,9 @@ data class Recording(
     val source: String? = null,
     @SerialName("trigger_type") val triggerType: String? = null,
     @SerialName("trigger_label") val triggerLabel: String? = null,
-    @SerialName("media_ready") val mediaReady: Boolean = false,
+    // False while the server is still writing the clip's file. Null on
+    // payloads that omit the flag, which read as ready (as the web UI does).
+    @SerialName("media_ready") val mediaReadyFlag: Boolean? = null,
     val labels: List<String> = emptyList(),
     val detections: List<Detection> = emptyList(),
     @SerialName("label_confidences") val labelConfidences: Map<String, Double> = emptyMap(),
@@ -142,6 +158,9 @@ data class Recording(
     val events: List<Event> = emptyList(),
 ) {
     val topLabel: String? get() = triggerLabel ?: triggerType ?: detections.maxByOrNull { it.confidence }?.label ?: labels.firstOrNull()
+
+    /** Whether the clip's file is written and can be played. */
+    val mediaReady: Boolean get() = mediaReadyFlag != false
 }
 
 /**

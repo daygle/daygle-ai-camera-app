@@ -4,6 +4,7 @@ import com.daygle.aicamera.data.model.Page
 import com.daygle.aicamera.ui.friendlyMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneId
@@ -48,6 +49,10 @@ class LibraryPager<T>(
     private var fetch: (suspend (String?) -> Result<Page<T>>)? = null
     private var reloadJob: Job? = null
     private var moreJob: Job? = null
+    private var staleJob: Job? = null
+
+    /** Rounds each row has been re-checked by [refreshStale] for the current query. */
+    private val staleChecks = HashMap<Int, Int>()
 
     /** Pages fetched automatically to fill a list thinned by client-side filters. */
     private var autoPages = 0
@@ -66,6 +71,7 @@ class LibraryPager<T>(
         reloadJob?.cancel()
         moreJob?.cancel()
         autoPages = 0
+        staleChecks.clear()
         val showRows = keepItems && !snapshot.initialLoading && snapshot.error == null
         publish(
             if (showRows) snapshot.copy(refreshing = true, loadingMore = false, loadMoreError = null)
@@ -146,9 +152,61 @@ class LibraryPager<T>(
         }
     }
 
+    /**
+     * After [delayMs], re-fetch up to [limit] loaded rows matching [isStale]
+     * (e.g. a clip the server is still writing) and swap in the fresh copies.
+     * A no-op while a refresh is pending or no row matches, so callers can
+     * call it on every change to keep checking until none match. A failed
+     * fetch keeps the old row, and a row is given up on after
+     * [MAX_STALE_CHECKS] rounds (e.g. a clip whose file never arrives).
+     */
+    fun refreshStale(
+        isStale: (T) -> Boolean,
+        fetchOne: suspend (Int) -> Result<T>,
+        delayMs: Long = STALE_REFRESH_MS,
+        limit: Int = MAX_STALE_REFRESH,
+    ) {
+        if (staleJob?.isActive == true) return
+        val ids = snapshot.items.asSequence()
+            .filter { (staleChecks[idOf(it)] ?: 0) < MAX_STALE_CHECKS && isStale(it) }
+            .take(limit)
+            .map(idOf)
+            .toList()
+        if (ids.isEmpty()) return
+        ids.forEach { id -> staleChecks[id] = (staleChecks[id] ?: 0) + 1 }
+        staleJob = scope.launch {
+            delay(delayMs)
+            val fresh = ids.mapNotNull { id -> fetchOne(id).getOrNull() }
+            staleJob = null
+            replace(fresh)
+        }
+    }
+
+    /** Stop a pending [refreshStale] (e.g. when the screen is paused). */
+    fun cancelStaleRefresh() {
+        staleJob?.cancel()
+        staleJob = null
+    }
+
+    /** Swap in fresher copies of loaded rows, matched by id; rows not loaded are ignored. */
+    fun replace(updated: List<T>) {
+        if (updated.isEmpty()) return
+        val byId = updated.associateBy(idOf)
+        publish(snapshot.copy(items = snapshot.items.map { byId[idOf(it)] ?: it }))
+    }
+
     companion object {
         const val MIN_VISIBLE = 20
         const val MAX_AUTO_PAGES = 5
+
+        /** How often rows still being prepared on the server are re-checked. */
+        const val STALE_REFRESH_MS = 3_000L
+
+        /** Most rows re-checked per round. */
+        const val MAX_STALE_REFRESH = 10
+
+        /** Rounds before a row is given up on: 10 minutes at the default interval. */
+        const val MAX_STALE_CHECKS = 200
     }
 }
 

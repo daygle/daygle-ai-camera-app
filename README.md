@@ -26,7 +26,7 @@ The app is a **dedicated viewer** - while camera management and AI rules stay in
 - **Cameras Dashboard** - Clean grid view of all configured cameras with live snapshot thumbnails and real-time status.
 - **Immersive Live View** - Tap any camera for a full-screen, landscape feed with pinch-to-zoom (up to 5x) and fluid panning.
 - **Deep Event Log** - Search and filter your full history by keyword, date, camera, label, AI tag or face on the server, with more results loading as you scroll. Jump from an event directly to its annotated snapshot or triggered recording.
-- **Video Recordings** - High-performance playback of saved clips with a full video scrubber and pinch-to-zoom support.
+- **Video Recordings** - High-performance playback of saved clips with a full video scrubber and pinch-to-zoom support. A clip the server is still writing shows as *Preparing…* and becomes playable on its own; H.265 recordings play through the server's H.264 playback copy.
 - **AI Descriptions & Tags** - See the one-sentence description your server's local vision model wrote for each event, plus the extra objects it tagged (ladder, parcel, hi-vis vest...), on Events, Recordings, Snapshots, clip details and alert snapshots.
 - **Ask AI Search** - Search events in plain English ("red car in the driveway yesterday afternoon"); the app shows how the server understood the question. Keyword search also matches AI tags, descriptions, zones and recognised faces.
 - **Faces & AI Verdicts** - Recognised people, unknown faces and the AI alert-verification verdict (Verified / Filtered) appear beside each event. Filter any list by AI tag.
