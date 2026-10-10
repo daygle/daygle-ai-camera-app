@@ -1,7 +1,7 @@
 # Daygle AI Camera - Android Application
 
-[![Android CI](https://github.com/daygle/daygle-ai-camera-app/actions/workflows/android-build.yml/badge.svg)](https://github.com/daygle/daygle-ai-camera-app/actions/workflows/android-build.yml)
-[![CodeQL](https://github.com/daygle/daygle-ai-camera-app/actions/workflows/codeql.yml/badge.svg)](https://github.com/daygle/daygle-ai-camera-app/actions/workflows/codeql.yml)
+[![Android CI](https://github.com/daygle/daygle-ai-camera-app/actions/workflows/ci.yml/badge.svg)](https://github.com/daygle/daygle-ai-camera-app/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/daygle/daygle-ai-camera-app/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/daygle/daygle-ai-camera-app/actions/workflows/github-code-scanning/codeql)
 
 A modern, native Android client for your self-hosted [Daygle AI Camera](https://github.com/daygle/daygle-ai-camera) server. View live feeds, browse detection events, and play back recordings with high-performance native tools.
 
@@ -85,6 +85,9 @@ For environments requiring specific HTTP headers (like proxy API keys), configur
 ./gradlew assembleDebug    # Debug APK -> app/build/outputs/apk/debug/
 ./gradlew assembleRelease  # Release APK
 ```
+
+### Releases
+Pushing a `vMAJOR.MINOR.PATCH` tag (e.g. `v1.2.3`, or `v1.3.0-beta.1` for a pre-release) runs the unit tests, builds the debug APK and publishes it to GitHub Releases as `DaygleAICamera-<version>-debug.apk`. The `versionCode` is derived from the tag (`v1.2.3` → `1002003`) so it always increases.
 
 ---
 

@@ -15,10 +15,15 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: dependency-submission-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   dependency-submission:
     name: Submit Gradle dependency graph
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository

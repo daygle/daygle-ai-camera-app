@@ -8,14 +8,16 @@ on:
 permissions:
   contents: write
 
+# Never cancel a release mid-publish; queue a re-pushed tag behind the running one.
 concurrency:
   group: android-release-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   release:
-    name: Build Release APK and Publish to GitHub Releases
+    name: Build debug APK and publish to GitHub Releases
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
@@ -30,35 +32,53 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
-          validate-wrappers: false
           add-job-summary: always
 
-      - name: Extract Version from Tag
-        id: get_version
-        run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
-          echo "VERSION_NAME=$VERSION" >> $GITHUB_ENV
-          echo "VERSION_CODE=${{ github.run_number }}" >> $GITHUB_ENV
-          echo "Releasing version: $VERSION"
-
-      - name: Build Release APK
+      # versionCode must increase with every release, so derive it from the
+      # semantic version in the tag (v1.2.3 -> 1002003) rather than the
+      # workflow run number, which resets and is unrelated to the version.
+      - name: Extract version from tag
         env:
-          VERSION_NAME: ${{ env.VERSION_NAME }}
-          VERSION_CODE: ${{ env.VERSION_CODE }}
-        run: ./gradlew assembleRelease --warning-mode=all --stacktrace
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION="${TAG#v}"
+          if [[ ! "$VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Tag '$TAG' is not a semantic version (expected vMAJOR.MINOR.PATCH[-PRERELEASE])"
+            exit 1
+          fi
+          MAJOR=$((10#${BASH_REMATCH[1]})); MINOR=$((10#${BASH_REMATCH[2]})); PATCH=$((10#${BASH_REMATCH[3]}))
+          if (( MAJOR > 2099 || MINOR > 999 || PATCH > 999 )); then
+            echo "::error::Version $VERSION does not fit the versionCode scheme (MAJOR<=2099, MINOR<=999, PATCH<=999)"
+            exit 1
+          fi
+          VERSION_CODE=$(( MAJOR * 1000000 + MINOR * 1000 + PATCH ))
+          PRERELEASE=false
+          [[ -n "${BASH_REMATCH[4]}" ]] && PRERELEASE=true
+          {
+            echo "VERSION_NAME=$VERSION"
+            echo "VERSION_CODE=$VERSION_CODE"
+            echo "PRERELEASE=$PRERELEASE"
+          } >> "$GITHUB_ENV"
+          echo "Releasing version $VERSION (versionCode $VERSION_CODE, prerelease $PRERELEASE)"
+
+      - name: Test and build debug APK
+        run: ./gradlew testDebugUnitTest assembleDebug --warning-mode=all --stacktrace
+
+      - name: Name APK after the version
+        run: mv app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/DaygleAICamera-$VERSION_NAME-debug.apk"
 
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v7
         with:
           name: DaygleAICamera-apks-${{ env.VERSION_NAME }}
-          path: app/build/outputs/apk/**/*.apk
+          path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
 
       - name: Create GitHub Release and Upload APKs
         uses: softprops/action-gh-release@v3
         with:
-          files: app/build/outputs/apk/**/*.apk
+          files: app/build/outputs/apk/debug/*.apk
           generate_release_notes: true
           draft: false
-          prerelease: false
+          prerelease: ${{ env.PRERELEASE }}
