@@ -161,6 +161,7 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
     private var queryJob: Job? = null
     private var facetsJob: Job? = null
     private var aiSearchJob: Job? = null
+    private var preparingJob: Job? = null
 
     var scrollIndex: Int = 0
         private set
@@ -197,14 +198,37 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
                 // server. Only a newest-first list gains rows at its head.
                 delay(POLL_INTERVAL_MS)
                 if (filter.sortOrder == EventsSortOrder.NEWEST) pager.pollHead()
+                schedulePreparingRefresh(pager.snapshot.items)
             }
         }
+        schedulePreparingRefresh(pager.snapshot.items)
     }
 
     /** Stop periodic refresh (called when the screen is paused). */
     fun pausePolling() {
         pollJob?.cancel()
         pollJob = null
+        preparingJob?.cancel()
+        preparingJob = null
+    }
+
+    /**
+     * While a loaded event's clip is still being written, re-check those
+     * events every few seconds (as the web Events page does) so their Play
+     * action enables itself once the server reports the file ready. Runs only
+     * while the screen is resumed.
+     */
+    private fun schedulePreparingRefresh(events: List<Event>) {
+        if (pollJob == null || preparingJob?.isActive == true) return
+        val preparing = events.filter { it.recordingPreparing }.take(MAX_PREPARING_REFRESH).map { it.id }
+        if (preparing.isEmpty()) return
+        preparingJob = viewModelScope.launch {
+            delay(PREPARING_REFRESH_MS)
+            // Failures keep the old row; the next poll round retries.
+            val fresh = preparing.mapNotNull { id -> repository.event(id).getOrNull() }
+            preparingJob = null
+            pager.replace(fresh)
+        }
     }
 
     private fun reloadEvents() {
@@ -355,12 +379,19 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
                 facets = facets,
             )
         )
-        if (!page.initialLoading && !page.refreshing) pager.fillTo(filtered.size)
+        if (!page.initialLoading && !page.refreshing) {
+            pager.fillTo(filtered.size)
+            schedulePreparingRefresh(page.items)
+        }
     }
 
     companion object {
         private const val POLL_INTERVAL_MS = 30_000L
         private const val SEARCH_DEBOUNCE_MS = 400L
+        private const val PREPARING_REFRESH_MS = 3_000L
+
+        /** Most events re-checked per round while their clips are being written. */
+        private const val MAX_PREPARING_REFRESH = 10
 
         /** The in-app filters (type and trigger) the server has no parameter for. */
         internal fun applyLocalFilters(events: List<Event>, filter: EventsFilter): List<Event> {

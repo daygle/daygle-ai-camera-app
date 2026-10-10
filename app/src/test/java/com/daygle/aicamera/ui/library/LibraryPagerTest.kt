@@ -46,6 +46,14 @@ class LibraryPagerTest {
     }
 
     @Test
+    fun replaceSwapsLoadedRowsInPlaceAndIgnoresUnknownOnes() {
+        val pager = LibraryPager<Pair<Int, String>>(scope, idOf = { it.first }) {}
+        pager.reload({ Result.success(Page(listOf(1 to "old", 2 to "old", 3 to "old"))) })
+        pager.replace(listOf(2 to "new", 9 to "new"))
+        assertEquals(listOf(1 to "old", 2 to "new", 3 to "old"), pager.snapshot.items)
+    }
+
+    @Test
     fun aSlowOldQueryCannotOverwriteTheNewOne() {
         val pager = pager()
         val slow = CompletableDeferred<Result<Page<Int>>>()

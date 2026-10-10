@@ -146,6 +146,13 @@ class LibraryPager<T>(
         }
     }
 
+    /** Swap in fresher copies of loaded rows, matched by id; rows not loaded are ignored. */
+    fun replace(updated: List<T>) {
+        if (updated.isEmpty()) return
+        val byId = updated.associateBy(idOf)
+        publish(snapshot.copy(items = snapshot.items.map { byId[idOf(it)] ?: it }))
+    }
+
     companion object {
         const val MIN_VISIBLE = 20
         const val MAX_AUTO_PAGES = 5

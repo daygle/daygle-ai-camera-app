@@ -28,12 +28,15 @@ interface DaygleApi {
      * filter bar: `q` needs every word to appear in a label, zone, camera, AI
      * tag/description or face name; `face` is `any`, `unknown`, `id:<id>` or
      * `name:<name>`. Older servers ignore parameters they do not know.
+     * [withRecording] keeps only events linked to a clip; off by default so
+     * the feed matches the web UI's single Events feed, which also lists
+     * sound and snapshot-only events.
      */
     @GET("api/events")
     suspend fun events(
         @Query("limit") limit: Int = 100,
         @Query("alerted_only") alertedOnly: Boolean = false,
-        @Query("with_recording") withRecording: Boolean = true,
+        @Query("with_recording") withRecording: Boolean = false,
         @Query("since") since: String? = null,
         @Query("cursor") cursor: String? = null,
         @Query("until") until: String? = null,
