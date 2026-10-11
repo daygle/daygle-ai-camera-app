@@ -1,0 +1,40 @@
+Daygle AI Camera is the mobile companion for your self-hosted Daygle AI Camera server. Watch your cameras live, find exactly what happened with AI-powered search, play back recordings and get instant alerts — all from your own server, with no cloud account required.
+
+Note: this app requires a Daygle AI Camera server that you run yourself. It does not work on its own or with other camera brands.
+
+LIVE VIEW
+• See all your cameras at a glance with live snapshot thumbnails and status
+• Tap any camera for a full-screen live feed
+• Pinch to zoom up to 5x and pan around the picture
+
+FIND ANY EVENT
+• Browse your full detection history, loaded as you scroll
+• Filter by date, camera, object label, AI tag or recognised face
+• Ask AI Search: type a question in plain English, like "red car in the driveway yesterday afternoon"
+• Jump straight from an event to its annotated snapshot or its recording
+
+AI THAT EXPLAINS WHAT HAPPENED
+• Read a one-sentence description of each event, written by your server's local vision model
+• See extra objects your server tagged, such as a parcel, ladder or hi-vis vest
+• See recognised people, unknown faces and whether the AI verified or filtered an alert
+
+RECORDINGS AND TIMELINE
+• Smooth playback of saved clips with a full scrubber and pinch-to-zoom
+• Clips that are still being written show as "Preparing…" and become playable on their own
+• Narrow the activity timeline to clips that triggered an alert
+
+INSTANT ALERTS
+• Real-time object and sound detection alerts, even while the app is in the background
+• Alerts are delivered through your server's ntfy topic, with no Google or Firebase push service involved
+• Tap an alert to open the event that triggered it
+
+PRIVATE BY DESIGN
+• Connects directly to your own server over your local network or HTTPS
+• Your video and events stay on your server
+• Supports Cloudflare Access service tokens and custom request headers for servers behind a proxy
+
+MADE FOR ANDROID
+• Native, modern Material design
+• Light and dark themes
+• 12 or 24-hour time
+• Android 8.0 or newer
