@@ -2,7 +2,9 @@ package com.daygle.aicamera.ui.player
 
 import com.daygle.aicamera.data.SessionManager
 import com.daygle.aicamera.data.model.Recording
+import com.daygle.aicamera.data.model.SystemSettings
 import com.daygle.aicamera.data.model.TrackSample
+import com.daygle.aicamera.ui.isSoundDetection
 import com.daygle.aicamera.ui.parseTimestamp
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -37,6 +39,7 @@ data class TrackDetection(
     @SerialName("motion_state") val motionState: String? = null,
     // Stable tracker identity; null or <= 0 when the sample has none.
     @SerialName("track_id") val trackId: Int? = null,
+    @SerialName("zone_name") val zoneName: String? = null,
 ) {
     val normalizedLabel: String get() = label.trim().lowercase()
     val isMotion: Boolean get() = motionEvent || normalizedLabel == "motion"
@@ -283,14 +286,47 @@ data class OverlaySource(
     val track: List<TrackFrame> = emptyList(),
     val eventBoxes: List<TrackDetection> = emptyList(),
     val eventFrom: Double = 0.0,
+    // Labels the cameras are configured to act on; null draws every label.
+    val labelFilter: Set<String>? = null,
 ) {
-    fun detectionsAt(time: Double): List<TrackDetection> = filterObjectPriority(
-        when {
+    fun detectionsAt(time: Double): List<TrackDetection> {
+        val detections = when {
             track.isNotEmpty() -> sampleTrackAtTime(track, time)
             time >= eventFrom -> eventBoxes
             else -> emptyList()
         }
-    )
+        val labels = labelFilter ?: return filterObjectPriority(detections)
+        return filterObjectPriority(detections.filter { it.normalizedLabel in labels })
+    }
+}
+
+/**
+ * Labels the overlay draws, as on the web player: motion, plus the label of
+ * every enabled object rule in any camera zone that alerts or records.
+ */
+fun configuredOverlayLabels(settings: SystemSettings): Set<String> = buildSet {
+    add("motion")
+    for (camera in settings.cameras) {
+        for (zone in camera.detection?.zones.orEmpty()) {
+            for (rule in zone.objectRules) {
+                if (!rule.enabled || !(rule.emailEnabled || rule.pushEnabled || rule.recordOnDetect)) continue
+                rule.label?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }?.let(::add)
+            }
+        }
+    }
+}
+
+/**
+ * Camera zones the clip's detections fell in: the event's detections plus any
+ * later ones on the track. Sound clips have none.
+ */
+fun recordingZoneNames(recording: Recording): List<String> {
+    if (isSoundDetection(recording.source, recording.triggerType, recording.triggerLabel, recording.labels)) {
+        return emptyList()
+    }
+    val fromEvent = recording.detections.mapNotNull { it.zoneName }
+    val fromTrack = parseDetectionTrack(recording.track).flatMap { frame -> frame.detections.mapNotNull { it.zoneName } }
+    return (fromEvent + fromTrack).map { it.trim() }.filter { it.isNotEmpty() }.distinct()
 }
 
 // Labels that only say something happened; dropped when a specific object was detected.

@@ -236,6 +236,7 @@ private fun ClipDetails(recording: Recording, cameraNames: Map<String, String>) 
             .sortedByDescending { it.confidence }
     }
     val alerted = remember(recording) { linked.any { it.alerted } }
+    val zones = remember(recording) { recordingZoneNames(recording) }
     val cameraName = recording.cameraId?.let { cameraNames[it] }
 
     Column(
@@ -254,6 +255,7 @@ private fun ClipDetails(recording: Recording, cameraNames: Map<String, String>) 
             listOfNotNull(
                 formatTimestamp(recording.startedAt, use24Hour),
                 cameraName ?: recording.cameraId ?: recording.source,
+                zones.takeIf { it.isNotEmpty() }?.let { "Zone: ${it.joinToString(", ")}" },
                 recording.durationSeconds.takeIf { it > 0 }?.let { formatDuration(it) },
                 if (alerted) "Alert sent" else null,
             ).joinToString(" · "),

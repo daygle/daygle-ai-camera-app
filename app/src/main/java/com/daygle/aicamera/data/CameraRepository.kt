@@ -9,6 +9,7 @@ import com.daygle.aicamera.data.model.LibraryQuery
 import com.daygle.aicamera.data.model.Page
 import com.daygle.aicamera.data.model.PushSettings
 import com.daygle.aicamera.data.model.Recording
+import com.daygle.aicamera.data.model.SystemSettings
 import com.daygle.aicamera.data.model.TimelineResponse
 import retrofit2.HttpException
 
@@ -169,6 +170,8 @@ class CameraRepository(
         suspendRunCatching { session.api.recordingsTimeline(cameraId, day, tzOffsetMinutes) }
 
     suspend fun pushSettings(): Result<PushSettings> = suspendRunCatching { session.api.pushSettings() }
+
+    suspend fun systemSettings(): Result<SystemSettings> = suspendRunCatching { session.api.systemSettings() }
 
     fun snapshotUrl(cameraId: String?, cacheBuster: Long): String? =
         session.snapshotUrl(cameraId, cacheBuster)

@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -49,9 +50,15 @@ class PlayerViewModel @Inject constructor(
     private val _details = MutableStateFlow<Recording?>(null)
     val details: StateFlow<Recording?> = _details.asStateFlow()
 
+    private val _overlayBase = MutableStateFlow<OverlaySource?>(null)
+
+    /** Labels the cameras act on (null until loaded, or for non-admin users: no filter). */
+    private val _labelFilter = MutableStateFlow<Set<String>?>(null)
+
     /** What the object overlay draws for this clip; null when it has no boxes. */
-    private val _overlay = MutableStateFlow<OverlaySource?>(null)
-    val overlay: StateFlow<OverlaySource?> = _overlay.asStateFlow()
+    val overlay: StateFlow<OverlaySource?> = combine(_overlayBase, _labelFilter) { base, labels ->
+        base?.copy(labelFilter = labels)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /** Whether object boxes are drawn over playback (remembered across clips). */
     val overlayEnabled: StateFlow<Boolean> = prefs.playbackOverlay
@@ -75,6 +82,14 @@ class PlayerViewModel @Inject constructor(
         preparePlayer()
         loadDetails()
         loadCameraNames()
+        loadLabelFilter()
+    }
+
+    /** Best effort: the settings are admin only, and the overlay draws every label without them. */
+    private fun loadLabelFilter() {
+        viewModelScope.launch {
+            repository.systemSettings().onSuccess { _labelFilter.value = configuredOverlayLabels(it) }
+        }
     }
 
     /** Best-effort camera name lookup; playback works without it. */
@@ -92,7 +107,7 @@ class PlayerViewModel @Inject constructor(
             // Best effort: playback works without the details panel.
             repository.recording(recordingId).onSuccess { recording ->
                 _details.value = recording
-                _overlay.value = withContext(Dispatchers.Default) { overlaySource(recording) }
+                _overlayBase.value = withContext(Dispatchers.Default) { overlaySource(recording) }
             }
         }
     }

@@ -2,6 +2,7 @@ package com.daygle.aicamera.ui.player
 
 import com.daygle.aicamera.data.SessionManager
 import com.daygle.aicamera.data.model.Recording
+import com.daygle.aicamera.data.model.SystemSettings
 import kotlinx.serialization.decodeFromString
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -123,5 +124,41 @@ class DetectionTrackTest {
         assertNull(
             overlaySource(SessionManager.json.decodeFromString<Recording>("""{"id": 1, "detections": [{"label": "car"}]}"""))
         )
+    }
+
+    @Test
+    fun labelFilterKeepsOnlyRulesThatAlertOrRecord() {
+        val settings = SessionManager.json.decodeFromString<SystemSettings>(
+            """{"cameras": [{"detection": {"zones": [{"object_rules": [
+                {"label": "Car", "push_enabled": true, "record_on_detect": false},
+                {"label": "person"},
+                {"label": "dog", "enabled": false},
+                {"label": "cat", "record_on_detect": false},
+                {"label": "bird", "record_on_detect": null}]}]}},
+              {"detection": null}, {}]}"""
+        )
+        assertEquals(setOf("motion", "car", "person", "bird"), configuredOverlayLabels(settings))
+    }
+
+    @Test
+    fun labelFilterHidesUnconfiguredBoxes() {
+        val dog = TrackDetection(label = "dog", box = TrackBox(0.6, 0.6, 0.2, 0.2))
+        val track = listOf(TrackFrame(1.0, listOf(car(0.1), dog)))
+        assertEquals(2, OverlaySource(track = track).detectionsAt(1.0).size)
+        assertEquals(listOf(car(0.1)), OverlaySource(track = track, labelFilter = setOf("motion", "car")).detectionsAt(1.0))
+    }
+
+    @Test
+    fun zonesComeFromEventDetectionsAndTrack() {
+        val recording = SessionManager.json.decodeFromString<Recording>(
+            """{"id": 1, "detections": [{"label": "car", "zone_name": "Driveway"}],
+                "track": [{"t": 1, "detections": [{"label": "person", "zone_name": "Porch"},
+                                                   {"label": "car", "zone_name": " Driveway "}]}]}"""
+        )
+        assertEquals(listOf("Driveway", "Porch"), recordingZoneNames(recording))
+        val sound = SessionManager.json.decodeFromString<Recording>(
+            """{"id": 2, "source": "sound", "detections": [{"label": "dog bark", "zone_name": "Yard"}]}"""
+        )
+        assertTrue(recordingZoneNames(sound).isEmpty())
     }
 }

@@ -240,3 +240,36 @@ data class TimelineCamera(
     val id: String = "",
     val name: String? = null,
 )
+
+/**
+ * The slice of `GET /api/settings/system` (admin only) the player needs: each
+ * camera zone's object rules, which decide what the overlay draws.
+ */
+@Serializable
+data class SystemSettings(
+    val cameras: List<SettingsCamera> = emptyList(),
+)
+
+@Serializable
+data class SettingsCamera(
+    val detection: DetectionSettings? = null,
+)
+
+@Serializable
+data class DetectionSettings(
+    val zones: List<ZoneSettings> = emptyList(),
+)
+
+@Serializable
+data class ZoneSettings(
+    @SerialName("object_rules") val objectRules: List<ObjectRule> = emptyList(),
+)
+
+@Serializable
+data class ObjectRule(
+    val label: String? = null,
+    val enabled: Boolean = true,
+    @SerialName("email_enabled") val emailEnabled: Boolean = false,
+    @SerialName("push_enabled") val pushEnabled: Boolean = false,
+    @SerialName("record_on_detect") val recordOnDetect: Boolean = true,
+)
