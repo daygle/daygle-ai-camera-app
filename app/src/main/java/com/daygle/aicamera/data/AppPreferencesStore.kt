@@ -31,6 +31,7 @@ class AppPreferencesStore(private val context: Context) {
         val USE_24H = booleanPreferencesKey("use_24h")
         val REFRESH_INTERVAL_MS = longPreferencesKey("refresh_interval_ms")
         val NAV_ITEMS = stringPreferencesKey("nav_items")
+        val PLAYBACK_OVERLAY = booleanPreferencesKey("playback_overlay")
     }
 
     val themeMode: Flow<ThemeMode> = context.appPrefsDataStore.data.map { prefs ->
@@ -49,6 +50,11 @@ class AppPreferencesStore(private val context: Context) {
 
     val navItems: Flow<String?> = context.appPrefsDataStore.data.map { prefs ->
         prefs[Keys.NAV_ITEMS]
+    }
+
+    // Object boxes over recorded playback; on by default, as on the web player.
+    val playbackOverlay: Flow<Boolean> = context.appPrefsDataStore.data.map { prefs ->
+        prefs[Keys.PLAYBACK_OVERLAY] ?: true
     }
 
     suspend fun currentThemeMode(): ThemeMode = themeMode.first()
@@ -70,5 +76,9 @@ class AppPreferencesStore(private val context: Context) {
 
     suspend fun setNavItems(value: String) {
         context.appPrefsDataStore.edit { it[Keys.NAV_ITEMS] = value }
+    }
+
+    suspend fun setPlaybackOverlay(value: Boolean) {
+        context.appPrefsDataStore.edit { it[Keys.PLAYBACK_OVERLAY] = value }
     }
 }

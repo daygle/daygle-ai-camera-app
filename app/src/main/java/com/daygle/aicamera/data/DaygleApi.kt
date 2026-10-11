@@ -9,6 +9,7 @@ import com.daygle.aicamera.data.model.LibraryFacets
 import com.daygle.aicamera.data.model.Page
 import com.daygle.aicamera.data.model.PushSettings
 import com.daygle.aicamera.data.model.Recording
+import com.daygle.aicamera.data.model.SystemSettings
 import com.daygle.aicamera.data.model.TimelineResponse
 import retrofit2.http.GET
 import retrofit2.http.Path
@@ -113,4 +114,8 @@ interface DaygleApi {
 
     @GET("api/settings/alert-push")
     suspend fun pushSettings(): PushSettings
+
+    /** Admin only: other roles get 403. */
+    @GET("api/settings/system")
+    suspend fun systemSettings(): SystemSettings
 }

@@ -16,17 +16,23 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
+import com.daygle.aicamera.data.AppPreferencesStore
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.util.FileDownloader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -34,6 +40,7 @@ import javax.inject.Inject
 class PlayerViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val repository: CameraRepository,
+    private val prefs: AppPreferencesStore,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -42,6 +49,20 @@ class PlayerViewModel @Inject constructor(
     /** Clip metadata (detections, AI description and tags, faces); null until loaded or if unavailable. */
     private val _details = MutableStateFlow<Recording?>(null)
     val details: StateFlow<Recording?> = _details.asStateFlow()
+
+    private val _overlayBase = MutableStateFlow<OverlaySource?>(null)
+
+    /** Labels the cameras act on (null until loaded, or for non-admin users: no filter). */
+    private val _labelFilter = MutableStateFlow<Set<String>?>(null)
+
+    /** What the object overlay draws for this clip; null when it has no boxes. */
+    val overlay: StateFlow<OverlaySource?> = combine(_overlayBase, _labelFilter) { base, labels ->
+        base?.copy(labelFilter = labels)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** Whether object boxes are drawn over playback (remembered across clips). */
+    val overlayEnabled: StateFlow<Boolean> = prefs.playbackOverlay
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     /** Camera id -> display name lookup, populated once cameras are loaded. */
     private val _cameraNames = MutableStateFlow<Map<String, String>>(emptyMap())
@@ -61,6 +82,14 @@ class PlayerViewModel @Inject constructor(
         preparePlayer()
         loadDetails()
         loadCameraNames()
+        loadLabelFilter()
+    }
+
+    /** Best effort: the settings are admin only, and the overlay draws every label without them. */
+    private fun loadLabelFilter() {
+        viewModelScope.launch {
+            repository.systemSettings().onSuccess { _labelFilter.value = configuredOverlayLabels(it) }
+        }
     }
 
     /** Best-effort camera name lookup; playback works without it. */
@@ -76,8 +105,15 @@ class PlayerViewModel @Inject constructor(
         if (recordingId <= 0) return
         viewModelScope.launch {
             // Best effort: playback works without the details panel.
-            repository.recording(recordingId).onSuccess { recording -> _details.value = recording }
+            repository.recording(recordingId).onSuccess { recording ->
+                _details.value = recording
+                _overlayBase.value = withContext(Dispatchers.Default) { overlaySource(recording) }
+            }
         }
+    }
+
+    fun setOverlayEnabled(enabled: Boolean) {
+        viewModelScope.launch { prefs.setPlaybackOverlay(enabled) }
     }
 
     /** Save the current recording's MP4 to the device's downloads. */

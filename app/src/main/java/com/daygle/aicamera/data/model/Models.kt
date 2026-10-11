@@ -46,6 +46,11 @@ data class Detection(
     @SerialName("zone_name") val zoneName: String? = null,
     // Share (0-1) of the zone's pixels that changed, on motion detections.
     @SerialName("motion_fraction") val motionFraction: Double? = null,
+    // Bounding box at the trigger frame (normalized 0-1); null on payloads without it.
+    val x: Double? = null,
+    val y: Double? = null,
+    val width: Double? = null,
+    val height: Double? = null,
 )
 
 /**
@@ -156,12 +161,43 @@ data class Recording(
     val event: Event? = null,
     // Every event that occurred during this clip (recording : events = 1:many).
     val events: List<Event> = emptyList(),
+    // Detection track (GET /api/recordings/{id} only): per-frame samples whose
+    // `t` is seconds into the clip. Null when the clip has no localized track.
+    val track: List<TrackSample>? = null,
+    // What kept the clip recording past its first post-event window, if anything.
+    val extensions: RecordingExtensions? = null,
 ) {
     val topLabel: String? get() = triggerLabel ?: triggerType ?: detections.maxByOrNull { it.confidence }?.label ?: labels.firstOrNull()
 
     /** Whether the clip's file is written and can be played. */
     val mediaReady: Boolean get() = mediaReadyFlag != false
 }
+
+/** One detection-track sample; only whether it localized anything matters here. */
+@Serializable
+data class TrackSample(
+    val t: Double? = null,
+    val detections: List<JsonElement> = emptyList(),
+)
+
+/**
+ * Runs of post-event extensions stored on the recording (see the server's
+ * `app.recording_extension`): each run has one reason (`object`, `motion` or
+ * `still`), and [originalEnd] is where the clip would have ended without them.
+ */
+@Serializable
+data class RecordingExtensions(
+    @SerialName("original_end") val originalEnd: String? = null,
+    val runs: List<ExtensionRun> = emptyList(),
+)
+
+@Serializable
+data class ExtensionRun(
+    val start: String? = null,
+    val end: String? = null,
+    val reason: String? = null,
+    val label: String? = null,
+)
 
 /**
  * One pre-computed timeline bar from `GET /api/recordings/timeline`. The server
@@ -203,4 +239,37 @@ data class TimelineResponse(
 data class TimelineCamera(
     val id: String = "",
     val name: String? = null,
+)
+
+/**
+ * The slice of `GET /api/settings/system` (admin only) the player needs: each
+ * camera zone's object rules, which decide what the overlay draws.
+ */
+@Serializable
+data class SystemSettings(
+    val cameras: List<SettingsCamera> = emptyList(),
+)
+
+@Serializable
+data class SettingsCamera(
+    val detection: DetectionSettings? = null,
+)
+
+@Serializable
+data class DetectionSettings(
+    val zones: List<ZoneSettings> = emptyList(),
+)
+
+@Serializable
+data class ZoneSettings(
+    @SerialName("object_rules") val objectRules: List<ObjectRule> = emptyList(),
+)
+
+@Serializable
+data class ObjectRule(
+    val label: String? = null,
+    val enabled: Boolean = true,
+    @SerialName("email_enabled") val emailEnabled: Boolean = false,
+    @SerialName("push_enabled") val pushEnabled: Boolean = false,
+    @SerialName("record_on_detect") val recordOnDetect: Boolean = true,
 )
