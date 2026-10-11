@@ -60,7 +60,16 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 shrinks/obfuscates the release build. AGP embeds the resulting
+            // mapping.txt in the .aab (BUNDLE-METADATA), so Google Play picks up
+            // the deobfuscation file automatically.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            // Bundle native debug symbols for the prebuilt .so files pulled in by
+            // dependencies so Play can symbolicate native crashes and ANRs.
+            ndk {
+                debugSymbolLevel = "SYMBOL_TABLE"
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

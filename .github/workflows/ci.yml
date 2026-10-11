@@ -41,6 +41,11 @@ jobs:
       - name: Run checks and build debug APK
         run: ./gradlew lintDebug testDebugUnitTest assembleDebug --warning-mode=all --stacktrace
 
+      # Builds the (unsigned) release variant so R8 minification and native
+      # debug symbol extraction are validated on every PR, not only at release.
+      - name: Build release bundle (R8)
+        run: ./gradlew bundleRelease --warning-mode=all --stacktrace
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v7
         with:
