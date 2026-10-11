@@ -19,11 +19,14 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -92,13 +95,19 @@ fun PlayerScreen(
     val error by viewModel.error.collectAsStateWithLifecycle()
     val details by viewModel.details.collectAsStateWithLifecycle()
     val cameraNames by viewModel.cameraNames.collectAsStateWithLifecycle()
+    val track by viewModel.track.collectAsStateWithLifecycle()
+    val overlayEnabled by viewModel.overlayEnabled.collectAsStateWithLifecycle()
     val player = viewModel.player
+    val overlay: @Composable () -> Unit = {
+        if (overlayEnabled) DetectionOverlay(track, player, Modifier.fillMaxSize())
+    }
 
     var fullscreen by rememberSaveable { mutableStateOf(false) }
 
     if (fullscreen && error == null) {
         FullscreenPlayer(
             player = player,
+            overlay = overlay,
             onExitFullscreen = { fullscreen = false },
         )
         return
@@ -167,7 +176,26 @@ fun PlayerScreen(
                             .background(Color.Black),
                         contentAlignment = Alignment.Center,
                     ) {
-                        ZoomablePlayerSurface(player = player, modifier = Modifier.fillMaxSize())
+                        ZoomablePlayerSurface(player = player, overlay = overlay, modifier = Modifier.fillMaxSize())
+                    }
+                    if (track.isNotEmpty()) {
+                        FilterChip(
+                            selected = overlayEnabled,
+                            onClick = { viewModel.setOverlayEnabled(!overlayEnabled) },
+                            label = { Text("Object overlay") },
+                            leadingIcon = if (overlayEnabled) {
+                                {
+                                    Icon(
+                                        Icons.Filled.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(FilterChipDefaults.IconSize),
+                                    )
+                                }
+                            } else {
+                                null
+                            },
+                            modifier = Modifier.padding(start = 20.dp, bottom = 8.dp),
+                        )
                     }
                     details?.let {
                         ClipTimeline(
@@ -264,6 +292,7 @@ private fun ClipDetails(recording: Recording, cameraNames: Map<String, String>) 
 @Composable
 private fun FullscreenPlayer(
     player: Player,
+    overlay: @Composable () -> Unit,
     onExitFullscreen: () -> Unit,
 ) {
     // Rotate to landscape for a wide, immersive playback view.
@@ -293,7 +322,7 @@ private fun FullscreenPlayer(
             .background(Color.Black),
         contentAlignment = Alignment.Center,
     ) {
-        ZoomablePlayerSurface(player = player, modifier = Modifier.fillMaxSize())
+        ZoomablePlayerSurface(player = player, overlay = overlay, modifier = Modifier.fillMaxSize())
 
         FilledTonalIconButton(
             onClick = onExitFullscreen,
@@ -317,6 +346,7 @@ private fun FullscreenPlayer(
 private fun ZoomablePlayerSurface(
     player: Player,
     modifier: Modifier = Modifier,
+    overlay: @Composable () -> Unit = {},
 ) {
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
@@ -344,16 +374,10 @@ private fun ZoomablePlayerSurface(
             },
         contentAlignment = Alignment.Center,
     ) {
-        AndroidView(
-            factory = { ctx ->
-                (LayoutInflater.from(ctx)
-                    .inflate(R.layout.view_zoomable_player, FrameLayout(ctx), false) as PlayerView).apply {
-                    this.player = player
-                }
-            },
-            update = { it.player = player },
-            onRelease = { it.player = null },
-            modifier = Modifier
+        // The overlay shares the video's transform so boxes stay on their
+        // objects while zoomed and panned.
+        Box(
+            Modifier
                 .fillMaxSize()
                 .graphicsLayer {
                     scaleX = scale
@@ -361,6 +385,19 @@ private fun ZoomablePlayerSurface(
                     translationX = offset.x
                     translationY = offset.y
                 },
-        )
+        ) {
+            AndroidView(
+                factory = { ctx ->
+                    (LayoutInflater.from(ctx)
+                        .inflate(R.layout.view_zoomable_player, FrameLayout(ctx), false) as PlayerView).apply {
+                        this.player = player
+                    }
+                },
+                update = { it.player = player },
+                onRelease = { it.player = null },
+                modifier = Modifier.fillMaxSize(),
+            )
+            overlay()
+        }
     }
 }
