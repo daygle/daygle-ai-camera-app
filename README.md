@@ -114,7 +114,7 @@ To make CI publish signed release APKs, add these repository secrets under *Sett
 ### Releases
 Pushing a `vMAJOR.MINOR.PATCH` tag (e.g. `v1.2.3`, or `v1.3.0-beta.1` for a pre-release) runs the unit tests and publishes an APK to GitHub Releases. The `versionCode` is derived from the tag (`v1.2.3` → `1002003`) so it always increases.
 
-- With the release-signing secrets configured (see above): a signed **release** APK, published as `DaygleAICamera-<version>-release.apk`.
+- With the release-signing secrets configured (see above): a signed **release** APK as `DaygleAICamera-<version>-release.apk`, plus a signed **App Bundle** as `DaygleAICamera-<version>-release.aab` (the `.aab` is what Google Play expects for uploads; the `.apk` is for direct install).
 - Without them: the workflow falls back to the **debug** APK as `DaygleAICamera-<version>-debug.apk`.
 
 ---

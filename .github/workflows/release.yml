@@ -90,7 +90,7 @@ jobs:
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-        run: ./gradlew testDebugUnitTest assembleRelease --warning-mode=all --stacktrace
+        run: ./gradlew testDebugUnitTest assembleRelease bundleRelease --warning-mode=all --stacktrace
 
       - name: Test and build debug APK (release signing not configured)
         if: steps.signing.outputs.enabled == 'false'
@@ -100,6 +100,7 @@ jobs:
         run: |
           if [ "${{ steps.signing.outputs.enabled }}" = "true" ]; then
             mv app/build/outputs/apk/release/app-release.apk "app/build/outputs/apk/release/DaygleAICamera-$VERSION_NAME-release.apk"
+            mv app/build/outputs/bundle/release/app-release.aab "app/build/outputs/bundle/release/DaygleAICamera-$VERSION_NAME-release.aab"
           else
             mv app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/DaygleAICamera-$VERSION_NAME-debug.apk"
           fi
@@ -112,7 +113,28 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Create GitHub Release and Upload APK
+      - name: Upload bundle artifact
+        if: steps.signing.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: DaygleAICamera-bundle-${{ env.VERSION_NAME }}
+          path: app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Create GitHub Release and Upload APK + AAB
+        if: steps.signing.outputs.enabled == 'true'
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            app/build/outputs/apk/*/*.apk
+            app/build/outputs/bundle/release/*.aab
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ env.PRERELEASE }}
+
+      - name: Create GitHub Release and Upload APK (debug fallback)
+        if: steps.signing.outputs.enabled == 'false'
         uses: softprops/action-gh-release@v3
         with:
           files: app/build/outputs/apk/*/*.apk
