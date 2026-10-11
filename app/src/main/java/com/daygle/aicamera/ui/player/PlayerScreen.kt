@@ -95,11 +95,11 @@ fun PlayerScreen(
     val error by viewModel.error.collectAsStateWithLifecycle()
     val details by viewModel.details.collectAsStateWithLifecycle()
     val cameraNames by viewModel.cameraNames.collectAsStateWithLifecycle()
-    val track by viewModel.track.collectAsStateWithLifecycle()
+    val overlaySource by viewModel.overlay.collectAsStateWithLifecycle()
     val overlayEnabled by viewModel.overlayEnabled.collectAsStateWithLifecycle()
     val player = viewModel.player
     val overlay: @Composable () -> Unit = {
-        if (overlayEnabled) DetectionOverlay(track, player, Modifier.fillMaxSize())
+        overlaySource?.let { if (overlayEnabled) DetectionOverlay(it, player, Modifier.fillMaxSize()) }
     }
 
     var fullscreen by rememberSaveable { mutableStateOf(false) }
@@ -178,7 +178,7 @@ fun PlayerScreen(
                     ) {
                         ZoomablePlayerSurface(player = player, overlay = overlay, modifier = Modifier.fillMaxSize())
                     }
-                    if (track.isNotEmpty()) {
+                    if (overlaySource != null) {
                         FilterChip(
                             selected = overlayEnabled,
                             onClick = { viewModel.setOverlayEnabled(!overlayEnabled) },

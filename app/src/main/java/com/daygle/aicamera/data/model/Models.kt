@@ -46,6 +46,11 @@ data class Detection(
     @SerialName("zone_name") val zoneName: String? = null,
     // Share (0-1) of the zone's pixels that changed, on motion detections.
     @SerialName("motion_fraction") val motionFraction: Double? = null,
+    // Bounding box at the trigger frame (normalized 0-1); null on payloads without it.
+    val x: Double? = null,
+    val y: Double? = null,
+    val width: Double? = null,
+    val height: Double? = null,
 )
 
 /**

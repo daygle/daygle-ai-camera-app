@@ -49,9 +49,9 @@ class PlayerViewModel @Inject constructor(
     private val _details = MutableStateFlow<Recording?>(null)
     val details: StateFlow<Recording?> = _details.asStateFlow()
 
-    /** The clip's detection track, decoded for the object overlay; empty if it has none. */
-    private val _track = MutableStateFlow<List<TrackFrame>>(emptyList())
-    val track: StateFlow<List<TrackFrame>> = _track.asStateFlow()
+    /** What the object overlay draws for this clip; null when it has no boxes. */
+    private val _overlay = MutableStateFlow<OverlaySource?>(null)
+    val overlay: StateFlow<OverlaySource?> = _overlay.asStateFlow()
 
     /** Whether object boxes are drawn over playback (remembered across clips). */
     val overlayEnabled: StateFlow<Boolean> = prefs.playbackOverlay
@@ -92,7 +92,7 @@ class PlayerViewModel @Inject constructor(
             // Best effort: playback works without the details panel.
             repository.recording(recordingId).onSuccess { recording ->
                 _details.value = recording
-                _track.value = withContext(Dispatchers.Default) { parseDetectionTrack(recording.track) }
+                _overlay.value = withContext(Dispatchers.Default) { overlaySource(recording) }
             }
         }
     }

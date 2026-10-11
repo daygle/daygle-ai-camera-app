@@ -1,7 +1,9 @@
 package com.daygle.aicamera.ui.player
 
 import com.daygle.aicamera.data.SessionManager
+import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.data.model.TrackSample
+import com.daygle.aicamera.ui.parseTimestamp
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -269,4 +271,47 @@ fun sampleTrackAtTime(track: List<TrackFrame>, time: Double): List<TrackDetectio
         val b = nextDet.box
         if (a == null || b == null) listOf(prevDet) else listOf(nextDet.copy(box = lerpBox(a, b, factor)))
     }
+}
+
+/**
+ * What the overlay draws for a clip: its detection [track] when it has one,
+ * else the triggering event's [eventBoxes], held from [eventFrom] seconds on
+ * (the trigger frame; drawing them over the pre-roll would box footage
+ * recorded before the detection existed).
+ */
+data class OverlaySource(
+    val track: List<TrackFrame> = emptyList(),
+    val eventBoxes: List<TrackDetection> = emptyList(),
+    val eventFrom: Double = 0.0,
+) {
+    fun detectionsAt(time: Double): List<TrackDetection> = filterObjectPriority(
+        when {
+            track.isNotEmpty() -> sampleTrackAtTime(track, time)
+            time >= eventFrom -> eventBoxes
+            else -> emptyList()
+        }
+    )
+}
+
+// Labels that only say something happened; dropped when a specific object was detected.
+private val GENERIC_TRIGGER_LABELS = setOf("motion", "alert", "human", "object", "none", "off", "continuous")
+
+/** The overlay for [recording], or null when it has nothing to draw. */
+fun overlaySource(recording: Recording): OverlaySource? {
+    val track = parseDetectionTrack(recording.track)
+    if (track.any { frame -> frame.detections.isNotEmpty() }) return OverlaySource(track = track)
+
+    val boxed = recording.detections.mapNotNull { det ->
+        val box = TrackBox(det.x ?: return@mapNotNull null, det.y ?: return@mapNotNull null,
+            det.width ?: return@mapNotNull null, det.height ?: return@mapNotNull null)
+        TrackDetection(label = det.label, confidence = det.confidence, box = box)
+    }
+    val specific = boxed.filter { it.normalizedLabel !in GENERIC_TRIGGER_LABELS }
+    val boxes = specific.ifEmpty { boxed }
+    if (boxes.isEmpty()) return null
+
+    val startMs = parseTimestamp(recording.startedAt)?.toInstant()?.toEpochMilli()
+    val eventMs = parseTimestamp(recording.event?.createdAt)?.toInstant()?.toEpochMilli()
+    val from = if (startMs != null && eventMs != null) max(0.0, (eventMs - startMs) / 1000.0) else 0.0
+    return OverlaySource(eventBoxes = boxes, eventFrom = from)
 }

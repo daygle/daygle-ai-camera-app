@@ -35,13 +35,12 @@ private val LABEL_BACKGROUND = Color(0x94070B13)
 private const val BOX_ALPHA = 0.78f
 
 /**
- * Draws the clip's detection boxes over the video, following playback. Must
+ * Draws the clip's detection boxes from [source] over the video, following playback. Must
  * sit exactly over the player view (same bounds and transform), since boxes
  * are mapped into the letterboxed video area inside it.
  */
 @Composable
-fun DetectionOverlay(track: List<TrackFrame>, player: Player, modifier: Modifier = Modifier) {
-    if (track.isEmpty()) return
+fun DetectionOverlay(source: OverlaySource, player: Player, modifier: Modifier = Modifier) {
     var time by remember { mutableDoubleStateOf(0.0) }
     var videoSize by remember { mutableStateOf(player.videoSize) }
     LaunchedEffect(player) {
@@ -52,7 +51,7 @@ fun DetectionOverlay(track: List<TrackFrame>, player: Player, modifier: Modifier
         }
     }
     val textMeasurer = rememberTextMeasurer()
-    val detections = remember(track, time) { filterObjectPriority(sampleTrackAtTime(track, time)) }
+    val detections = remember(source, time) { source.detectionsAt(time) }
     Canvas(modifier) {
         drawDetections(detections, videoSize, textMeasurer)
     }

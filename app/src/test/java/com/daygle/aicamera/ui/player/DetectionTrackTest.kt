@@ -60,8 +60,8 @@ class DetectionTrackTest {
     fun trackIdKeepsCrossingObjectsApart() {
         val prev = listOf(car(0.1, trackId = 1), car(0.5, trackId = 2))
         assertEquals(2, matchDetection(prev, car(0.45, trackId = 2))!!.trackId)
-        // Overlaps the id-1 box, but never jumps to it while id 2 is present.
-        assertNull(matchDetection(prev, car(0.2, trackId = 2)))
+        // Overlaps the id-1 box and not the id-2 one, but the tracker id decides.
+        assertEquals(2, matchDetection(prev, car(0.2, trackId = 2))!!.trackId)
     }
 
     @Test
@@ -83,5 +83,45 @@ class DetectionTrackTest {
         assertEquals(0.1, box.x, 1e-9)
         assertEquals(0.2, box.height, 1e-9)
         assertNull(normalizeBox(TrackBox(192.0, 108.0, 384.0, 216.0), 0, 0))
+    }
+
+    @Test
+    fun clipWithoutTrackFallsBackToEventBoxesFromTheTrigger() {
+        val recording = SessionManager.json.decodeFromString<Recording>(
+            """{"id": 1, "started_at": "2026-10-11T21:05:00+00:00",
+                "event": {"id": 9, "created_at": "2026-10-11T21:05:15+00:00"},
+                "detections": [
+                  {"label": "car", "confidence": 0.9, "x": 0.1, "y": 0.2, "width": 0.3, "height": 0.4},
+                  {"label": "motion", "confidence": 1.0, "x": 0.6, "y": 0.6, "width": 0.1, "height": 0.1}]}"""
+        )
+        val source = overlaySource(recording)!!
+        assertEquals(15.0, source.eventFrom, 1e-9)
+        // Nothing over the pre-roll, then the specific object only.
+        assertTrue(source.detectionsAt(10.0).isEmpty())
+        val shown = source.detectionsAt(20.0).single()
+        assertEquals("car", shown.label)
+        assertEquals(0.3, shown.box!!.width, 1e-9)
+    }
+
+    @Test
+    fun genericEventBoxesShowWhenNothingSpecificWasDetected() {
+        val recording = SessionManager.json.decodeFromString<Recording>(
+            """{"id": 1, "detections": [{"label": "motion", "x": 0.6, "y": 0.6, "width": 0.1, "height": 0.1}]}"""
+        )
+        assertEquals("motion", overlaySource(recording)!!.detectionsAt(0.0).single().label)
+    }
+
+    @Test
+    fun trackWinsOverEventBoxesAndNoBoxesMeansNoOverlay() {
+        val withTrack = SessionManager.json.decodeFromString<Recording>(
+            """{"id": 1, "track": [{"t": 1, "detections": [{"label": "dog",
+                 "box": {"x": 0.1, "y": 0.1, "width": 0.2, "height": 0.2}}]}],
+                "detections": [{"label": "car", "x": 0.5, "y": 0.5, "width": 0.1, "height": 0.1}]}"""
+        )
+        assertEquals("dog", overlaySource(withTrack)!!.detectionsAt(1.0).single().label)
+        assertNull(overlaySource(SessionManager.json.decodeFromString<Recording>("""{"id": 1}""")))
+        assertNull(
+            overlaySource(SessionManager.json.decodeFromString<Recording>("""{"id": 1, "detections": [{"label": "car"}]}"""))
+        )
     }
 }
