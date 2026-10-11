@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -29,6 +31,33 @@ android {
         }
     }
 
+    // Release signing: credentials come from environment variables (CI secrets)
+    // or, for local builds, from an untracked keystore.properties in the project
+    // root. See README "Release signing". When no keystore is configured the
+    // release buildType stays unsigned.
+    val releaseSigningProps = Properties().apply {
+        val propsFile = rootProject.file("keystore.properties")
+        if (propsFile.exists()) {
+            propsFile.inputStream().use { load(it) }
+        }
+    }
+    fun releaseSigningValue(name: String): String? =
+        System.getenv(name)?.takeIf { it.isNotBlank() }
+            ?: releaseSigningProps.getProperty(name)?.takeIf { it.isNotBlank() }
+
+    val releaseKeystorePath = releaseSigningValue("RELEASE_KEYSTORE_FILE")
+    val releaseKeystore = releaseKeystorePath?.let { rootProject.file(it) }
+    val releaseSigningConfigured = releaseKeystore?.exists() == true
+
+    if (releaseSigningConfigured && releaseKeystore != null) {
+        signingConfigs.create("release") {
+            storeFile = releaseKeystore
+            storePassword = releaseSigningValue("RELEASE_KEYSTORE_PASSWORD")
+            keyAlias = releaseSigningValue("RELEASE_KEY_ALIAS")
+            keyPassword = releaseSigningValue("RELEASE_KEY_PASSWORD")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -36,6 +65,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            if (releaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
