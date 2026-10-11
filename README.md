@@ -84,11 +84,38 @@ For environments requiring specific HTTP headers (like proxy API keys), configur
 ### Build Commands
 ```bash
 ./gradlew assembleDebug    # Debug APK -> app/build/outputs/apk/debug/
-./gradlew assembleRelease  # Release APK
+./gradlew assembleRelease  # Signed release APK -> app/build/outputs/apk/release/ (see Release signing)
 ```
 
+### Release signing
+Release builds are signed from a keystore that must **never** be committed. The four signing values are read first from environment variables, then (for local builds) from an optional `keystore.properties` file in the project root, which is gitignored:
+
+```properties
+RELEASE_KEYSTORE_FILE=keystore/daygle-release.keystore   # absolute path, or relative to the project root
+RELEASE_KEYSTORE_PASSWORD=...
+RELEASE_KEY_ALIAS=daygle
+RELEASE_KEY_PASSWORD=...
+```
+
+If no keystore is configured, `assembleRelease` produces an unsigned APK that Android will not install.
+
+To make CI publish signed release APKs, add these repository secrets under *Settings → Secrets and variables → Actions*:
+
+| Secret | Value |
+| --- | --- |
+| `RELEASE_KEYSTORE_B64` | the keystore file, base64-encoded: `base64 -w0 keystore/daygle-release.keystore` |
+| `RELEASE_KEYSTORE_PASSWORD` | keystore password |
+| `RELEASE_KEY_ALIAS` | key alias |
+| `RELEASE_KEY_PASSWORD` | key password |
+
+> [!WARNING]
+> Back up the keystore and its passwords. Android only installs an update over an existing app when both are signed with the same key — if the key is lost, users must uninstall and reinstall. Phones that previously installed a *debug* APK must also be uninstalled once before the first signed release APK can be installed.
+
 ### Releases
-Pushing a `vMAJOR.MINOR.PATCH` tag (e.g. `v1.2.3`, or `v1.3.0-beta.1` for a pre-release) runs the unit tests, builds the debug APK and publishes it to GitHub Releases as `DaygleAICamera-<version>-debug.apk`. The `versionCode` is derived from the tag (`v1.2.3` → `1002003`) so it always increases.
+Pushing a `vMAJOR.MINOR.PATCH` tag (e.g. `v1.2.3`, or `v1.3.0-beta.1` for a pre-release) runs the unit tests and publishes an APK to GitHub Releases. The `versionCode` is derived from the tag (`v1.2.3` → `1002003`) so it always increases.
+
+- With the release-signing secrets configured (see above): a signed **release** APK, published as `DaygleAICamera-<version>-release.apk`.
+- Without them: the workflow falls back to the **debug** APK as `DaygleAICamera-<version>-debug.apk`.
 
 ---
 
