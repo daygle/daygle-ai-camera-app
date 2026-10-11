@@ -156,12 +156,43 @@ data class Recording(
     val event: Event? = null,
     // Every event that occurred during this clip (recording : events = 1:many).
     val events: List<Event> = emptyList(),
+    // Detection track (GET /api/recordings/{id} only): per-frame samples whose
+    // `t` is seconds into the clip. Null when the clip has no localized track.
+    val track: List<TrackSample>? = null,
+    // What kept the clip recording past its first post-event window, if anything.
+    val extensions: RecordingExtensions? = null,
 ) {
     val topLabel: String? get() = triggerLabel ?: triggerType ?: detections.maxByOrNull { it.confidence }?.label ?: labels.firstOrNull()
 
     /** Whether the clip's file is written and can be played. */
     val mediaReady: Boolean get() = mediaReadyFlag != false
 }
+
+/** One detection-track sample; only whether it localized anything matters here. */
+@Serializable
+data class TrackSample(
+    val t: Double? = null,
+    val detections: List<JsonElement> = emptyList(),
+)
+
+/**
+ * Runs of post-event extensions stored on the recording (see the server's
+ * `app.recording_extension`): each run has one reason (`object`, `motion` or
+ * `still`), and [originalEnd] is where the clip would have ended without them.
+ */
+@Serializable
+data class RecordingExtensions(
+    @SerialName("original_end") val originalEnd: String? = null,
+    val runs: List<ExtensionRun> = emptyList(),
+)
+
+@Serializable
+data class ExtensionRun(
+    val start: String? = null,
+    val end: String? = null,
+    val reason: String? = null,
+    val label: String? = null,
+)
 
 /**
  * One pre-computed timeline bar from `GET /api/recordings/timeline`. The server

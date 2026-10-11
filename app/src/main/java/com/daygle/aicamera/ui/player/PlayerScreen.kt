@@ -169,7 +169,14 @@ fun PlayerScreen(
                     ) {
                         ZoomablePlayerSurface(player = player, modifier = Modifier.fillMaxSize())
                     }
-                    details?.let { ClipDetails(it, cameraNames) }
+                    details?.let {
+                        ClipTimeline(
+                            recording = it,
+                            player = player,
+                            modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 16.dp),
+                        )
+                        ClipDetails(it, cameraNames)
+                    }
                 }
             }
         }
