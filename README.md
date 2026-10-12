@@ -117,6 +117,8 @@ Pushing a `vMAJOR.MINOR.PATCH` tag (e.g. `v1.2.3`, or `v1.3.0-beta.1` for a pre-
 - With the release-signing secrets configured (see above): a signed **release** APK as `DaygleAICamera-<version>-release.apk`, plus a signed **App Bundle** as `DaygleAICamera-<version>-release.aab` (the `.aab` is what Google Play expects for uploads; the `.apk` is for direct install).
 - Without them: the workflow falls back to the **debug** APK as `DaygleAICamera-<version>-debug.apk`.
 
+Release builds are minified with R8. The `.aab` embeds both the R8 deobfuscation mapping and the native debug symbols, so Google Play picks them up automatically on upload; copies (`mapping.txt`, `native-debug-symbols.zip`) are also kept as a workflow artifact for retracing stack traces locally.
+
 ---
 
 ## 🏗 Tech Stack

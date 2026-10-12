@@ -122,6 +122,19 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      # The mapping file and native symbols are already embedded in the .aab for
+      # Play; keep copies so stack traces can also be retraced locally.
+      - name: Upload R8 mapping and native debug symbols
+        if: steps.signing.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: DaygleAICamera-debug-files-${{ env.VERSION_NAME }}
+          path: |
+            app/build/outputs/mapping/release/mapping.txt
+            app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip
+          if-no-files-found: warn
+          retention-days: 90
+
       - name: Create GitHub Release and Upload APK + AAB
         if: steps.signing.outputs.enabled == 'true'
         uses: softprops/action-gh-release@v3
