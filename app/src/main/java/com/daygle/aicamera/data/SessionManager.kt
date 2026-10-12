@@ -165,8 +165,8 @@ class SessionManager {
         }
     }
 
-    // The server ignores width/height on the media endpoints: the live
-    // snapshot is the camera's latest frame and a recording is served as-is
+    // The live snapshot is the camera's latest frame, full size unless a
+    // `width` is asked for (see withFrameWidth); a recording is served as-is
     // (with HTTP Range support for seeking).
     fun snapshotUrl(cameraId: String?, cacheBuster: Long): String? {
         val base = baseUrl ?: return null
@@ -354,6 +354,24 @@ class SessionManager {
         private val VALUE_ATTR = Regex(
             """\bvalue\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]*))"""
         )
+
+        /** Frame widths are rounded up to this step: tiles of similar size share one server-side downscale. */
+        const val FRAME_WIDTH_STEP = 320
+        private const val MAX_FRAME_WIDTH = 3840
+
+        /**
+         * [snapshotUrl] asking the server for a frame at most [widthPx] wide
+         * (rounded up to [FRAME_WIDTH_STEP]), so a small tile downloads a
+         * fraction of a full-size frame. Unchanged for a non-positive width
+         * or an unparseable URL. Servers without `width` support ignore it.
+         */
+        fun withFrameWidth(snapshotUrl: String, widthPx: Int): String {
+            if (widthPx <= 0) return snapshotUrl
+            val url = snapshotUrl.toHttpUrlOrNull() ?: return snapshotUrl
+            val steps = (widthPx + FRAME_WIDTH_STEP - 1) / FRAME_WIDTH_STEP
+            val width = (steps * FRAME_WIDTH_STEP).coerceAtMost(MAX_FRAME_WIDTH)
+            return url.newBuilder().setQueryParameter("width", width.toString()).build().toString()
+        }
 
         fun extractCsrfToken(html: String): String? {
             val inputTag = CSRF_INPUT.find(html)?.value ?: return null
