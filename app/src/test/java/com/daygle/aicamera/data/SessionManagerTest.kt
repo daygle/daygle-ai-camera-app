@@ -38,4 +38,28 @@ class SessionManagerTest {
         assertNull(SessionManager.normalizeBaseUrl("   "))
         assertNull(SessionManager.normalizeBaseUrl("https://"))
     }
+
+    @Test
+    fun withFrameWidth_roundsUpToAStepAndKeepsOtherParameters() {
+        val url = "https://cam.example.com/api/live/snapshot?camera_id=camera-1&t=42"
+        assertEquals(
+            "https://cam.example.com/api/live/snapshot?camera_id=camera-1&t=42&width=1280",
+            SessionManager.withFrameWidth(url, 1080),
+        )
+        assertEquals(
+            "https://cam.example.com/api/live/snapshot?camera_id=camera-1&t=42&width=320",
+            SessionManager.withFrameWidth(url, 1),
+        )
+        assertEquals(
+            "https://cam.example.com/api/live/snapshot?camera_id=camera-1&t=42&width=3840",
+            SessionManager.withFrameWidth(url, 10_000),
+        )
+    }
+
+    @Test
+    fun withFrameWidth_leavesTheUrlAloneWithoutAWidth() {
+        val url = "https://cam.example.com/api/live/snapshot?camera_id=camera-1&t=42"
+        assertEquals(url, SessionManager.withFrameWidth(url, 0))
+        assertEquals("not a url", SessionManager.withFrameWidth("not a url", 640))
+    }
 }

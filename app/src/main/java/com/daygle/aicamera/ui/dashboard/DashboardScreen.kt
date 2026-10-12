@@ -45,6 +45,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -73,6 +74,7 @@ import coil3.compose.AsyncImagePainter
 import coil3.compose.SubcomposeAsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import com.daygle.aicamera.data.SessionManager
 import com.daygle.aicamera.ui.ForceLandscape
 import com.daygle.aicamera.ui.LifecycleResumeEffect
 import com.daygle.aicamera.ui.components.EmptyState
@@ -177,7 +179,22 @@ private fun CameraTile(card: CameraCard, snapshotUrl: String?, onClick: () -> Un
                 contentAlignment = Alignment.Center,
             ) {
                 if (card.online) {
-                    LiveThumbnail(snapshotUrl)
+                    // A tile only needs a frame as wide as it is drawn: ask
+                    // the server to downscale (full size stays for the
+                    // full-screen view). Unmeasured tiles wait a frame.
+                    var tileWidthPx by remember { mutableIntStateOf(0) }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .onSizeChanged { tileWidthPx = it.width },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        val tileUrl = remember(snapshotUrl, tileWidthPx) {
+                            snapshotUrl?.takeIf { tileWidthPx > 0 }
+                                ?.let { SessionManager.withFrameWidth(it, tileWidthPx) }
+                        }
+                        LiveThumbnail(tileUrl)
+                    }
                 } else {
                     Icon(
                         Icons.Filled.VideocamOff,
@@ -210,8 +227,9 @@ private fun CameraTile(card: CameraCard, snapshotUrl: String?, onClick: () -> Un
 
 /**
  * A self-refreshing snapshot. Each new [snapshotUrl] (cache-busted every poll
- * tick) triggers a fresh Coil request; the last successful painter is kept so
- * the tile doesn't flash a spinner between frames.
+ * tick) is paced by a [FramePacer], so a frame still downloading is finished
+ * rather than cancelled; the last successful painter is kept so the tile
+ * doesn't flash a spinner between frames.
  */
 @Composable
 private fun LiveThumbnail(snapshotUrl: String?) {
@@ -220,10 +238,15 @@ private fun LiveThumbnail(snapshotUrl: String?) {
         return
     }
     val context = androidx.compose.ui.platform.LocalContext.current
+    val pacer = remember { FramePacer() }
+    var frameUrl by remember { mutableStateOf(pacer.offer(snapshotUrl)) }
+    LaunchedEffect(snapshotUrl) {
+        pacer.offer(snapshotUrl)?.let { frameUrl = it }
+    }
     var lastSuccessPainter by remember { mutableStateOf<Painter?>(null) }
     SubcomposeAsyncImage(
         model = ImageRequest.Builder(context)
-            .data(snapshotUrl)
+            .data(frameUrl)
             .crossfade(true)
             .memoryCachePolicy(coil3.request.CachePolicy.DISABLED)
             .diskCachePolicy(coil3.request.CachePolicy.DISABLED)
@@ -232,6 +255,9 @@ private fun LiveThumbnail(snapshotUrl: String?) {
         onState = { coilState ->
             if (coilState is AsyncImagePainter.State.Success) {
                 lastSuccessPainter = coilState.painter
+            }
+            if (coilState is AsyncImagePainter.State.Success || coilState is AsyncImagePainter.State.Error) {
+                pacer.settled(frameUrl)?.let { frameUrl = it }
             }
         },
         modifier = Modifier.fillMaxSize(),
@@ -389,10 +415,16 @@ private fun LiveVideoFrame(
     var offset by remember { mutableStateOf(Offset.Zero) }
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
 
-    // Advance the shown frame only while playing so pausing freezes the image.
-    var displayedUrl by remember { mutableStateOf(snapshotUrl) }
+    // Advance the shown frame only while playing so pausing freezes the image,
+    // and only once the frame in flight has loaded (see FramePacer).
+    val pacer = remember { FramePacer() }
+    var displayedUrl by remember { mutableStateOf(pacer.offer(snapshotUrl)) }
     LaunchedEffect(snapshotUrl, playing) {
-        if (playing && snapshotUrl != null) displayedUrl = snapshotUrl
+        if (playing) {
+            pacer.offer(snapshotUrl)?.let { displayedUrl = it }
+        } else {
+            pacer.dropPending()
+        }
     }
 
     Box(
@@ -444,6 +476,9 @@ private fun LiveVideoFrame(
                 onState = { coilState ->
                     if (coilState is AsyncImagePainter.State.Success) {
                         lastSuccessPainter = coilState.painter
+                    }
+                    if (coilState is AsyncImagePainter.State.Success || coilState is AsyncImagePainter.State.Error) {
+                        pacer.settled(displayedUrl)?.let { displayedUrl = it }
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
