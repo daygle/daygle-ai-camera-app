@@ -19,6 +19,7 @@ val patchedVersions: Map<String, String> = listOf(
     libs.patched.bcprov,
     libs.patched.bcutil,
     libs.patched.commons.lang3,
+    libs.patched.guava,
     libs.patched.httpclient,
     libs.patched.jdom2,
     libs.patched.jose4j,
