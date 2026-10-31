@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -142,12 +143,27 @@ internal fun EventsFilterSheet(
 
             // High Priority Toggle
             FilterSection(title = "Alerts", icon = Icons.Filled.NotificationsActive) {
-                FilterChip(
-                    selected = state.alertedOnly,
-                    onClick = { viewModel.setAlertedOnly(!state.alertedOnly) },
-                    label = { Text("Only Show Alerts") },
-                    shape = RoundedCornerShape(12.dp)
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = state.alertedOnly,
+                        onClick = { viewModel.setAlertedOnly(!state.alertedOnly) },
+                        label = { Text("Fired Alerts") },
+                        leadingIcon = { if (state.alertedOnly) Icon(Icons.Filled.NotificationsActive, null, Modifier.size(18.dp)) },
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    FilterChip(
+                        selected = state.aiValidatedOnly,
+                        onClick = { viewModel.setAiValidatedOnly(!state.aiValidatedOnly) },
+                        label = { Text("AI Verified Only") },
+                        leadingIcon = { Icon(Icons.Filled.Verified, null, Modifier.size(18.dp)) },
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
             }
 
             // Type (Object vs Sound)

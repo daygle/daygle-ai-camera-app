@@ -3,6 +3,7 @@ package com.daygle.aicamera.ui.events
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
+import com.daygle.aicamera.data.model.AiVerdict
 import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.data.model.FaceFacets
@@ -10,6 +11,7 @@ import com.daygle.aicamera.data.model.LibraryFacets
 import com.daygle.aicamera.data.model.LibraryQuery
 import com.daygle.aicamera.data.model.SearchInterpretation
 import com.daygle.aicamera.data.model.aiDescription
+import com.daygle.aicamera.data.model.aiVerdict
 import com.daygle.aicamera.data.model.metadataLabel
 import com.daygle.aicamera.ui.friendlyMessage
 import com.daygle.aicamera.ui.isSoundLabel
@@ -50,6 +52,7 @@ data class EventsFilter(
     val selectedLabels: Set<String> = emptySet(),
     val face: String? = null,
     val alertedOnly: Boolean = false,
+    val aiValidatedOnly: Boolean = false,
     val sortOrder: EventsSortOrder = EventsSortOrder.NEWEST
 ) {
     fun activeCount(): Int {
@@ -62,6 +65,7 @@ data class EventsFilter(
         count += selectedLabels.size
         if (face != null) count++
         if (alertedOnly) count++
+        if (aiValidatedOnly) count++
         return count
     }
 
@@ -277,6 +281,8 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
 
     fun setAlertedOnly(value: Boolean) = updateFilter { it.copy(alertedOnly = value) }
 
+    fun setAiValidatedOnly(value: Boolean) = updateLocalFilter { it.copy(aiValidatedOnly = value) }
+
     fun setSortOrder(order: EventsSortOrder) = updateFilter { it.copy(sortOrder = order) }
 
     fun clearFilters() {
@@ -379,7 +385,7 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
         private const val POLL_INTERVAL_MS = 30_000L
         private const val SEARCH_DEBOUNCE_MS = 400L
 
-        /** The in-app filters (type and trigger) the server has no parameter for. */
+        /** The in-app filters (type, trigger and AI validation) the server has no parameter for. */
         internal fun applyLocalFilters(events: List<Event>, filter: EventsFilter): List<Event> {
             var result = events
             if (filter.selectedModes.isNotEmpty()) {
@@ -387,6 +393,9 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
             }
             if (filter.selectedTriggerTypes.isNotEmpty()) {
                 result = result.filter { it.triggerType in filter.selectedTriggerTypes }
+            }
+            if (filter.aiValidatedOnly) {
+                result = result.filter { it.aiVerdict() == AiVerdict.CONFIRMED }
             }
             return result
         }

@@ -24,8 +24,10 @@ import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -248,6 +250,26 @@ fun EventsScreen(
                             selected = true,
                             onClick = { viewModel.toggleMode(mode) },
                             label = { Text(mode) },
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+
+                    if (data.filter.alertedOnly) {
+                        FilterChip(
+                            selected = true,
+                            onClick = { viewModel.setAlertedOnly(false) },
+                            label = { Text("Fired Alerts") },
+                            leadingIcon = { Icon(Icons.Filled.NotificationsActive, null, Modifier.size(18.dp)) },
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+
+                    if (data.filter.aiValidatedOnly) {
+                        FilterChip(
+                            selected = true,
+                            onClick = { viewModel.setAiValidatedOnly(false) },
+                            label = { Text("AI Verified Only") },
+                            leadingIcon = { Icon(Icons.Filled.Verified, null, Modifier.size(18.dp)) },
                             shape = RoundedCornerShape(12.dp)
                         )
                     }
