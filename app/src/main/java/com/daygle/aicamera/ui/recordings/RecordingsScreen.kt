@@ -86,6 +86,7 @@ import com.daygle.aicamera.data.model.faceIdentities
 import com.daygle.aicamera.data.model.FaceFacets
 import com.daygle.aicamera.ui.components.AiDescriptionText
 import com.daygle.aicamera.ui.library.FaceFilterChips
+import com.daygle.aicamera.ui.library.FilterSection
 import com.daygle.aicamera.ui.library.LoadMoreEffect
 import com.daygle.aicamera.ui.library.PagingFooter
 import com.daygle.aicamera.ui.components.InsightChips
@@ -541,22 +542,6 @@ private fun RecordingsFilterSheet(
         }
     }
 }
-
-@Composable
-private fun FilterSection(
-    title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    content: @Composable () -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(icon, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        }
-        content()
-    }
-}
-
 
 @Composable
 private fun RecordingRow(

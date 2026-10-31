@@ -290,7 +290,6 @@ private fun ClipDetails(recording: Recording, cameraNames: Map<String, String>) 
     }
 }
 
-/** ... (FullscreenPlayer and ZoomablePlayerSurface unchanged) */
 @Composable
 private fun FullscreenPlayer(
     player: Player,
@@ -343,7 +342,6 @@ private fun FullscreenPlayer(
     }
 }
 
-/** ... (ZoomablePlayerSurface unchanged) */
 @Composable
 private fun ZoomablePlayerSurface(
     player: Player,

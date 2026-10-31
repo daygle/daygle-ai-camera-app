@@ -24,6 +24,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.daygle.aicamera.data.model.FaceFacets
@@ -81,6 +83,25 @@ fun PagingFooter(
             }
             hasMore -> TextButton(onClick = onLoadMore) { Text("Load More") }
         }
+    }
+}
+
+/**
+ * Section header (icon + title) used by every library filter bottom sheet
+ * (Events, Recordings, Snapshots).
+ */
+@Composable
+internal fun FilterSection(
+    title: String,
+    icon: ImageVector,
+    content: @Composable () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(icon, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        }
+        content()
     }
 }
 

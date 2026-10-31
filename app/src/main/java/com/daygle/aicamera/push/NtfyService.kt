@@ -131,40 +131,49 @@ class NtfyService : Service() {
     }
 
     private suspend fun runLoop() {
-        var backoffMs = MIN_BACKOFF_MS
-        while (scope.isActive) {
-            resyncRequested.set(false)
-            val config = notificationSettings.current()
-            if (!config.isSubscribable) {
-                stopSelfSafely()
-                return
+        try {
+            var backoffMs = MIN_BACKOFF_MS
+            while (scope.isActive) {
+                resyncRequested.set(false)
+                val config = notificationSettings.current()
+                if (!config.isSubscribable) {
+                    stopSelfSafely()
+                    return
+                }
+                // The JSON stream delivers only messages published after the
+                // connection opens, so there's no history to replay on connect.
+                val startedAt = SystemClock.elapsedRealtime()
+                val healthy = try {
+                    streamOnce(config)
+                    true
+                } catch (e: Exception) {
+                    if (!resyncRequested.get()) Log.w(TAG, "ntfy stream error: ${e.message}")
+                    false
+                }
+                if (!scope.isActive) return
+                if (resyncRequested.get()) {
+                    // Settings changed: reconnect straight away with the new config.
+                    backoffMs = MIN_BACKOFF_MS
+                    continue
+                }
+                // A stream that ran for a while and then ended normally reconnects
+                // immediately. Failures - and streams the server or a proxy closes
+                // right after opening - back off exponentially so a broken setup
+                // can't spin in a tight reconnect loop.
+                if (healthy && SystemClock.elapsedRealtime() - startedAt >= SHORT_STREAM_THRESHOLD_MS) {
+                    backoffMs = MIN_BACKOFF_MS
+                    continue
+                }
+                delay(backoffMs)
+                backoffMs = (backoffMs * 2).coerceAtMost(MAX_BACKOFF_MS)
             }
-            // The JSON stream delivers only messages published after the
-            // connection opens, so there's no history to replay on connect.
-            val startedAt = SystemClock.elapsedRealtime()
-            val healthy = try {
-                streamOnce(config)
-                true
-            } catch (e: Exception) {
-                if (!resyncRequested.get()) Log.w(TAG, "ntfy stream error: ${e.message}")
-                false
-            }
-            if (!scope.isActive) return
-            if (resyncRequested.get()) {
-                // Settings changed: reconnect straight away with the new config.
-                backoffMs = MIN_BACKOFF_MS
-                continue
-            }
-            // A stream that ran for a while and then ended normally reconnects
-            // immediately. Failures - and streams the server or a proxy closes
-            // right after opening - back off exponentially so a broken setup
-            // can't spin in a tight reconnect loop.
-            if (healthy && SystemClock.elapsedRealtime() - startedAt >= SHORT_STREAM_THRESHOLD_MS) {
-                backoffMs = MIN_BACKOFF_MS
-                continue
-            }
-            delay(backoffMs)
-            backoffMs = (backoffMs * 2).coerceAtMost(MAX_BACKOFF_MS)
+        } finally {
+            // The loop has finished (nothing left to subscribe to, or the scope
+            // was cancelled). Clear the guard so a start that races this exit -
+            // e.g. a settings re-sync or the keep-alive worker hitting the
+            // stopping service - can launch a fresh stream loop instead of
+            // being silently ignored while the old instance lingers.
+            running.set(false)
         }
     }
 
