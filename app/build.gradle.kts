@@ -47,9 +47,9 @@ android {
 
     val releaseKeystorePath = releaseSigningValue("RELEASE_KEYSTORE_FILE")
     val releaseKeystore = releaseKeystorePath?.let { rootProject.file(it) }
-    val releaseSigningConfigured = releaseKeystore?.exists() == true
+    val releaseSigningConfigured = releaseKeystore != null && releaseKeystore.exists()
 
-    if (releaseSigningConfigured && releaseKeystore != null) {
+    if (releaseKeystore != null && releaseKeystore.exists()) {
         signingConfigs.create("release") {
             storeFile = releaseKeystore
             storePassword = releaseSigningValue("RELEASE_KEYSTORE_PASSWORD")
