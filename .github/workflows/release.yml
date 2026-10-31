@@ -135,10 +135,29 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
+      # Upstream action bug (softprops/action-gh-release#827): when a release
+      # for the tag already exists (a re-run or a re-fired build), the action
+      # PATCHes it again with generate_release_notes: true, and GitHub merges
+      # the fresh notes into the old body instead of replacing it - duplicated
+      # "What's Changed" sections. Clearing the body first makes the
+      # regeneration start clean. Idempotent: a first build is untouched.
+      - name: Clear stale release body on re-run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release edit "$TAG" --notes ""
+            echo "::notice::Release $TAG already existed (re-run/re-fired build); cleared its body so notes regenerate without duplication."
+          else
+            echo "No existing release for $TAG; creating fresh."
+          fi
+
       - name: Create GitHub Release and Upload APK + AAB
         if: steps.signing.outputs.enabled == 'true'
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ github.ref_name }}
           files: |
             app/build/outputs/apk/*/*.apk
             app/build/outputs/bundle/release/*.aab
@@ -150,6 +169,7 @@ jobs:
         if: steps.signing.outputs.enabled == 'false'
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ github.ref_name }}
           files: app/build/outputs/apk/*/*.apk
           generate_release_notes: true
           draft: false
