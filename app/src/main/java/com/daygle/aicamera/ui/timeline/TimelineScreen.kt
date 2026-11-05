@@ -47,6 +47,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -319,6 +320,11 @@ private fun TimelineLane(
     onSegmentClick: (Int) -> Unit
 ) {
     val scrollState = rememberScrollState()
+    // The gesture detector below is installed once; read the latest width and
+    // callback through State so each pinch builds on the current zoom instead
+    // of restarting from the width the lane was first composed with.
+    val currentMinuteWidth by rememberUpdatedState(minuteWidth)
+    val currentOnMinuteWidthChange by rememberUpdatedState(onMinuteWidthChange)
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
@@ -338,7 +344,7 @@ private fun TimelineLane(
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
                 .pointerInput(Unit) {
                     detectTransformGestures { _, _, zoom, _ ->
-                        onMinuteWidthChange(minuteWidth * zoom)
+                        currentOnMinuteWidthChange(currentMinuteWidth * zoom)
                     }
                 }
         ) {
