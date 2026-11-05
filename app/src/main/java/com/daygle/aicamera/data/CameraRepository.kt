@@ -1,5 +1,6 @@
 package com.daygle.aicamera.data
 
+import android.util.Log
 import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.CameraHealthResponse
 import com.daygle.aicamera.data.model.Event
@@ -28,7 +29,17 @@ class CameraRepository(
         session.update(connection)
         val result = session.login()
         if (result is LoginResult.Success) {
-            settings.save(connection)
+            // A storage/Keystore failure must not crash a successful sign-in;
+            // the session still works for this launch.
+            suspendRunCatching { settings.save(connection) }
+                .onFailure { Log.w(TAG, "Could not save the connection", it) }
+        } else {
+            // The attempt pointed the live session at the server that just
+            // rejected it. Put the saved connection back so the rest of the
+            // app keeps using the server it was working with; a failed save
+            // must not silently switch the app to a bad address.
+            val persisted = suspendRunCatching { settings.current() }.getOrNull()
+            if (persisted != null && persisted != connection) session.update(persisted)
         }
         return result
     }
@@ -188,6 +199,8 @@ class CameraRepository(
     fun currentSettingsStore(): SettingsStore = settings
 
     companion object {
+        private const val TAG = "CameraRepository"
+
         /** Rows per list page; more load as the user scrolls. */
         const val PAGE_SIZE = 50
     }

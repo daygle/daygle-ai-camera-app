@@ -67,7 +67,6 @@ import com.daygle.aicamera.ui.components.ErrorState
 import com.daygle.aicamera.ui.components.LoadingState
 import com.daygle.aicamera.ui.timeFormatter
 import java.time.Instant
-import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -357,7 +356,8 @@ private fun TimelineLane(
                     .width((TOTAL_MINUTES * minuteWidth).dp)
                     .pointerInput(segments, minuteWidth) {
                         detectTapGestures { offset ->
-                            val minute = offset.x / minuteWidth
+                            // minuteWidth is in dp; pointer offsets are pixels.
+                            val minute = offset.x / minuteWidth.dp.toPx()
                             val segment = segments.find { 
                                 minute >= it.startMinute && minute <= (it.startMinute + it.durationMinutes)
                             }
@@ -365,9 +365,11 @@ private fun TimelineLane(
                         }
                     }
             ) {
+                // minuteWidth is a dp width, while DrawScope works in pixels.
+                val pxPerMinute = minuteWidth.dp.toPx()
                 // Draw hour markers
                 for (hour in 0..24) {
-                    val x = hour * 60 * minuteWidth
+                    val x = hour * 60 * pxPerMinute
                     drawLine(
                         color = Color.Gray.copy(alpha = 0.4f),
                         start = Offset(x, 0f),
@@ -379,7 +381,7 @@ private fun TimelineLane(
                         drawIntoCanvas { canvas ->
                             canvas.nativeCanvas.drawText(
                                 String.format(locale, "%02d:00", hour),
-                                x + (30 * minuteWidth),
+                                x + (30 * pxPerMinute),
                                 size.height - 10f,
                                 textPaint
                             )
@@ -389,8 +391,8 @@ private fun TimelineLane(
 
                 // Draw segments
                 segments.forEach { segment ->
-                    val x = segment.startMinute * minuteWidth
-                    val width = segment.durationMinutes * minuteWidth
+                    val x = segment.startMinute * pxPerMinute
+                    val width = segment.durationMinutes * pxPerMinute
                     
                     drawRoundRect(
                         color = color,

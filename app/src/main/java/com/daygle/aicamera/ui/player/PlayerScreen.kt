@@ -61,6 +61,9 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
@@ -100,6 +103,17 @@ fun PlayerScreen(
     val player = viewModel.player
     val overlay: @Composable () -> Unit = {
         overlaySource?.let { if (overlayEnabled) DetectionOverlay(it, player, Modifier.fillMaxSize()) }
+    }
+
+    // Stop playback when the app leaves the foreground; otherwise the player
+    // keeps streaming audio off-screen and holds WAKE_MODE_NETWORK.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, player) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) player.pause()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     var fullscreen by rememberSaveable { mutableStateOf(false) }

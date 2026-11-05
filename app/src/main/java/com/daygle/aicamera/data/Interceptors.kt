@@ -5,6 +5,15 @@ import okhttp3.Interceptor
 import okhttp3.Response
 import java.util.concurrent.atomic.AtomicLong
 
+private const val TAG = "Interceptors"
+
+/**
+ * Token pasted from a terminal or password manager often carries a trailing
+ * newline. OkHttp rejects CR/LF in header values with an IllegalArgumentException
+ * thrown before the request is sent, which would break every request.
+ */
+internal fun String.asHeaderValue(): String = replace("\r", "").replace("\n", "").trim()
+
 /**
  * Attaches the `CF-Access-Client-Id` / `CF-Access-Client-Secret` headers to the request
  * when a Cloudflare Access service token is configured.
@@ -14,9 +23,9 @@ internal class CloudflareAccessInterceptor(
     private val clientSecretProvider: () -> String,
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
-        val clientId = clientIdProvider()
-        val clientSecret = clientSecretProvider()
-        if (clientId.isBlank() || clientSecret.isBlank()) {
+        val clientId = clientIdProvider().asHeaderValue()
+        val clientSecret = clientSecretProvider().asHeaderValue()
+        if (clientId.isEmpty() || clientSecret.isEmpty()) {
             return chain.proceed(chain.request())
         }
         return chain.proceed(
@@ -36,16 +45,20 @@ internal class CustomHeaderInterceptor(
     private val valueProvider: () -> String
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
-        val name = nameProvider()
-        val value = valueProvider()
-        if (name.isBlank() || value.isBlank()) {
+        val name = nameProvider().trim()
+        val value = valueProvider().asHeaderValue()
+        if (name.isEmpty() || value.isEmpty()) {
             return chain.proceed(chain.request())
         }
-        return chain.proceed(
-            chain.request().newBuilder()
-                .header(name, value)
-                .build()
-        )
+        // A saved header with an illegal name is a configuration mistake, not a
+        // reason to fail every request: skip it and keep the client usable.
+        val request = try {
+            chain.request().newBuilder().header(name, value).build()
+        } catch (e: IllegalArgumentException) {
+            Log.w(TAG, "Ignoring invalid custom header '$name': ${e.message}")
+            chain.request()
+        }
+        return chain.proceed(request)
     }
 }
 

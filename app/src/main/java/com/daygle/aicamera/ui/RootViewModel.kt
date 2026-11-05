@@ -1,10 +1,12 @@
 package com.daygle.aicamera.ui
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.NotificationSettingsStore
+import com.daygle.aicamera.data.suspendRunCatching
 import com.daygle.aicamera.push.PushController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -31,8 +33,14 @@ class RootViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            hasConnection = repository.restore()
-            val needsOnboarding = !repository.currentSettingsStore().isOnboardingDone()
+            // A storage or Keystore failure must not leave the app on the
+            // loading spinner forever; fall back to the connect screen.
+            hasConnection = suspendRunCatching { repository.restore() }
+                .onFailure { Log.w(TAG, "Could not restore the saved connection", it) }
+                .getOrDefault(false)
+            val needsOnboarding = suspendRunCatching {
+                repository.currentSettingsStore().isOnboardingDone()
+            }.getOrDefault(false)
             _start.value = when {
                 needsOnboarding -> StartDestination.ONBOARDING
                 hasConnection -> StartDestination.HOME
@@ -59,10 +67,16 @@ class RootViewModel @Inject constructor(
     fun disconnect(onDone: () -> Unit) {
         PushController.stop(context)
         viewModelScope.launch {
-            notificationSettings.clear()
-            repository.disconnect()
+            suspendRunCatching { notificationSettings.clear() }
+                .onFailure { Log.w(TAG, "Could not clear the alert settings", it) }
+            suspendRunCatching { repository.disconnect() }
+                .onFailure { Log.w(TAG, "Could not sign out cleanly", it) }
             _start.value = StartDestination.CONNECT
             onDone()
         }
+    }
+
+    private companion object {
+        private const val TAG = "RootViewModel"
     }
 }

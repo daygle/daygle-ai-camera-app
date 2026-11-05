@@ -10,6 +10,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import com.daygle.aicamera.data.suspendRunCatching
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -22,7 +23,9 @@ class FileDownloader(
     private val httpClient: OkHttpClient
 ) {
     suspend fun downloadFile(url: String, fileName: String, mimeType: String): Result<Unit> = withContext(Dispatchers.IO) {
-        runCatching {
+        // suspendRunCatching re-throws cancellation, so leaving the screen does
+        // not show a misleading "Download failed" toast.
+        suspendRunCatching {
             val request = Request.Builder().url(url).build()
             httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) throw Exception("Server returned ${response.code}")
