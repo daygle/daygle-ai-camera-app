@@ -15,7 +15,6 @@ import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.session.MediaSession
 import com.daygle.aicamera.data.AppPreferencesStore
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.model.Recording
@@ -73,8 +72,6 @@ class PlayerViewModel @Inject constructor(
 
     @OptIn(UnstableApi::class)
     val player: ExoPlayer = createPlayer()
-
-    private val mediaSession: MediaSession = MediaSession.Builder(context, player).build()
 
     private val downloader = FileDownloader(context, repository.httpClient())
 
@@ -199,7 +196,6 @@ class PlayerViewModel @Inject constructor(
     }
 
     override fun onCleared() {
-        mediaSession.release()
         player.release()
     }
 }

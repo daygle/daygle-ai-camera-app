@@ -125,12 +125,12 @@ Release builds are minified with R8. The `.aab` embeds both the R8 deobfuscation
 
 | Layer | Technology |
 | --- | --- |
-| **Language** | Kotlin 2.4.20 (JDK 21) |
-| **UI Framework** | Jetpack Compose (Material 3, Adaptive Layouts) |
-| **Build System** | Gradle 9.8.0 with AGP 9.4.1 |
-| **Networking** | OkHttp 5.5, Retrofit 3.0, Kotlinx Serialization |
+| **Language** | Kotlin 2.4.21 (JDK 21) |
+| **UI Framework** | Jetpack Compose (Material 3) |
+| **Build System** | Gradle 9.8.2 with AGP 9.5.0 |
+| **Networking** | OkHttp 5.5.1, Retrofit 3.0, Kotlinx Serialization |
 | **Dependency Injection** | Hilt 2.60.1 (KSP) |
-| **Image / Video** | Coil 3.6, Media3 / ExoPlayer 1.11.1 |
+| **Image / Video** | Coil 3.6.3, Media3 / ExoPlayer 1.11.1 |
 | **Architecture** | MVVM / MVI with DataStore persistence |
 
 ---
@@ -145,16 +145,29 @@ app/src/main/java/com/daygle/aicamera/
 │   ├── SessionManager.kt        # Auth & API state orchestration
 │   ├── Interceptors.kt          # Auth, Cloudflare & Custom Header logic
 │   ├── NetworkExtensions.kt     # Safe Coroutine execution & error mapping
-│   └── SettingsStore.kt         # Secure credential & URL persistence
+│   ├── SettingsStore.kt         # Secure credential & URL persistence
+│   ├── SecretStore.kt           # Android Keystore AES-GCM secret storage
+│   ├── AppPreferencesStore.kt   # Theme, time format, refresh & tab order
+│   ├── NotificationSettingsStore.kt # ntfy subscription persistence
+│   └── PushSettingsSync.kt      # Follow the server's ntfy settings
 ├── push/
 │   ├── NtfyService.kt           # Foreground streaming alert listener
-│   └── PushController.kt        # Alert lifecycle management
+│   ├── PushController.kt        # Alert lifecycle management
+│   ├── PushKeepAliveWorker.kt   # WorkManager keep-alive
+│   └── BootReceiver.kt          # Restart the listener after reboot
+├── util/
+│   └── FileDownloader.kt        # MediaStore saves for snapshots & clips
 └── ui/
     ├── DaygleNavHost.kt         # Route definition & auth gating
     ├── ErrorUtils.kt            # Centralized UI error reporting
+    ├── components/              # Shared Compose building blocks
     ├── dashboard/               # Live camera grid & full-screen live view
     ├── events/                  # Filterable detection log & alert cards
+    ├── library/                 # Cursor paging & shared filter widgets
+    ├── notifications/           # Push alert setup
     ├── player/                  # Native video playback with pinch-to-zoom
     ├── recordings/              # Historical clip management
+    ├── snapshots/               # Snapshot library & viewer
+    ├── timeline/                # Camera-day activity timeline
     └── settings/                # App preferences & server details
 ```

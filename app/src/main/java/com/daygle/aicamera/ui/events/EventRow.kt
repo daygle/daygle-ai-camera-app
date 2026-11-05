@@ -198,7 +198,9 @@ internal fun EventRow(
                     horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (event.hasSnapshot) {
+                    // Older servers omit `has_snapshot` but still store the
+                    // image (see CameraRepository.snapshotsPage).
+                    if (event.hasSnapshot || !event.snapshotPath.isNullOrBlank()) {
                         IconButton(
                             onClick = { onOpenSnapshot(event.id) },
                             modifier = Modifier

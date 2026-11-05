@@ -22,6 +22,8 @@ import com.daygle.aicamera.R
 import com.daygle.aicamera.data.NotificationConfig
 import com.daygle.aicamera.data.NotificationSettingsStore
 import com.daygle.aicamera.data.SessionManager
+import com.daygle.aicamera.data.SettingsStore
+import com.daygle.aicamera.data.suspendRunCatching
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -61,6 +63,9 @@ class NtfyService : Service() {
 
     @Inject
     lateinit var session: SessionManager
+
+    @Inject
+    lateinit var settings: SettingsStore
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val alertId = AtomicInteger(2000)
@@ -130,12 +135,34 @@ class NtfyService : Service() {
         return START_STICKY
     }
 
+    /**
+     * A service restarted by the system (after a reboot, or a process kill)
+     * starts with a fresh [SessionManager] that knows nothing about the saved
+     * server. Reload it so an Access-protected ntfy endpoint still receives the
+     * Cloudflare service-token headers; signing in is not needed just to stream.
+     */
+    private suspend fun restoreConnection() {
+        if (session.currentBaseUrl != null) return
+        suspendRunCatching { session.update(settings.current()) }
+            .onFailure { Log.w(TAG, "Could not restore the saved connection", it) }
+    }
+
     private suspend fun runLoop() {
         try {
+            restoreConnection()
             var backoffMs = MIN_BACKOFF_MS
             while (scope.isActive) {
                 resyncRequested.set(false)
-                val config = notificationSettings.current()
+                // A storage/Keystore failure must not escape this coroutine: an
+                // uncaught exception here would crash the whole process.
+                val config = try {
+                    notificationSettings.current()
+                } catch (e: Exception) {
+                    if (!resyncRequested.get()) Log.w(TAG, "Could not read the alert settings", e)
+                    delay(backoffMs)
+                    backoffMs = (backoffMs * 2).coerceAtMost(MAX_BACKOFF_MS)
+                    continue
+                }
                 if (!config.isSubscribable) {
                     stopSelfSafely()
                     return
@@ -187,22 +214,27 @@ class NtfyService : Service() {
         }
         val call = client.newCall(builder.build())
         currentCall = call
-        // A re-sync that landed after this loop read its config would have
-        // cancelled the previous call; honour it for this one too.
-        if (resyncRequested.get()) call.cancel()
-        call.execute().use { response ->
-            if (!response.isSuccessful) {
-                throw IllegalStateException("ntfy returned HTTP ${response.code}")
-            }
-            val source = response.body.source()
-            while (scope.isActive && !source.exhausted()) {
-                val line = source.readUtf8Line() ?: break
-                if (line.isBlank()) continue
-                val message = runCatching { json.decodeFromString<NtfyMessage>(line) }.getOrNull() ?: continue
-                if (message.event == "message") {
-                    postAlert(message)
+        try {
+            // A re-sync that landed after this loop read its config would have
+            // cancelled the previous call; honour it for this one too.
+            if (resyncRequested.get()) call.cancel()
+            call.execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw IllegalStateException("ntfy returned HTTP ${response.code}")
+                }
+                val source = response.body.source()
+                while (scope.isActive && !source.exhausted()) {
+                    val line = source.readUtf8Line() ?: break
+                    if (line.isBlank()) continue
+                    val message = runCatching { json.decodeFromString<NtfyMessage>(line) }.getOrNull() ?: continue
+                    if (message.event == "message") {
+                        postAlert(message)
+                    }
                 }
             }
+        } finally {
+            // Don't keep a finished call reachable until the next reconnect.
+            currentCall = null
         }
     }
 

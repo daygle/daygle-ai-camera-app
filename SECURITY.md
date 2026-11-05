@@ -22,16 +22,22 @@ the app and the server are supported with security fixes.
   (or an equally secure tunnel). The app refuses to treat plain HTTP as safe
   for credentials; configure the server behind TLS (e.g. a reverse proxy or
   Cloudflare Tunnel) before entering credentials in the app.
-- **Credentials**: the app stores only the server address and session state.
-  It never stores camera credentials - those live on the server. The session
-  cookie is scoped to the server origin and is used for all requests; a `401`
+- **Credentials**: the app stores the Daygle account username and password,
+  the optional Cloudflare Access service token, the optional custom HTTP header
+  value and any ntfy credentials, because the server has no token API and the
+  session cookie must be re-established after it expires. Camera credentials
+  are never stored - those live on the server. The session cookie is kept in
+  memory, scoped to the server origin, and used for all requests; a `401`
   triggers a silent re-login.
 - **Push alerts**: notifications are delivered over the ntfy-compatible push
-  endpoint configured on the server. The app does not include push secrets or
-  API keys.
-- **Data at rest**: the app keeps its local settings (theme, time format,
-  server address, session) in Android's encrypted-preferences-backed
-  DataStore. We recommend enabling full-disk encryption on the device.
+  endpoint configured on the server. The app ships no push secrets or API keys;
+  the ntfy subscription can be filled from the server or entered by the user.
+- **Data at rest**: non-secret settings and the server address live in
+  Jetpack DataStore. Every secret (account password, Cloudflare token, custom
+  header value, ntfy password) is encrypted with an AES-GCM key held in the
+  Android Keystore and stored in private SharedPreferences. DataStore and the
+  secrets file are excluded from cloud backup and device-to-device transfer.
+  We recommend enabling full-disk encryption on the device.
 
 ## Reporting a vulnerability
 
