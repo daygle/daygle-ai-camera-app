@@ -38,9 +38,11 @@ class RootViewModel @Inject constructor(
             hasConnection = suspendRunCatching { repository.restore() }
                 .onFailure { Log.w(TAG, "Could not restore the saved connection", it) }
                 .getOrDefault(false)
-            val needsOnboarding = suspendRunCatching {
+            // If the flag cannot be read, skip onboarding rather than show it
+            // on every launch.
+            val needsOnboarding = !suspendRunCatching {
                 repository.currentSettingsStore().isOnboardingDone()
-            }.getOrDefault(false)
+            }.getOrDefault(true)
             _start.value = when {
                 needsOnboarding -> StartDestination.ONBOARDING
                 hasConnection -> StartDestination.HOME
