@@ -27,8 +27,8 @@ import com.daygle.aicamera.ui.components.SettingsRow
 /**
  * Settings landing page. Rather than one long scroll of every control, this
  * shows a compact header and a list of category rows that each open a focused
- * sub-screen (see SettingsSubScreens.kt). This keeps the top level short and
- * scannable, mirroring the LocaPeer settings landing page.
+ * sub-screen (see SettingsSubScreens.kt), keeping the top level short and
+ * scannable.
  */
 @Composable
 fun SettingsScreen(

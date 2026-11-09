@@ -319,10 +319,12 @@ private fun FullscreenCameraView(
 
     var playing by remember { mutableStateOf(true) }
 
+    // Black like any video surface: letterboxing and the white controls
+    // stay legible whatever the app theme.
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface),
+            .background(Color.Black),
         contentAlignment = Alignment.Center,
     ) {
         LiveVideoFrame(snapshotUrl = snapshotUrl, playing = playing)
