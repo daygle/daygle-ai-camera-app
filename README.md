@@ -128,7 +128,7 @@ Release builds are minified with R8. The `.aab` embeds both the R8 deobfuscation
 | --- | --- |
 | **Language** | Kotlin 2.4.21 (JDK 21) |
 | **UI Framework** | Jetpack Compose (Material 3) |
-| **Build System** | Gradle 9.8.2 with AGP 9.5.0 |
+| **Build System** | Gradle 9.9.0 with AGP 9.5.1 |
 | **Networking** | OkHttp 5.5.1, Retrofit 3.0, Kotlinx Serialization |
 | **Dependency Injection** | Hilt 2.60.1 (KSP) |
 | **Image / Video** | Coil 3.6.3, Media3 / ExoPlayer 1.11.1 |

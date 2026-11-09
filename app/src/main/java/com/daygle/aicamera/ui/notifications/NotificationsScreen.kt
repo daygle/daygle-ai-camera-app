@@ -7,6 +7,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -21,6 +22,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -31,6 +33,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.daygle.aicamera.data.PushRecipientOption
 import com.daygle.aicamera.ui.components.SettingsSection
 import com.daygle.aicamera.ui.components.SettingsSwitchRow
 import com.daygle.aicamera.ui.permissions.AppPermissions
@@ -229,6 +232,16 @@ fun NotificationsScreen(
 
                     PushAlertsTestNotificationButton()
 
+                    if (state.canServerTest) {
+                        ServerPushTest(
+                            options = state.pushTestOptions,
+                            selected = state.pushTestSelected,
+                            sending = state.pushTestSending,
+                            onToggle = viewModel::onPushTestRecipient,
+                            onSend = viewModel::sendServerTest,
+                        )
+                    }
+
                     Button(
                         onClick = { viewModel.commit(enabled = state.enabled) { } },
                         enabled = state.canEnable,
@@ -241,6 +254,61 @@ fun NotificationsScreen(
             }
 
             Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+/**
+ * Admins only: have the server send a test push through ntfy to the ticked
+ * users' own topics (the same picker as the server's Settings page), or the
+ * shared topic with nobody ticked.
+ */
+@Composable
+private fun ServerPushTest(
+    options: List<PushRecipientOption>,
+    selected: Set<String>,
+    sending: Boolean,
+    onToggle: (String, Boolean) -> Unit,
+    onSend: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Test Notification Recipients", style = MaterialTheme.typography.titleSmall)
+        if (options.isEmpty()) {
+            Text(
+                "No users have a push topic yet. Each user sets one as Push Topic on their Daygle profile.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        options.forEach { option ->
+            val checked = option.value in selected
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(value = checked, role = Role.Checkbox, onValueChange = { onToggle(option.value, it) }),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Checkbox(checked = checked, onCheckedChange = null)
+                Spacer(Modifier.width(8.dp))
+                Column {
+                    Text(option.name, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        option.topic,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+        Text(
+            "With nobody ticked, the test goes to the shared topic.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedButton(onClick = onSend, enabled = !sending, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(if (sending) "Sending…" else "Send Test Through Server")
         }
     }
 }
@@ -261,6 +329,6 @@ private fun PushAlertsTestNotificationButton() {
     ) {
         Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
-        Text("Send Test Notification")
+        Text("Send Test On This Device")
     }
 }

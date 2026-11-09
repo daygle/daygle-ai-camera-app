@@ -1,5 +1,7 @@
 package com.daygle.aicamera.data
 
+import com.daygle.aicamera.data.model.AppUser
+import com.daygle.aicamera.data.model.AuthMe
 import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.CameraHealthResponse
 import com.daygle.aicamera.data.model.CamerasResponse
@@ -8,14 +10,23 @@ import com.daygle.aicamera.data.model.EventSearchResponse
 import com.daygle.aicamera.data.model.LibraryFacets
 import com.daygle.aicamera.data.model.Page
 import com.daygle.aicamera.data.model.PushSettings
+import com.daygle.aicamera.data.model.PushTestRequest
+import com.daygle.aicamera.data.model.PushTestResponse
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.data.model.SystemSettings
 import com.daygle.aicamera.data.model.TimelineResponse
+import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Header
+import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 
-/** Read-only endpoints on the Daygle AI Camera server consumed by the app. */
+/**
+ * Endpoints on the Daygle AI Camera server consumed by the app. All are reads
+ * except [pushTest], which needs the session's CSRF token and a same-origin
+ * `Origin` header (see [CameraRepository.sendPushTest]).
+ */
 interface DaygleApi {
 
     @GET("api/cameras")
@@ -114,6 +125,21 @@ interface DaygleApi {
 
     @GET("api/settings/alert-push")
     suspend fun pushSettings(): PushSettings
+
+    @GET("api/auth/me")
+    suspend fun me(): AuthMe
+
+    /** Admins only. */
+    @GET("api/users")
+    suspend fun users(): List<AppUser>
+
+    /** Admins only. Sends a test push to the chosen users' own ntfy topics. */
+    @POST("api/settings/alert-push/test")
+    suspend fun pushTest(
+        @Header("X-CSRF-Token") csrfToken: String,
+        @Header("Origin") origin: String,
+        @Body body: PushTestRequest,
+    ): PushTestResponse
 
     /** Admin only: other roles get 403. */
     @GET("api/settings/system")

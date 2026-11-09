@@ -9,6 +9,7 @@ import com.daygle.aicamera.data.model.LibraryFacets
 import com.daygle.aicamera.data.model.LibraryQuery
 import com.daygle.aicamera.data.model.Page
 import com.daygle.aicamera.data.model.PushSettings
+import com.daygle.aicamera.data.model.PushTestRequest
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.data.model.SystemSettings
 import com.daygle.aicamera.data.model.TimelineResponse
@@ -181,6 +182,26 @@ class CameraRepository(
         suspendRunCatching { session.api.recordingsTimeline(cameraId, day, tzOffsetMinutes) }
 
     suspend fun pushSettings(): Result<PushSettings> = suspendRunCatching { session.api.pushSettings() }
+
+    /**
+     * Who a server-sent test push can go to: the signed-in user's id and the
+     * users list, or null for a non-admin account (the server only lets
+     * admins send a test or list users).
+     */
+    suspend fun pushTestTargets(): Result<PushTestTargets?> = suspendRunCatching {
+        val me = session.api.me().user
+        if (me == null || !me.isAdmin) null else PushTestTargets(me.id, session.api.users())
+    }
+
+    /**
+     * Ask the server to push a test notification to [recipients] (`user:<id>`
+     * references; empty means the shared topic). Returns the topics it went to.
+     */
+    suspend fun sendPushTest(recipients: List<String>): Result<List<String>> = suspendRunCatching {
+        val csrfToken = session.api.me().csrfToken.orEmpty()
+        val origin = checkNotNull(session.currentBaseUrl) { "Not connected to a server." }
+        session.api.pushTest(csrfToken, origin, PushTestRequest(recipients)).topics
+    }
 
     suspend fun systemSettings(): Result<SystemSettings> = suspendRunCatching { session.api.systemSettings() }
 

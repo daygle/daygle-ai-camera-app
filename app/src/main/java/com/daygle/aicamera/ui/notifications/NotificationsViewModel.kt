@@ -6,6 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.NotificationConfig
 import com.daygle.aicamera.data.NotificationSettingsStore
+import com.daygle.aicamera.data.PushRecipientOption
+import com.daygle.aicamera.data.defaultPushRecipients
+import com.daygle.aicamera.data.pushRecipientOptions
+import com.daygle.aicamera.data.serverErrorDetail
 import com.daygle.aicamera.push.PushController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +29,11 @@ data class NotificationsUiState(
     val followServer: Boolean = true,
     /** The user's own topic from their Daygle profile (read-only here). */
     val userTopic: String = "",
+    /** Admins can have the server send a test push through ntfy to chosen users. */
+    val canServerTest: Boolean = false,
+    val pushTestOptions: List<PushRecipientOption> = emptyList(),
+    val pushTestSelected: Set<String> = emptySet(),
+    val pushTestSending: Boolean = false,
     val discovering: Boolean = false,
     val message: String? = null,
 ) {
@@ -53,6 +62,51 @@ class NotificationsViewModel @Inject constructor(
                     password = config.password,
                     followServer = config.followServer != false,
                     userTopic = config.userTopic,
+                )
+            }
+        }
+        loadPushTestTargets()
+    }
+
+    /** For an admin, the users a server-sent test push can go to. */
+    private fun loadPushTestTargets() {
+        viewModelScope.launch {
+            val targets = repository.pushTestTargets().getOrNull() ?: return@launch
+            val options = pushRecipientOptions(targets.users)
+            _state.update {
+                it.copy(
+                    canServerTest = true,
+                    pushTestOptions = options,
+                    pushTestSelected = defaultPushRecipients(options, targets.meId),
+                )
+            }
+        }
+    }
+
+    fun onPushTestRecipient(value: String, checked: Boolean) = _state.update {
+        it.copy(pushTestSelected = if (checked) it.pushTestSelected + value else it.pushTestSelected - value)
+    }
+
+    /**
+     * Have the server push a test notification through ntfy to the ticked
+     * users' own topics, or the shared topic with nobody ticked. Unlike the
+     * on-device test this checks the whole path, server to this phone.
+     */
+    fun sendServerTest() {
+        val s = _state.value
+        if (s.pushTestSending) return
+        _state.update { it.copy(pushTestSending = true, message = null) }
+        viewModelScope.launch {
+            // Keep the list order, not the order the boxes were ticked.
+            val recipients = s.pushTestOptions.map { it.value }.filter { it in s.pushTestSelected }
+            val result = repository.sendPushTest(recipients)
+            _state.update {
+                it.copy(
+                    pushTestSending = false,
+                    message = result.fold(
+                        onSuccess = { topics -> "Test notification sent to ${topics.joinToString(", ")}." },
+                        onFailure = { error -> serverErrorDetail(error) ?: "Couldn't send the test notification." },
+                    ),
                 )
             }
         }
