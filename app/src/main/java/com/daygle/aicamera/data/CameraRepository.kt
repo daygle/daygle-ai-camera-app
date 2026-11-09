@@ -1,6 +1,7 @@
 package com.daygle.aicamera.data
 
 import android.util.Log
+import com.daygle.aicamera.data.model.ActivityStats
 import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.CameraHealthResponse
 import com.daygle.aicamera.data.model.Event
@@ -11,6 +12,7 @@ import com.daygle.aicamera.data.model.Page
 import com.daygle.aicamera.data.model.PushSettings
 import com.daygle.aicamera.data.model.PushTestRequest
 import com.daygle.aicamera.data.model.Recording
+import com.daygle.aicamera.data.model.ServerResources
 import com.daygle.aicamera.data.model.SystemSettings
 import com.daygle.aicamera.data.model.TimelineResponse
 import kotlinx.serialization.json.JsonArray
@@ -234,6 +236,13 @@ class CameraRepository(
     }
 
     suspend fun systemSettings(): Result<SystemSettings> = suspendRunCatching { session.api.systemSettings() }
+
+    /** Host CPU, load, RAM, GPU and video decoding (admin only). */
+    suspend fun serverResources(): Result<ServerResources> = suspendRunCatching { session.api.systemResources() }
+
+    /** Event and alert counts since [since] (ISO-8601), or all time when null (admin only). */
+    suspend fun activityStats(since: String? = null): Result<ActivityStats> =
+        suspendRunCatching { session.api.stats(since) }
 
     fun snapshotUrl(cameraId: String?, cacheBuster: Long): String? =
         session.snapshotUrl(cameraId, cacheBuster)

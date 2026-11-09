@@ -6,6 +6,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -38,6 +39,7 @@ fun SettingsScreen(
     onOpenNotifications: () -> Unit,
     onOpenAlerts: () -> Unit,
     onOpenServerDetails: () -> Unit,
+    onOpenServerStats: () -> Unit,
     onOpenAbout: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
@@ -114,6 +116,13 @@ fun SettingsScreen(
                 title = "Alerts",
                 subtitle = "Who each alert emails and pushes (admins)",
                 onClick = onOpenAlerts
+            )
+            SettingsDivider()
+            SettingsCategoryRow(
+                icon = Icons.Filled.Speed,
+                title = "Server Stats",
+                subtitle = "CPU, memory, GPU and activity (admins)",
+                onClick = onOpenServerStats
             )
             SettingsDivider()
             SettingsCategoryRow(

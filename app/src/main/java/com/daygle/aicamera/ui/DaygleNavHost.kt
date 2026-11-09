@@ -9,7 +9,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.flow.StateFlow
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -22,6 +21,8 @@ import com.daygle.aicamera.ui.notifications.NotificationsScreen
 import com.daygle.aicamera.ui.onboarding.OnboardingScreen
 import com.daygle.aicamera.ui.player.PlayerScreen
 import com.daygle.aicamera.ui.snapshots.SnapshotScreen
+import com.daygle.aicamera.ui.stats.ServerStatsScreen
+import kotlinx.coroutines.flow.StateFlow
 
 private object Routes {
     const val CONNECT = "connect"
@@ -31,6 +32,7 @@ private object Routes {
     const val NOTIFICATIONS = "notifications"
     const val ALERTS = "alerts"
     const val SERVER_DETAILS = "server_details"
+    const val SERVER_STATS = "server_stats"
     const val ABOUT = "about"
     const val PLAYER = "player/{recordingId}"
     const val SNAPSHOT = "snapshot/{eventId}"
@@ -98,6 +100,7 @@ fun DaygleNavHost(
                             onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
                             onOpenAlerts = { navController.navigate(Routes.ALERTS) },
                             onOpenServerDetails = { navController.navigate(Routes.SERVER_DETAILS) },
+                            onOpenServerStats = { navController.navigate(Routes.SERVER_STATS) },
                             onOpenAbout = { navController.navigate(Routes.ABOUT) },
                             onSignOut = signOut,
                         )
@@ -122,6 +125,9 @@ fun DaygleNavHost(
                             onBack = { navController.popBackStack() },
                             onSignOut = signOut,
                         )
+                    }
+                    composable(Routes.SERVER_STATS) {
+                        ServerStatsScreen(onBack = { navController.popBackStack() })
                     }
                     composable(Routes.NOTIFICATIONS) {
                         NotificationsScreen(onBack = { navController.popBackStack() })
