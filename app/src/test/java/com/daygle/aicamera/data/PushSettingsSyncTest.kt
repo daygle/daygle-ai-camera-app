@@ -72,4 +72,26 @@ class PushSettingsSyncTest {
         val local = NotificationConfig(serverUrl = "https://ntfy.example.com", topic = "t", followServer = true)
         assertNull(followServerSettings(local, PushSettings(serverUrl = "", topic = null)))
     }
+
+    @Test
+    fun followingInstallTakesTheUsersOwnTopic() {
+        val local = NotificationConfig(
+            enabled = true, serverUrl = "https://ntfy.example.com", topic = "daygle-alerts",
+            username = "alerts", password = "secret", followServer = true,
+        )
+        val updated = followServerSettings(local, server.copy(userTopic = " alice-phone "))!!
+        assertEquals("alice-phone", updated.userTopic)
+        assertEquals("daygle-alerts", updated.topic)
+    }
+
+    @Test
+    fun manualSubscriptionStillFollowsTheUsersOwnTopic() {
+        val local = NotificationConfig(serverUrl = "https://public.example.com", topic = "mine", followServer = false)
+        val updated = followServerSettings(local, server.copy(userTopic = "alice-phone"))!!
+        assertEquals("alice-phone", updated.userTopic)
+        assertEquals("https://public.example.com", updated.serverUrl)
+        assertEquals("mine", updated.topic)
+        // An older server without a user topic clears it.
+        assertEquals("", followServerSettings(updated, server)!!.userTopic)
+    }
 }

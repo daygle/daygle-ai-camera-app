@@ -39,6 +39,13 @@ data class NotificationConfig(
      * own network. Null until first decided (see [PushSettingsSync]).
      */
     val followServer: Boolean? = null,
+    /**
+     * The signed-in user's own ntfy topic, set on their Daygle profile. Alerts
+     * that name this user as a push recipient go here rather than to [topic],
+     * so the app subscribes to both. Always follows the server (see
+     * [PushSettingsSync]); blank when the user has none.
+     */
+    val userTopic: String = "",
 ) {
     /** Enough to open a subscription. */
     val isSubscribable: Boolean
@@ -54,6 +61,7 @@ class NotificationSettingsStore(private val context: Context) {
         val SERVER_URL = stringPreferencesKey("ntfy_server_url")
         val TOPIC = stringPreferencesKey("ntfy_topic")
         val FOLLOW_SERVER = booleanPreferencesKey("ntfy_follow_server")
+        val USER_TOPIC = stringPreferencesKey("ntfy_user_topic")
         // Retained only to migrate existing installations.
         val USERNAME = stringPreferencesKey("ntfy_username")
         val PASSWORD = stringPreferencesKey("ntfy_password")
@@ -68,6 +76,7 @@ class NotificationSettingsStore(private val context: Context) {
             username = secrets.read(NTFY_USERNAME_SECRET_KEY) ?: prefs[Keys.USERNAME].orEmpty(),
             password = secrets.read(NTFY_PASSWORD_SECRET_KEY) ?: prefs[Keys.PASSWORD].orEmpty(),
             followServer = prefs[Keys.FOLLOW_SERVER],
+            userTopic = prefs[Keys.USER_TOPIC].orEmpty(),
         )
     }.flowOn(Dispatchers.IO)
 
@@ -98,6 +107,7 @@ class NotificationSettingsStore(private val context: Context) {
             prefs[Keys.SERVER_URL] = config.serverUrl.trim()
             prefs[Keys.TOPIC] = config.topic.trim()
             config.followServer?.let { prefs[Keys.FOLLOW_SERVER] = it }
+            prefs[Keys.USER_TOPIC] = config.userTopic.trim()
             prefs.remove(Keys.USERNAME)
             prefs.remove(Keys.PASSWORD)
         }

@@ -39,4 +39,15 @@ class NtfyStreamUrlTest {
         assertNull(streamUrl(config("https://ntfy.sh", " ")))
         assertNull(streamUrl(config("https://", "alerts")))
     }
+
+    @Test
+    fun listensToTheSharedAndTheUsersOwnTopic() {
+        val both = NotificationConfig(enabled = true, serverUrl = "https://ntfy.sh", topic = "alerts", userTopic = " alice-phone ")
+        assertEquals("https://ntfy.sh/alerts,alice-phone/json", streamUrl(both).toString())
+        // The same topic twice is one subscription; a blank user topic is ignored.
+        assertEquals("https://ntfy.sh/alerts/json", streamUrl(both.copy(userTopic = "alerts")).toString())
+        assertEquals("https://ntfy.sh/alerts/json", streamUrl(both.copy(userTopic = " ")).toString())
+        // A comma inside a topic stays part of that topic.
+        assertEquals("https://ntfy.sh/alerts,a%2Cb/json", streamUrl(both.copy(userTopic = "a,b")).toString())
+    }
 }

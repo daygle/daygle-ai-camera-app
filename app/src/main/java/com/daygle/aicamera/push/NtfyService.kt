@@ -390,21 +390,31 @@ class NtfyService : Service() {
 }
 
 /**
- * `{server}/{topic}/json`. The topic is added as an encoded path segment, so a
- * stray `/`, `?` or `#` in it can't point the subscription somewhere else. A
- * server address typed without a scheme defaults to https.
+ * `{server}/{topic}/json`, or `{server}/{topic},{userTopic}/json` to listen to
+ * the shared topic and the user's own topic on one connection (ntfy accepts a
+ * comma-separated topic list). Each topic is percent-encoded, so a stray `/`,
+ * `?`, `#` or `,` in it can't point the subscription somewhere else. A server
+ * address typed without a scheme defaults to https.
  */
 internal fun streamUrl(config: NotificationConfig): HttpUrl? {
     val server = config.serverUrl.trim()
     val topic = config.topic.trim()
     if (server.isEmpty() || topic.isEmpty()) return null
     val withScheme = if ("://" in server) server else "https://$server"
+    val topics = listOf(topic, config.userTopic.trim())
+        .filter { it.isNotEmpty() }
+        .distinct()
+        .joinToString(",") { it.encodeTopic() }
     return withScheme.toHttpUrlOrNull()
         ?.newBuilder()
-        ?.addPathSegment(topic)
+        ?.addEncodedPathSegment(topics)
         ?.addPathSegment("json")
         ?.build()
 }
+
+/** Percent-encode one topic for a path segment, commas included. */
+private fun String.encodeTopic(): String =
+    java.net.URLEncoder.encode(this, "UTF-8").replace("+", "%20")
 
 @Serializable
 internal data class NtfyMessage(
