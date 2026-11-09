@@ -4,8 +4,10 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.intOrNull
 
 /**
  * Data models mirroring the JSON returned by the `daygle-ai-camera` FastAPI
@@ -277,4 +279,54 @@ data class ObjectRule(
     @SerialName("email_enabled") val emailEnabled: Boolean = false,
     @SerialName("push_enabled") val pushEnabled: Boolean = false,
     @SerialName("record_on_detect") val recordOnDetect: Boolean = true,
+)
+
+/** `GET /api/auth/me`: the signed-in user and the session's CSRF token. */
+@Serializable
+data class AuthMe(
+    val user: AuthUser? = null,
+    @SerialName("csrf_token") val csrfToken: String? = null,
+)
+
+@Serializable
+data class AuthUser(
+    val id: Int = 0,
+    val role: String? = null,
+) {
+    val isAdmin: Boolean get() = role == "admin"
+}
+
+/**
+ * A Daygle user from `GET /api/users` (admins only), as far as picking push
+ * recipients needs. `is_active` arrives as `1`/`0` from that endpoint and as
+ * `true`/`false` elsewhere, so it is read leniently via [active].
+ */
+@Serializable
+data class AppUser(
+    val id: Int = 0,
+    val username: String = "",
+    @SerialName("first_name") val firstName: String? = null,
+    @SerialName("last_name") val lastName: String? = null,
+    @SerialName("ntfy_topic") val ntfyTopic: String? = null,
+    @SerialName("is_active") val isActive: JsonPrimitive? = null,
+) {
+    val active: Boolean
+        get() = isActive?.let { it.booleanOrNull ?: it.intOrNull?.let { n -> n != 0 } } ?: true
+
+    val displayName: String
+        get() = listOfNotNull(firstName?.trim(), lastName?.trim())
+            .filter { it.isNotEmpty() }
+            .joinToString(" ")
+            .ifEmpty { username }
+}
+
+/** Body of `POST /api/settings/alert-push/test`: `user:<id>` references. */
+@Serializable
+data class PushTestRequest(val recipients: List<String>)
+
+/** The ntfy topics the server sent the test notification to. */
+@Serializable
+data class PushTestResponse(
+    val ok: Boolean = false,
+    val topics: List<String> = emptyList(),
 )
