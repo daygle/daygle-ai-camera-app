@@ -7,7 +7,8 @@ import com.daygle.aicamera.data.model.PushSettings
  * settings (`GET /api/settings/alert-push`), so the server's dashboard is the
  * one place the ntfy server and topic are set. Runs on every launch; a
  * subscription the user set by hand ([NotificationConfig.followServer] false)
- * is left alone.
+ * keeps its server and topic, but the user's own topic
+ * ([NotificationConfig.userTopic]) always follows the server.
  */
 class PushSettingsSync(
     private val repository: CameraRepository,
@@ -19,7 +20,6 @@ class PushSettingsSync(
      */
     suspend fun refresh() {
         val local = store.current()
-        if (local.followServer == false) return
         val server = repository.pushSettings().getOrNull() ?: return
         followServerSettings(local, server)?.let { store.save(it) }
     }
@@ -29,14 +29,17 @@ class PushSettingsSync(
  * The subscription to store after reading the server's push [server] settings,
  * or null when nothing changes. The on/off switch stays the device's own
  * choice. A viewer account gets no ntfy password from the server, so a
- * password entered on the device is kept.
+ * password entered on the device is kept. The user's own topic is taken from
+ * the server even for a hand-entered subscription: it is never entered on the
+ * device, and an older server without it clears it.
  *
  * An install from before following existed ([NotificationConfig.followServer]
  * null) follows the server only if its ntfy server and topic are empty or
  * already match; otherwise they were entered by hand and are kept.
  */
 internal fun followServerSettings(local: NotificationConfig, server: PushSettings): NotificationConfig? {
-    if (local.followServer == false) return null
+    val userTopic = server.userTopic?.trim().orEmpty()
+    if (local.followServer == false) return local.copy(userTopic = userTopic).takeIf { it != local }
     val serverUrl = server.serverUrl?.trim().orEmpty()
     val topic = server.topic?.trim().orEmpty()
     // The server has no ntfy push set up yet: nothing to follow.
@@ -44,7 +47,7 @@ internal fun followServerSettings(local: NotificationConfig, server: PushSetting
     if (local.followServer == null) {
         val unset = local.serverUrl.isBlank() && local.topic.isBlank()
         val matches = sameServerUrl(local.serverUrl, serverUrl) && local.topic.trim() == topic
-        if (!unset && !matches) return local.copy(followServer = false)
+        if (!unset && !matches) return local.copy(followServer = false, userTopic = userTopic)
     }
     val updated = local.copy(
         followServer = true,
@@ -52,6 +55,7 @@ internal fun followServerSettings(local: NotificationConfig, server: PushSetting
         topic = topic,
         username = server.username?.trim()?.takeIf { it.isNotEmpty() } ?: local.username,
         password = server.password?.takeIf { it.isNotEmpty() } ?: local.password,
+        userTopic = userTopic,
     )
     return updated.takeIf { it != local }
 }

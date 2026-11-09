@@ -162,6 +162,15 @@ fun NotificationsScreen(
                             focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                         )
                     )
+                    Text(
+                        if (state.userTopic.isNotBlank()) {
+                            "Your own topic: ${state.userTopic}. Alerts that name you as a push recipient arrive there, alongside the topic above."
+                        } else {
+                            "To get alerts sent only to you, set a Push Topic on your Daygle profile. This app then listens to it too."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     OutlinedTextField(
                         value = state.username,
                         onValueChange = viewModel::onUsername,

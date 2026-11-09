@@ -23,6 +23,8 @@ data class NotificationsUiState(
     val password: String = "",
     /** The ntfy server and topic follow the Daygle server's push settings. */
     val followServer: Boolean = true,
+    /** The user's own topic from their Daygle profile (read-only here). */
+    val userTopic: String = "",
     val discovering: Boolean = false,
     val message: String? = null,
 ) {
@@ -50,6 +52,7 @@ class NotificationsViewModel @Inject constructor(
                     username = config.username,
                     password = config.password,
                     followServer = config.followServer != false,
+                    userTopic = config.userTopic,
                 )
             }
         }
@@ -83,6 +86,7 @@ class NotificationsViewModel @Inject constructor(
                             topic = push.topic?.takeIf(String::isNotBlank) ?: it.topic,
                             username = push.username?.takeIf(String::isNotBlank) ?: it.username,
                             password = push.password?.takeIf(String::isNotBlank) ?: it.password,
+                            userTopic = push.userTopic?.trim().orEmpty(),
                             message = when {
                                 push.serverUrl.isNullOrBlank() || push.topic.isNullOrBlank() ->
                                     "The server has no ntfy push configured yet. Set it up in the server's Settings first."
@@ -110,6 +114,7 @@ class NotificationsViewModel @Inject constructor(
             username = s.username,
             password = s.password,
             followServer = s.followServer,
+            userTopic = s.userTopic,
         )
         _state.update { it.copy(enabled = config.enabled) }
         viewModelScope.launch {

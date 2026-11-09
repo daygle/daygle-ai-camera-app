@@ -127,6 +127,10 @@ fun Event.metadataDouble(key: String): Double? =
  * The server's ntfy push configuration (`GET /api/settings/alert-push`). For a
  * non-admin (viewer) session the server redacts `password`, so the app also
  * lets the user supply ntfy credentials manually.
+ *
+ * [topic] is the shared topic (alerts that name no one); [userTopic] is the
+ * signed-in user's own topic from their Daygle profile (alerts that name
+ * them). Older servers don't send [userTopic].
  */
 @Serializable
 data class PushSettings(
@@ -136,6 +140,7 @@ data class PushSettings(
     val username: String? = null,
     val password: String? = null,
     val priority: String? = null,
+    @SerialName("user_topic") val userTopic: String? = null,
 )
 
 @Serializable
