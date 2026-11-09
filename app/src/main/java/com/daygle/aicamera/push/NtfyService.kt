@@ -23,6 +23,7 @@ import com.daygle.aicamera.data.NotificationConfig
 import com.daygle.aicamera.data.NotificationSettingsStore
 import com.daygle.aicamera.data.SessionManager
 import com.daygle.aicamera.data.SettingsStore
+import com.daygle.aicamera.data.asHeaderValue
 import com.daygle.aicamera.data.suspendRunCatching
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -74,6 +75,15 @@ class NtfyService : Service() {
     /** Set when a settings re-sync cancels the stream, so it reconnects at once. */
     private val resyncRequested = AtomicBoolean(false)
 
+    /**
+     * Where the last stream got to, so a reconnect can ask ntfy to replay what
+     * was published while disconnected. Only touched by the stream loop.
+     */
+    private var resumePoint: ResumePoint? = null
+
+    /** Ids of recently posted alerts: a replay overlaps the last stream by design. */
+    private val seenMessages = RecentIds(capacity = 200)
+
     @Volatile
     private var currentCall: okhttp3.Call? = null
 
@@ -93,8 +103,11 @@ class NtfyService : Service() {
             // so a redirect can't carry the secret to another origin either.
             .addNetworkInterceptor { chain ->
                 val request = chain.request()
-                val clientId = session.currentCfAccessClientId()
-                val clientSecret = session.currentCfAccessClientSecret()
+                // Sanitised like the API client's headers: a pasted value with
+                // a trailing newline would otherwise make OkHttp reject the
+                // header and fail every stream attempt.
+                val clientId = session.currentCfAccessClientId().asHeaderValue()
+                val clientSecret = session.currentCfAccessClientSecret().asHeaderValue()
                 if (clientId.isBlank() || clientSecret.isBlank() || !session.isServerHost(request.url.host)) {
                     chain.proceed(request)
                 } else {
@@ -120,15 +133,15 @@ class NtfyService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForegroundStatus()
-        // onStartCommand can fire repeatedly (every time the app re-syncs the
-        // listener); only ever run one stream loop.
+        // onStartCommand can fire repeatedly (app launch, the keep-alive
+        // worker, a settings re-sync); only ever run one stream loop.
         if (running.compareAndSet(false, true)) {
             scope.launch { runLoop() }
-        } else {
-            // Re-syncing after a settings change reaches the running service
-            // through onStartCommand. Drop the old stream so runLoop reads the
+        } else if (intent?.action == ACTION_RESYNC) {
+            // The settings changed. Drop the old stream so runLoop reads the
             // new server/topic/credentials immediately instead of waiting for
-            // the remote connection to time out.
+            // the remote connection to time out. A plain start (keep-alive,
+            // boot) leaves a healthy stream alone.
             resyncRequested.set(true)
             currentCall?.cancel()
         }
@@ -167,8 +180,9 @@ class NtfyService : Service() {
                     stopSelfSafely()
                     return
                 }
-                // The JSON stream delivers only messages published after the
-                // connection opens, so there's no history to replay on connect.
+                // A first connect streams only what is published from now on;
+                // a reconnect to the same subscription resumes from the last
+                // server time seen (see [ResumePoint]).
                 val startedAt = SystemClock.elapsedRealtime()
                 val healthy = try {
                     streamOnce(config)
@@ -206,8 +220,11 @@ class NtfyService : Service() {
 
     /** Open one streaming connection; returns when the server closes it. */
     private fun streamOnce(config: NotificationConfig) {
-        val url = streamUrl(config)
+        val base = streamUrl(config)
             ?: throw IllegalArgumentException("Invalid ntfy server address: ${config.serverUrl}")
+        val subscription = "${config.username.trim()}@$base"
+        val since = resumePoint?.takeIf { it.subscription == subscription }?.serverTime
+        val url = if (since != null) base.newBuilder().addQueryParameter("since", since.toString()).build() else base
         val builder = Request.Builder().url(url).get()
         if (config.username.isNotBlank()) {
             builder.header("Authorization", Credentials.basic(config.username, config.password))
@@ -227,7 +244,13 @@ class NtfyService : Service() {
                     val line = source.readUtf8Line() ?: break
                     if (line.isBlank()) continue
                     val message = runCatching { json.decodeFromString<NtfyMessage>(line) }.getOrNull() ?: continue
-                    if (message.event == "message") {
+                    // Messages and keepalives carry the server's clock;
+                    // remember the latest as the resume point. Not `open`:
+                    // it arrives before a replay, which could still be cut off.
+                    if (message.event != "open" && message.time > (resumePoint?.serverTime ?: 0)) {
+                        resumePoint = ResumePoint(subscription, message.time)
+                    }
+                    if (message.event == "message" && seenMessages.add(message.id)) {
                         postAlert(message)
                     }
                 }
@@ -320,6 +343,9 @@ class NtfyService : Service() {
         private const val STATUS_ID = 1001
         private const val TEST_ID = 1002
 
+        /** Start action: the settings changed, so reconnect even if streaming. */
+        const val ACTION_RESYNC = "com.daygle.aicamera.action.RESYNC_ALERTS"
+
         /** Streams shorter than this are treated as unhealthy for backoff purposes. */
         private const val SHORT_STREAM_THRESHOLD_MS = 5_000L
         private const val MIN_BACKOFF_MS = 2_000L
@@ -410,6 +436,30 @@ internal fun streamUrl(config: NotificationConfig): HttpUrl? {
         ?.addEncodedPathSegment(topics)
         ?.addPathSegment("json")
         ?.build()
+}
+
+/**
+ * The server time (unix seconds) a stream last reported, for the subscription
+ * (ntfy user and stream URL) it belongs to. ntfy's `since=<time>` replays
+ * cached messages from that second on, so alerts published during a dropped
+ * connection still arrive; a changed subscription starts fresh.
+ */
+private data class ResumePoint(val subscription: String, val serverTime: Long)
+
+/**
+ * A bounded set of the most recent message ids. [add] returns false for an id
+ * already seen, so a replay that overlaps the previous stream doesn't post the
+ * same alert twice. Messages without an id are always treated as new.
+ */
+internal class RecentIds(private val capacity: Int) {
+    private val ids = LinkedHashSet<String>()
+
+    fun add(id: String?): Boolean {
+        if (id.isNullOrBlank()) return true
+        if (!ids.add(id)) return false
+        if (ids.size > capacity) ids.remove(ids.first())
+        return true
+    }
 }
 
 /** Percent-encode one topic for a path segment, commas included. */

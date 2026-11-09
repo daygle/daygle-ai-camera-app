@@ -2,9 +2,11 @@ package com.daygle.aicamera.data
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.Dispatchers
@@ -14,7 +16,12 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
-private val Context.notificationDataStore: DataStore<Preferences> by preferencesDataStore(name = "notifications")
+// A corrupt file (e.g. a write cut short by a crash or full disk) is reset
+// rather than failing every read, which would crash the app on each launch.
+private val Context.notificationDataStore: DataStore<Preferences> by preferencesDataStore(
+    name = "notifications",
+    corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
+)
 
 private const val NTFY_USERNAME_SECRET_KEY = "ntfy_username"
 private const val NTFY_PASSWORD_SECRET_KEY = "ntfy_password"
@@ -111,10 +118,6 @@ class NotificationSettingsStore(private val context: Context) {
             prefs.remove(Keys.USERNAME)
             prefs.remove(Keys.PASSWORD)
         }
-    }
-
-    suspend fun setEnabled(enabled: Boolean) {
-        context.notificationDataStore.edit { it[Keys.ENABLED] = enabled }
     }
 
     suspend fun clear(): Unit = withContext(Dispatchers.IO) {

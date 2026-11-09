@@ -53,7 +53,10 @@ class RootViewModel @Inject constructor(
 
     fun onboardingComplete() {
         viewModelScope.launch {
-            repository.currentSettingsStore().setOnboardingDone()
+            // If the flag can't be saved, onboarding shows again next launch;
+            // that is no reason to crash now.
+            suspendRunCatching { repository.currentSettingsStore().setOnboardingDone() }
+                .onFailure { Log.w(TAG, "Could not save onboarding state", it) }
             // The session was already restored (and signed in) during init;
             // restoring again would only repeat the login round-trip.
             _start.value = if (hasConnection) StartDestination.HOME else StartDestination.CONNECT
@@ -79,6 +82,6 @@ class RootViewModel @Inject constructor(
     }
 
     private companion object {
-        private const val TAG = "RootViewModel"
+        const val TAG = "RootViewModel"
     }
 }

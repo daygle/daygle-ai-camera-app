@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.daygle.aicamera.ui.components.LoadingState
@@ -65,12 +66,15 @@ fun DaygleNavHost(
                 val startRoute = if (start == StartDestination.HOME) Routes.HOME else Routes.CONNECT
 
                 // A tapped push alert can request a specific event snapshot.
-                // Navigate once the home graph is active (the request survives a
-                // fresh process restore, which lands on HOME after reconnect).
+                // Navigate once the user is signed in, i.e. past the connect
+                // screen. This follows the back stack rather than [start], which
+                // stays CONNECT for the rest of a session that began signed out.
                 val pendingSnapshotId by snapshotEventId.collectAsStateWithLifecycle()
-                LaunchedEffect(start, pendingSnapshotId) {
+                val currentEntry by navController.currentBackStackEntryAsState()
+                val signedIn = currentEntry?.destination?.route.let { it != null && it != Routes.CONNECT }
+                LaunchedEffect(signedIn, pendingSnapshotId) {
                     val id = pendingSnapshotId
-                    if (start == StartDestination.HOME && id != null) {
+                    if (signedIn && id != null) {
                         navController.navigate(Routes.snapshot(id)) { launchSingleTop = true }
                         onSnapshotEventConsumed()
                     }

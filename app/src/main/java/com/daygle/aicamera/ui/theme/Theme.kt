@@ -1,6 +1,5 @@
 package com.daygle.aicamera.ui.theme
 
-import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -22,6 +21,7 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
+import com.daygle.aicamera.ui.findActivity
 
 private val Accent = Color(0xFF00A3FF)
 private val AccentDark = Color(0xFF0084D1)
@@ -114,7 +114,7 @@ fun DaygleTheme(
     val colors = if (effectiveDark) DarkColors else LightColors
     if (!view.isInEditMode) {
         SideEffect {
-            val window = (view.context as Activity).window
+            val window = view.context.findActivity()?.window ?: return@SideEffect
             @Suppress("DEPRECATION")
             window.statusBarColor = colors.background.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !effectiveDark

@@ -16,12 +16,15 @@ class PushSettingsSync(
 ) {
     /**
      * Re-read the server's push settings and store any change. Failures
-     * (offline, older server) leave the subscription untouched.
+     * (offline, older server) leave the subscription untouched. Returns
+     * whether the stored subscription changed.
      */
-    suspend fun refresh() {
+    suspend fun refresh(): Boolean {
         val local = store.current()
-        val server = repository.pushSettings().getOrNull() ?: return
-        followServerSettings(local, server)?.let { store.save(it) }
+        val server = repository.pushSettings().getOrNull() ?: return false
+        val updated = followServerSettings(local, server) ?: return false
+        store.save(updated)
+        return true
     }
 }
 

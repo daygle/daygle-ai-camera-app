@@ -1,12 +1,14 @@
 package com.daygle.aicamera.ui
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.AppPreferencesStore
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.NotificationSettingsStore
 import com.daygle.aicamera.data.PushSettingsSync
+import com.daygle.aicamera.data.suspendRunCatching
 import com.daygle.aicamera.push.PushController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -20,7 +22,7 @@ import javax.inject.Inject
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val prefs: AppPreferencesStore,
+    prefs: AppPreferencesStore,
     repository: CameraRepository,
     notificationSettings: NotificationSettingsStore,
 ) : ViewModel() {
@@ -39,8 +41,17 @@ class HomeViewModel @Inject constructor(
      */
     fun syncPush() {
         viewModelScope.launch {
-            pushSync.refresh()
-            PushController.sync(context)
+            // Both steps read and write encrypted settings; a storage or
+            // Keystore failure must not crash the home screen.
+            val changed = suspendRunCatching { pushSync.refresh() }
+                .onFailure { Log.w(TAG, "Could not refresh the push settings", it) }
+                .getOrDefault(false)
+            suspendRunCatching { PushController.sync(context, resync = changed) }
+                .onFailure { Log.w(TAG, "Could not sync the alert listener", it) }
         }
+    }
+
+    private companion object {
+        const val TAG = "HomeViewModel"
     }
 }

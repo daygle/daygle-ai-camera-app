@@ -186,7 +186,9 @@ fun NavigationSettingsScreen(
                     Switch(
                         checked = isActive,
                         onCheckedChange = { viewModel.toggleNavItem(tab) },
-                        enabled = !isActive || state.navItems.size > 1,
+                        // Settings is the only way back to this screen (and to
+                        // sign out), so it can be moved but never hidden.
+                        enabled = tab != HomeTab.Settings,
                         modifier = Modifier.scale(0.8f),
                     )
                 }

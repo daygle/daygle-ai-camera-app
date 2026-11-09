@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.Connection
 import com.daygle.aicamera.data.LoginResult
+import com.daygle.aicamera.data.suspendRunCatching
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,7 +36,9 @@ class ConnectViewModel @Inject constructor(private val repository: CameraReposit
 
     init {
         viewModelScope.launch {
-            val saved = repository.currentConnection()
+            // Pre-filling is a convenience: if the saved details can't be
+            // read (storage/Keystore failure) the user simply types them.
+            val saved = suspendRunCatching { repository.currentConnection() }.getOrNull() ?: return@launch
             if (saved.baseUrl.isNotBlank() || saved.username.isNotBlank()) {
                 _state.update {
                     it.copy(
