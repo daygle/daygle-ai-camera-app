@@ -28,6 +28,7 @@ private object Routes {
     const val GENERAL_SETTINGS = "general_settings"
     const val NAVIGATION_SETTINGS = "navigation_settings"
     const val NOTIFICATIONS = "notifications"
+    const val ALERTS = "alerts"
     const val SERVER_DETAILS = "server_details"
     const val ABOUT = "about"
     const val PLAYER = "player/{recordingId}"
@@ -91,6 +92,7 @@ fun DaygleNavHost(
                             onOpenGeneralSettings = { navController.navigate(Routes.GENERAL_SETTINGS) },
                             onOpenNavigationSettings = { navController.navigate(Routes.NAVIGATION_SETTINGS) },
                             onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
+                            onOpenAlerts = { navController.navigate(Routes.ALERTS) },
                             onOpenServerDetails = { navController.navigate(Routes.SERVER_DETAILS) },
                             onOpenAbout = { navController.navigate(Routes.ABOUT) },
                             onSignOut = signOut,
@@ -119,6 +121,9 @@ fun DaygleNavHost(
                     }
                     composable(Routes.NOTIFICATIONS) {
                         NotificationsScreen(onBack = { navController.popBackStack() })
+                    }
+                    composable(Routes.ALERTS) {
+                        com.daygle.aicamera.ui.alerts.AlertsScreen(onBack = { navController.popBackStack() })
                     }
                     composable(
                         route = Routes.PLAYER,

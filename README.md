@@ -57,6 +57,7 @@ Daygle uses [ntfy](https://ntfy.sh) for secure, real-time alerts without relying
 - **Instant Delivery**: The app subscribes to your server's ntfy topic via a lightweight foreground service.
 - **Server-Managed**: By default (**Use Server's Settings**) the ntfy server and topic come from your Daygle dashboard and are re-read every time the app opens, so changing them on the server is enough. Turn it off to enter them by hand, e.g. when the server's ntfy address is only reachable on its own network.
 - **Your Own Topic**: Set a **Push Topic** on your Daygle profile and the app listens to it as well as the shared topic, on the same connection. Alerts that name you as a push recipient arrive there; alerts that name nobody still arrive on the shared topic. It always follows your profile, even when the server and topic are entered by hand.
+- **Alert Recipients (admins)**: **Settings → Alerts** lists every alert on the server and lets an administrator tick who each one emails and pushes, with the same user picker as the server's web Alerts page. Only the recipient lists change; everything else about each alert stays as set on the server.
 - **Tap to Open**: Tapping an alert opens the event that triggered it (the server tags each alert with its event id).
 - **Persistence**: A WorkManager-backed keep-alive ensures you never miss an alert, even if Android restarts the background service.
 

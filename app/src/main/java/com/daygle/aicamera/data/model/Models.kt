@@ -297,8 +297,8 @@ data class AuthUser(
 }
 
 /**
- * A Daygle user from `GET /api/users` (admins only), as far as picking push
- * recipients needs. `is_active` arrives as `1`/`0` from that endpoint and as
+ * A Daygle user from `GET /api/users` (admins only), as far as picking email
+ * and push recipients needs. `is_active` arrives as `1`/`0` from that endpoint and as
  * `true`/`false` elsewhere, so it is read leniently via [active].
  */
 @Serializable
@@ -307,6 +307,7 @@ data class AppUser(
     val username: String = "",
     @SerialName("first_name") val firstName: String? = null,
     @SerialName("last_name") val lastName: String? = null,
+    val email: String? = null,
     @SerialName("ntfy_topic") val ntfyTopic: String? = null,
     @SerialName("is_active") val isActive: JsonPrimitive? = null,
 ) {

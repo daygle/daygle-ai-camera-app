@@ -13,6 +13,8 @@ import com.daygle.aicamera.data.model.PushTestRequest
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.data.model.SystemSettings
 import com.daygle.aicamera.data.model.TimelineResponse
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 import retrofit2.HttpException
 
 /**
@@ -191,6 +193,34 @@ class CameraRepository(
     suspend fun pushTestTargets(): Result<PushTestTargets?> = suspendRunCatching {
         val me = session.api.me().user
         if (me == null || !me.isAdmin) null else PushTestTargets(me.id, session.api.users())
+    }
+
+    /**
+     * The alerts config for the Alerts screen, or null for a non-admin account
+     * (the server only lets admins read or change it).
+     */
+    suspend fun alertConfig(): Result<AlertConfig?> = suspendRunCatching {
+        val me = session.api.me().user
+        if (me == null || !me.isAdmin) {
+            null
+        } else {
+            AlertConfig(
+                users = session.api.users(),
+                cameras = session.api.camerasConfig().arrayAt("cameras"),
+                faceRules = session.api.faceRules().arrayAt("rules"),
+            )
+        }
+    }
+
+    /**
+     * Save the edited alert config. Only the parts that changed are sent: a
+     * camera save makes the server re-apply the camera settings.
+     */
+    suspend fun saveAlertConfig(cameras: JsonArray?, faceRules: JsonArray?): Result<Unit> = suspendRunCatching {
+        val csrfToken = session.api.me().csrfToken.orEmpty()
+        val origin = checkNotNull(session.currentBaseUrl) { "Not connected to a server." }
+        if (cameras != null) session.api.saveCamerasConfig(csrfToken, origin, JsonObject(mapOf("cameras" to cameras)))
+        if (faceRules != null) session.api.saveFaceRules(csrfToken, origin, JsonObject(mapOf("rules" to faceRules)))
     }
 
     /**

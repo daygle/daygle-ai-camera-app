@@ -36,6 +36,7 @@ fun SettingsScreen(
     onOpenGeneral: () -> Unit,
     onOpenNavigation: () -> Unit,
     onOpenNotifications: () -> Unit,
+    onOpenAlerts: () -> Unit,
     onOpenServerDetails: () -> Unit,
     onOpenAbout: () -> Unit,
     modifier: Modifier = Modifier,
@@ -106,6 +107,13 @@ fun SettingsScreen(
                 title = "Notifications",
                 subtitle = "Push alerts and device permissions",
                 onClick = onOpenNotifications
+            )
+            SettingsDivider()
+            SettingsCategoryRow(
+                icon = Icons.Filled.NotificationsActive,
+                title = "Alerts",
+                subtitle = "Who each alert emails and pushes (admins)",
+                onClick = onOpenAlerts
             )
             SettingsDivider()
             SettingsCategoryRow(

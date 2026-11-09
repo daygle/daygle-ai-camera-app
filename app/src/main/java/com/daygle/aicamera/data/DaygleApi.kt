@@ -15,17 +15,20 @@ import com.daygle.aicamera.data.model.PushTestResponse
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.data.model.SystemSettings
 import com.daygle.aicamera.data.model.TimelineResponse
+import kotlinx.serialization.json.JsonObject
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
 /**
  * Endpoints on the Daygle AI Camera server consumed by the app. All are reads
- * except [pushTest], which needs the session's CSRF token and a same-origin
- * `Origin` header (see [CameraRepository.sendPushTest]).
+ * except [pushTest], [saveCamerasConfig] and [saveFaceRules], which need the
+ * session's CSRF token and a same-origin `Origin` header (see
+ * [CameraRepository.sendPushTest]).
  */
 interface DaygleApi {
 
@@ -132,6 +135,32 @@ interface DaygleApi {
     /** Admins only. */
     @GET("api/users")
     suspend fun users(): List<AppUser>
+
+    /**
+     * Admins only. The whole camera config as raw JSON, so the Alerts screen
+     * can change recipient lists and send everything else back untouched.
+     */
+    @GET("api/cameras")
+    suspend fun camerasConfig(): JsonObject
+
+    /** Admins only. Body: `{"cameras": [...]}` as read by [camerasConfig]. */
+    @PUT("api/cameras")
+    suspend fun saveCamerasConfig(
+        @Header("X-CSRF-Token") csrfToken: String,
+        @Header("Origin") origin: String,
+        @Body body: JsonObject,
+    ): JsonObject
+
+    /** Admins only. `{"rules": [...]}`: per-person and unknown-face alerts. */
+    @GET("api/settings/face-detection-rules")
+    suspend fun faceRules(): JsonObject
+
+    @PUT("api/settings/face-detection-rules")
+    suspend fun saveFaceRules(
+        @Header("X-CSRF-Token") csrfToken: String,
+        @Header("Origin") origin: String,
+        @Body body: JsonObject,
+    ): JsonObject
 
     /** Admins only. Sends a test push to the chosen users' own ntfy topics. */
     @POST("api/settings/alert-push/test")
