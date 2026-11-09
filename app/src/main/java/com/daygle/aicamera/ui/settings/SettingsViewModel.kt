@@ -4,14 +4,18 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.AppPreferencesStore
+import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.SettingsStore
 import com.daygle.aicamera.data.ThemeMode
 import com.daygle.aicamera.data.suspendRunCatching
 import com.daygle.aicamera.ui.HomeTab
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -41,12 +45,24 @@ data class SettingsUiState(
 class SettingsViewModel @Inject constructor(
     private val prefs: AppPreferencesStore,
     private val settingsStore: SettingsStore,
+    private val repository: CameraRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
 
+    /**
+     * Whether the signed-in account is an admin. Admin-only items (alert
+     * recipients, server stats) stay hidden until the server confirms it.
+     */
+    val isAdmin: StateFlow<Boolean> = repository.account
+        .map { it?.isAdmin == true }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), repository.account.value?.isAdmin == true)
+
     init {
+        // The role can change on the server (an admin edits this account), so
+        // re-check whenever Settings opens.
+        viewModelScope.launch { repository.refreshAccount() }
         viewModelScope.launch {
             // A storage/Keystore failure must not crash Settings: show the
             // defaults and an empty server label instead.

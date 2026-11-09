@@ -45,6 +45,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val isAdmin by viewModel.isAdmin.collectAsStateWithLifecycle()
     var showSignOutDialog by remember { mutableStateOf(false) }
 
     if (showSignOutDialog) {
@@ -110,20 +111,23 @@ fun SettingsScreen(
                 subtitle = "Push alerts and device permissions",
                 onClick = onOpenNotifications
             )
-            SettingsDivider()
-            SettingsCategoryRow(
-                icon = Icons.Filled.NotificationsActive,
-                title = "Alerts",
-                subtitle = "Who each alert emails and pushes (admins)",
-                onClick = onOpenAlerts
-            )
-            SettingsDivider()
-            SettingsCategoryRow(
-                icon = Icons.Filled.Speed,
-                title = "Server Stats",
-                subtitle = "CPU, memory, GPU and activity (admins)",
-                onClick = onOpenServerStats
-            )
+            // Admin-only: the server refuses these to viewer accounts.
+            if (isAdmin) {
+                SettingsDivider()
+                SettingsCategoryRow(
+                    icon = Icons.Filled.NotificationsActive,
+                    title = "Alerts",
+                    subtitle = "Who each alert emails and pushes",
+                    onClick = onOpenAlerts
+                )
+                SettingsDivider()
+                SettingsCategoryRow(
+                    icon = Icons.Filled.Speed,
+                    title = "Server Stats",
+                    subtitle = "CPU, memory, GPU, storage and activity",
+                    onClick = onOpenServerStats
+                )
+            }
             SettingsDivider()
             SettingsCategoryRow(
                 icon = Icons.Filled.Dns,

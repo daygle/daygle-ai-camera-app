@@ -2,6 +2,7 @@ package com.daygle.aicamera.ui.stats
 
 import com.daygle.aicamera.data.model.GpuStatus
 import com.daygle.aicamera.data.model.ServerResources
+import com.daygle.aicamera.data.model.StorageStatus
 import com.daygle.aicamera.data.model.VideoDecodeStatus
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -144,4 +145,62 @@ internal fun decodeSummary(status: VideoDecodeStatus): String {
         else -> "$onGpu of ${cameras.size} camera${if (cameras.size == 1) "" else "s"} decoding on the GPU."
     }
     return "Setting: $setting. $detail"
+}
+
+private const val STORAGE_WARN_PERCENT = 85.0
+private const val STORAGE_CRITICAL_PERCENT = 95.0
+
+/** Binary units, as on the server's web Storage card: B, KB, MB, GB, TB. */
+internal fun formatBytes(bytes: Long): String {
+    if (bytes < 1024) return "$bytes B"
+    val units = listOf("KB", "MB", "GB", "TB")
+    var size = bytes / 1024.0
+    var unit = 0
+    while (size >= 1024 && unit < units.lastIndex) {
+        size /= 1024
+        unit++
+    }
+    return if (size >= 10) "${size.roundToInt()} ${units[unit]}" else String.format(Locale.US, "%.1f %s", size, units[unit])
+}
+
+/** A disk turns amber from 85% full and red from 95%. */
+internal fun storageLevel(percent: Double?): StatLevel = when {
+    percent == null -> StatLevel.NORMAL
+    percent >= STORAGE_CRITICAL_PERCENT -> StatLevel.CRITICAL
+    percent >= STORAGE_WARN_PERCENT -> StatLevel.WARN
+    else -> StatLevel.NORMAL
+}
+
+private val STORAGE_LABELS = linkedMapOf(
+    "recordings" to "Recordings",
+    "snapshots" to "Snapshots",
+    "events" to "Events",
+    "database" to "Database",
+)
+
+/** What a disk holds, e.g. "Recordings · Database". */
+internal fun volumeLabel(holds: List<String>): String =
+    holds.joinToString(" · ") { STORAGE_LABELS[it] ?: it }.ifEmpty { "Disk" }
+
+/** "90 GB of 100 GB used · 10 GB free", leaving out what the server didn't report. */
+internal fun volumeDetail(used: Long?, total: Long?, free: Long?): String = listOfNotNull(
+    if (used != null && total != null) "${formatBytes(used)} of ${formatBytes(total)} used" else null,
+    free?.let { "${formatBytes(it)} free" },
+).joinToString(" · ")
+
+/** One sentence on recordings against the retention limits, as the web card words it. */
+internal fun storageSummary(status: StorageStatus): String {
+    val recordings = status.usage.recordingsBytes
+    val cap = status.retention.maxStorageBytes?.takeIf { it > 0 }
+    val days = status.retention.retentionDays
+    val parts = listOfNotNull(
+        when {
+            recordings != null && cap != null -> "Recordings use ${formatBytes(recordings)} of the ${formatBytes(cap)} limit"
+            recordings != null -> "Recordings use ${formatBytes(recordings)}"
+            else -> null
+        },
+        days?.let { "kept for $it day${if (it == 1) "" else "s"}" },
+        "auto-purge is off".takeIf { status.retention.autoPurgeEnabled == false },
+    )
+    return if (parts.isEmpty()) "Disk space and what recordings, snapshots and the database use." else parts.joinToString(", ") + "."
 }

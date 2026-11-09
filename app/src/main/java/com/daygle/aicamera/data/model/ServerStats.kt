@@ -95,3 +95,42 @@ data class LabelCount(
     val count: Int = 0,
     @SerialName("max_confidence") val maxConfidence: Double? = null,
 )
+
+/**
+ * Disk space and media usage from `GET /api/system/storage` (admin only).
+ * Older servers don't have the endpoint (404), so the app hides the card.
+ */
+@Serializable
+data class StorageStatus(
+    val volumes: List<StorageVolume> = emptyList(),
+    val usage: StorageUsage = StorageUsage(),
+    val retention: StorageRetention = StorageRetention(),
+)
+
+/** One filesystem holding server data, listed once with every folder on it. */
+@Serializable
+data class StorageVolume(
+    @SerialName("total_bytes") val totalBytes: Long? = null,
+    @SerialName("used_bytes") val usedBytes: Long? = null,
+    @SerialName("free_bytes") val freeBytes: Long? = null,
+    /** Used share of the space usable by the server, as `df` reports it. */
+    val percent: Double? = null,
+    /** `recordings`, `snapshots`, `events` and/or `database`. */
+    val holds: List<String> = emptyList(),
+)
+
+@Serializable
+data class StorageUsage(
+    @SerialName("recordings_bytes") val recordingsBytes: Long? = null,
+    @SerialName("snapshots_bytes") val snapshotsBytes: Long? = null,
+    @SerialName("events_bytes") val eventsBytes: Long? = null,
+    @SerialName("database_bytes") val databaseBytes: Long? = null,
+)
+
+/** The limits the server's purge job keeps recordings within. */
+@Serializable
+data class StorageRetention(
+    @SerialName("max_storage_bytes") val maxStorageBytes: Long? = null,
+    @SerialName("retention_days") val retentionDays: Int? = null,
+    @SerialName("auto_purge_enabled") val autoPurgeEnabled: Boolean? = null,
+)

@@ -6,6 +6,7 @@ import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.model.ActivityStats
 import com.daygle.aicamera.data.model.CameraHealthResponse
 import com.daygle.aicamera.data.model.ServerResources
+import com.daygle.aicamera.data.model.StorageStatus
 import com.daygle.aicamera.ui.friendlyMessage
 import com.daygle.aicamera.ui.library.startOfDayIso
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -36,6 +37,8 @@ data class ServerStatsUiState(
     val resources: ServerResources? = null,
     val health: CameraHealthResponse? = null,
     val activity: ActivityStats? = null,
+    /** Disk space and media usage; null until loaded or on servers without it. */
+    val storage: StorageStatus? = null,
     val range: ActivityRange = ActivityRange.TODAY,
     /** Device time of the last successful refresh. */
     val updatedAt: LocalTime? = null,
@@ -44,7 +47,9 @@ data class ServerStatsUiState(
 /**
  * Live server health for the Server Stats screen: host resources and camera
  * health every [POLL_INTERVAL_MS] (as the web System page), activity counts
- * every [ACTIVITY_INTERVAL_MS]. Polls only while the screen is resumed.
+ * every [ACTIVITY_INTERVAL_MS] and storage every [STORAGE_INTERVAL_MS] (the
+ * server caches its folder sizes that long). Polls only while the screen is
+ * resumed.
  */
 @HiltViewModel
 class ServerStatsViewModel @Inject constructor(
@@ -56,7 +61,9 @@ class ServerStatsViewModel @Inject constructor(
 
     private var pollJob: Job? = null
     private var activityJob: Job? = null
+    private var storageJob: Job? = null
     private var lastActivityAt = 0L
+    private var lastStorageAt = 0L
 
     /** Start polling (the screen resumed). */
     fun start() {
@@ -79,6 +86,7 @@ class ServerStatsViewModel @Inject constructor(
     fun refresh() {
         _state.update { it.copy(refreshing = true) }
         lastActivityAt = 0L
+        lastStorageAt = 0L
         viewModelScope.launch {
             refreshOnce()
             _state.update { it.copy(refreshing = false) }
@@ -113,6 +121,17 @@ class ServerStatsViewModel @Inject constructor(
             )
         }
         if (error == null && System.currentTimeMillis() - lastActivityAt >= ACTIVITY_INTERVAL_MS) loadActivity()
+        if (error == null && System.currentTimeMillis() - lastStorageAt >= STORAGE_INTERVAL_MS) loadStorage()
+    }
+
+    private fun loadStorage() {
+        lastStorageAt = System.currentTimeMillis()
+        if (storageJob?.isActive == true) return
+        storageJob = viewModelScope.launch {
+            // Best effort: an older server has no storage endpoint (404) and
+            // the card simply stays hidden; other failures keep the last value.
+            repository.serverStorage().onSuccess { storage -> _state.update { it.copy(storage = storage) } }
+        }
     }
 
     private fun loadActivity() {
@@ -134,5 +153,8 @@ class ServerStatsViewModel @Inject constructor(
 
         /** Counts change slowly and cost more to compute; refresh them less often. */
         const val ACTIVITY_INTERVAL_MS = 30_000L
+
+        /** Matches the server's cache of folder sizes. */
+        const val STORAGE_INTERVAL_MS = 60_000L
     }
 }

@@ -2,6 +2,7 @@ package com.daygle.aicamera.data
 
 import android.util.Log
 import com.daygle.aicamera.data.model.ActivityStats
+import com.daygle.aicamera.data.model.AuthUser
 import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.CameraHealthResponse
 import com.daygle.aicamera.data.model.Event
@@ -13,8 +14,12 @@ import com.daygle.aicamera.data.model.PushSettings
 import com.daygle.aicamera.data.model.PushTestRequest
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.data.model.ServerResources
+import com.daygle.aicamera.data.model.StorageStatus
 import com.daygle.aicamera.data.model.SystemSettings
 import com.daygle.aicamera.data.model.TimelineResponse
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import retrofit2.HttpException
@@ -29,6 +34,29 @@ class CameraRepository(
     private val settings: SettingsStore,
 ) {
 
+    private val _account = MutableStateFlow<AuthUser?>(null)
+
+    /**
+     * The signed-in user (id and role), or null while unknown: before the
+     * first successful sign-in, after signing out, or while the server is
+     * unreachable. Screens hide admin-only items unless this says admin.
+     */
+    val account: StateFlow<AuthUser?> = _account.asStateFlow()
+
+    /**
+     * Re-read who is signed in (`GET /api/auth/me`), e.g. when an admin may
+     * have changed this account's role. A failure keeps what was known.
+     */
+    suspend fun refreshAccount(): AuthUser? {
+        suspendRunCatching { session.api.me().user }
+            .onSuccess { user -> _account.value = user }
+            .onFailure { Log.w(TAG, "Could not read the signed-in account", it) }
+        return _account.value
+    }
+
+    /** Whether the signed-in user is an admin, asking the server if not yet known. */
+    suspend fun isAdmin(): Boolean = (_account.value ?: refreshAccount())?.isAdmin == true
+
     /** Verify connection details and persist them only after a successful login. */
     suspend fun connect(connection: Connection): LoginResult {
         session.update(connection)
@@ -38,6 +66,9 @@ class CameraRepository(
             // the session still works for this launch.
             suspendRunCatching { settings.save(connection) }
                 .onFailure { Log.w(TAG, "Could not save the connection", it) }
+            // A different server or account: forget the old role first.
+            _account.value = null
+            refreshAccount()
         } else {
             // The attempt pointed the live session at the server that just
             // rejected it. Put the saved connection back so the rest of the
@@ -62,8 +93,8 @@ class CameraRepository(
         settings.migrateLegacyCredentials()
         val connection = settings.current()
         session.update(connection)
-        if (connection.isConfigured) {
-            session.login()
+        if (connection.isConfigured && session.login() is LoginResult.Success) {
+            refreshAccount()
         }
         return connection.isConfigured
     }
@@ -73,6 +104,7 @@ class CameraRepository(
         // Revoke the session server-side too; otherwise it stays valid until it
         // expires. Best effort - signing out must work offline.
         session.logout()
+        _account.value = null
         settings.clear()
         session.update(Connection())
     }
@@ -193,7 +225,7 @@ class CameraRepository(
      * admins send a test or list users).
      */
     suspend fun pushTestTargets(): Result<PushTestTargets?> = suspendRunCatching {
-        val me = session.api.me().user
+        val me = session.api.me().user?.also { _account.value = it }
         if (me == null || !me.isAdmin) null else PushTestTargets(me.id, session.api.users())
     }
 
@@ -202,7 +234,7 @@ class CameraRepository(
      * (the server only lets admins read or change it).
      */
     suspend fun alertConfig(): Result<AlertConfig?> = suspendRunCatching {
-        val me = session.api.me().user
+        val me = session.api.me().user?.also { _account.value = it }
         if (me == null || !me.isAdmin) {
             null
         } else {
@@ -239,6 +271,9 @@ class CameraRepository(
 
     /** Host CPU, load, RAM, GPU and video decoding (admin only). */
     suspend fun serverResources(): Result<ServerResources> = suspendRunCatching { session.api.systemResources() }
+
+    /** Disk space, media usage and retention limits (admin only; 404 on older servers). */
+    suspend fun serverStorage(): Result<StorageStatus> = suspendRunCatching { session.api.systemStorage() }
 
     /** Event and alert counts since [since] (ISO-8601), or all time when null (admin only). */
     suspend fun activityStats(since: String? = null): Result<ActivityStats> =

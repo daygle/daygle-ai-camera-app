@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -53,6 +54,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.daygle.aicamera.data.model.ActivityStats
 import com.daygle.aicamera.data.model.CameraHealthResponse
+import com.daygle.aicamera.data.model.StorageStatus
 import com.daygle.aicamera.data.model.VideoDecodeStatus
 import com.daygle.aicamera.ui.LifecycleResumeEffect
 import com.daygle.aicamera.ui.LocalUse24Hour
@@ -135,6 +137,8 @@ private fun StatsContent(state: ServerStatsUiState, onRange: (ActivityRange) -> 
             TileGrid(tiles)
         }
 
+        if (!state.notAdmin) state.storage?.let { StorageCard(it) }
+
         state.health?.let { CamerasCard(it, names = resources?.videoDecode?.cameras.orEmpty().associate { c -> c.cameraId.orEmpty() to c.name.orEmpty() }) }
 
         if (!state.notAdmin) {
@@ -170,10 +174,11 @@ private fun TileGrid(tiles: List<StatTile>) {
 @Composable
 private fun StatTileCard(tile: StatTile, modifier: Modifier = Modifier) {
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val (container, accent) = when (tile.level) {
-        StatLevel.CRITICAL -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.error
-        StatLevel.WARN -> (if (dark) Color(0xFF3D3010) else Color(0xFFFFF1CC)) to (if (dark) Color(0xFFF2C14E) else Color(0xFF9A6700))
-        StatLevel.NORMAL -> MaterialTheme.colorScheme.surfaceBright to MaterialTheme.colorScheme.primary
+    val accent = levelColor(tile.level)
+    val container = when (tile.level) {
+        StatLevel.CRITICAL -> MaterialTheme.colorScheme.errorContainer
+        StatLevel.WARN -> if (dark) Color(0xFF3D3010) else Color(0xFFFFF1CC)
+        StatLevel.NORMAL -> MaterialTheme.colorScheme.surfaceBright
     }
     Card(
         modifier = modifier,
@@ -206,6 +211,66 @@ private fun StatTileCard(tile: StatTile, modifier: Modifier = Modifier) {
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
+        }
+    }
+}
+
+/** Tint for a [StatLevel]: amber for a warning, red at the limit, primary otherwise. */
+@Composable
+private fun levelColor(level: StatLevel): Color = when (level) {
+    StatLevel.CRITICAL -> MaterialTheme.colorScheme.error
+    StatLevel.WARN -> if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFFF2C14E) else Color(0xFF9A6700)
+    StatLevel.NORMAL -> MaterialTheme.colorScheme.primary
+}
+
+@Composable
+private fun StorageCard(storage: StorageStatus) {
+    SettingsSection(title = "Storage", icon = Icons.Filled.Storage) {
+        Column(Modifier.padding(start = 20.dp, end = 20.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(storageSummary(storage), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            storage.volumes.forEach { volume ->
+                val accent = levelColor(storageLevel(volume.percent))
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(volumeLabel(volume.holds), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        volume.percent?.let { Text("${it.toInt()}%", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = accent) }
+                    }
+                    LinearProgressIndicator(
+                        progress = { ((volume.percent ?: 0.0) / 100).toFloat().coerceIn(0f, 1f) },
+                        color = accent,
+                        trackColor = accent.copy(alpha = 0.15f),
+                        drawStopIndicator = {},
+                        modifier = Modifier.fillMaxWidth().height(6.dp),
+                    )
+                    Text(
+                        volumeDetail(volume.usedBytes, volume.totalBytes, volume.freeBytes),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            val usage = listOfNotNull(
+                storage.usage.recordingsBytes?.let { "Recordings" to it },
+                storage.usage.snapshotsBytes?.let { "Snapshots" to it },
+                storage.usage.eventsBytes?.let { "Events" to it },
+                storage.usage.databaseBytes?.let { "Database" to it },
+            )
+            usage.chunked(2).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    row.forEach { (label, bytes) -> UsageBox(label, formatBytes(bytes), Modifier.weight(1f)) }
+                    if (row.size == 1) Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UsageBox(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(modifier = modifier, shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

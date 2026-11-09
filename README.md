@@ -31,7 +31,8 @@ The app is a **dedicated viewer** - while camera management and AI rules stay in
 - **Ask AI Search** - Search events in plain English ("red car in the driveway yesterday afternoon"); the app shows how the server understood the question. Keyword search also matches AI tags, descriptions, zones and recognised faces.
 - **Faces & AI Verdicts** - Recognised people, unknown faces and the AI alert-verification verdict (Verified / Filtered) appear beside each event. Filter any list by AI tag.
 - **Timeline Alert Only** - Narrow the activity timeline to clips that fired an alert. Motion entries show the share of the zone that changed.
-- **Server Stats (admins)** - **Settings → Server Stats** shows the server's live CPU, load, RAM, GPU temperature and VRAM (as on the web System page, with the same warning levels), which cameras are offline, where each camera's video is decoded, and today's or all-time detection and alert counts. It refreshes every 5 seconds while open.
+- **Server Stats (admins)** - **Settings → Server Stats** shows the server's live CPU, load, RAM, GPU temperature and VRAM (as on the web System page, with the same warning levels), disk space and what recordings, snapshots and the database use against the retention limit, which cameras are offline, where each camera's video is decoded, and today's or all-time detection and alert counts. It refreshes every 5 seconds while open (storage needs a server with `/api/system/storage`).
+- **Role-aware** - The app reads your account's role from the server and only shows what it allows: viewer accounts don't see admin-only items such as Alerts or Server Stats, and the app doesn't send requests the server would refuse them.
 - **Real-time Push Alerts** - Stay notified with instant object/sound detection alerts delivered while the app is backgrounded.
 - **Adaptive UI** - Full support for light/dark themes and 12/24-hour time formats.
 

@@ -7,6 +7,9 @@ import com.daygle.aicamera.data.model.GpuDevice
 import com.daygle.aicamera.data.model.GpuStatus
 import com.daygle.aicamera.data.model.MemoryUsage
 import com.daygle.aicamera.data.model.ServerResources
+import com.daygle.aicamera.data.model.StorageRetention
+import com.daygle.aicamera.data.model.StorageStatus
+import com.daygle.aicamera.data.model.StorageUsage
 import com.daygle.aicamera.data.model.VideoDecodeStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -124,6 +127,56 @@ class ServerStatsFormatTest {
         assertEquals(
             "Setting: CPU. This server's ffmpeg can't decode on an NVIDIA GPU, so video is decoded on the CPU.",
             decodeSummary(VideoDecodeStatus(setting = "cpu", ffmpegCuda = false, cameras = cams)),
+        )
+    }
+
+    @Test
+    fun decodesTheServersStoragePayload() {
+        // Shape of GET /api/system/storage.
+        val json = """
+            {"volumes": [{"total_bytes": 107374182400, "used_bytes": 96636764160, "free_bytes": 10737418240,
+                          "percent": 90.0, "holds": ["recordings", "snapshots", "events", "database"]}],
+             "usage": {"recordings_bytes": 85899345920, "snapshots_bytes": 2147483648, "events_bytes": 0, "database_bytes": 52428800},
+             "retention": {"max_storage_bytes": 107374182400, "retention_days": 30, "auto_purge_enabled": true},
+             "usage_cached_seconds": 60.0}
+        """
+        val status = SessionManager.json.decodeFromString<StorageStatus>(json)
+        val volume = status.volumes.single()
+        assertEquals(107374182400L, volume.totalBytes)
+        assertEquals(listOf("recordings", "snapshots", "events", "database"), volume.holds)
+        assertEquals(85899345920L, status.usage.recordingsBytes)
+        assertEquals(30, status.retention.retentionDays)
+    }
+
+    @Test
+    fun formatsBytesInBinaryUnits() {
+        assertEquals("512 B", formatBytes(512))
+        assertEquals("1.5 MB", formatBytes(1536L * 1024))
+        assertEquals("250 GB", formatBytes(250 * gib))
+        assertEquals("2.0 TB", formatBytes(2048 * gib))
+    }
+
+    @Test
+    fun storageWarnsAt85AndIsCriticalAt95Percent() {
+        assertEquals(StatLevel.NORMAL, storageLevel(null))
+        assertEquals(StatLevel.NORMAL, storageLevel(84.9))
+        assertEquals(StatLevel.WARN, storageLevel(85.0))
+        assertEquals(StatLevel.CRITICAL, storageLevel(95.0))
+    }
+
+    @Test
+    fun describesVolumesAndRetention() {
+        assertEquals("Recordings · Database", volumeLabel(listOf("recordings", "database")))
+        assertEquals("Disk", volumeLabel(emptyList()))
+        assertEquals("90 GB of 100 GB used · 10 GB free", volumeDetail(90 * gib, 100 * gib, 10 * gib))
+        assertEquals("10 GB free", volumeDetail(null, null, 10 * gib))
+        assertEquals(
+            "Recordings use 12 GB of the 20 GB limit, kept for 14 days.",
+            storageSummary(StorageStatus(usage = StorageUsage(recordingsBytes = 12 * gib), retention = StorageRetention(20 * gib, 14, true))),
+        )
+        assertEquals(
+            "Recordings use 1.0 KB, kept for 1 day, auto-purge is off.",
+            storageSummary(StorageStatus(usage = StorageUsage(recordingsBytes = 1024), retention = StorageRetention(null, 1, false))),
         )
     }
 }

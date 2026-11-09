@@ -82,9 +82,13 @@ class PlayerViewModel @Inject constructor(
         loadLabelFilter()
     }
 
-    /** Best effort: the settings are admin only, and the overlay draws every label without them. */
+    /**
+     * Best effort: the settings are admin only, so a viewer skips the request
+     * (it would only be refused) and the overlay draws every label.
+     */
     private fun loadLabelFilter() {
         viewModelScope.launch {
+            if (!repository.isAdmin()) return@launch
             repository.systemSettings().onSuccess { _labelFilter.value = configuredOverlayLabels(it) }
         }
     }

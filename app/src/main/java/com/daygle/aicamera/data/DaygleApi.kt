@@ -15,6 +15,7 @@ import com.daygle.aicamera.data.model.PushTestRequest
 import com.daygle.aicamera.data.model.PushTestResponse
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.data.model.ServerResources
+import com.daygle.aicamera.data.model.StorageStatus
 import com.daygle.aicamera.data.model.SystemSettings
 import com.daygle.aicamera.data.model.TimelineResponse
 import kotlinx.serialization.json.JsonObject
@@ -179,6 +180,10 @@ interface DaygleApi {
     /** Admin only. Host CPU, load, RAM, GPU and video-decode snapshot (the web System page). */
     @GET("api/system/resources")
     suspend fun systemResources(): ServerResources
+
+    /** Admin only. Disk space, media usage and retention limits (newer servers). */
+    @GET("api/system/storage")
+    suspend fun systemStorage(): StorageStatus
 
     /** Admin only. Event and alert counts, since [since] (ISO-8601) or all time. */
     @GET("api/stats")
