@@ -6,6 +6,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,8 +28,8 @@ import com.daygle.aicamera.ui.components.SettingsRow
 /**
  * Settings landing page. Rather than one long scroll of every control, this
  * shows a compact header and a list of category rows that each open a focused
- * sub-screen (see SettingsSubScreens.kt). This keeps the top level short and
- * scannable, mirroring the LocaPeer settings landing page.
+ * sub-screen (see SettingsSubScreens.kt), keeping the top level short and
+ * scannable.
  */
 @Composable
 fun SettingsScreen(
@@ -38,11 +39,13 @@ fun SettingsScreen(
     onOpenNotifications: () -> Unit,
     onOpenAlerts: () -> Unit,
     onOpenServerDetails: () -> Unit,
+    onOpenServerStats: () -> Unit,
     onOpenAbout: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val isAdmin by viewModel.isAdmin.collectAsStateWithLifecycle()
     var showSignOutDialog by remember { mutableStateOf(false) }
 
     if (showSignOutDialog) {
@@ -108,13 +111,23 @@ fun SettingsScreen(
                 subtitle = "Push alerts and device permissions",
                 onClick = onOpenNotifications
             )
-            SettingsDivider()
-            SettingsCategoryRow(
-                icon = Icons.Filled.NotificationsActive,
-                title = "Alerts",
-                subtitle = "Who each alert emails and pushes (admins)",
-                onClick = onOpenAlerts
-            )
+            // Admin-only: the server refuses these to viewer accounts.
+            if (isAdmin) {
+                SettingsDivider()
+                SettingsCategoryRow(
+                    icon = Icons.Filled.NotificationsActive,
+                    title = "Alerts",
+                    subtitle = "Who each alert emails and pushes",
+                    onClick = onOpenAlerts
+                )
+                SettingsDivider()
+                SettingsCategoryRow(
+                    icon = Icons.Filled.Speed,
+                    title = "Server Stats",
+                    subtitle = "CPU, memory, GPU, storage and activity",
+                    onClick = onOpenServerStats
+                )
+            }
             SettingsDivider()
             SettingsCategoryRow(
                 icon = Icons.Filled.Dns,

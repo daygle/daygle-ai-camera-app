@@ -1,7 +1,5 @@
 package com.daygle.aicamera.ui.dashboard
 
-import android.app.Activity
-import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -41,7 +39,6 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -60,18 +57,16 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImagePainter
 import coil3.compose.SubcomposeAsyncImage
+import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.daygle.aicamera.data.SessionManager
@@ -80,6 +75,8 @@ import com.daygle.aicamera.ui.LifecycleResumeEffect
 import com.daygle.aicamera.ui.components.EmptyState
 import com.daygle.aicamera.ui.components.ErrorState
 import com.daygle.aicamera.ui.components.LoadingState
+import com.daygle.aicamera.ui.HideSystemBars
+import com.daygle.aicamera.ui.KeepScreenOn
 
 private const val MIN_ZOOM = 1f
 private const val MAX_ZOOM = 5f
@@ -98,14 +95,7 @@ fun DashboardScreen(
     // Keep the display awake while the live page is in front - both the camera
     // grid and the full-screen view show a live feed that shouldn't time out
     // mid-watch. Cleared when another tab replaces this screen.
-    val view = LocalView.current
-    if (!view.isInEditMode) {
-        DisposableEffect(Unit) {
-            val window = (view.context as? Activity)?.window
-            window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
-        }
-    }
+    KeepScreenOn()
 
     // The camera currently expanded into the full-screen live view (null = grid).
     var selectedCameraId by remember { mutableStateOf<String?>(null) }
@@ -233,25 +223,54 @@ private fun CameraTile(card: CameraCard, snapshotUrl: String?, onClick: () -> Un
  */
 @Composable
 private fun LiveThumbnail(snapshotUrl: String?) {
-    if (snapshotUrl == null) {
-        CircularProgressIndicator(color = Color.White)
-        return
-    }
-    val context = androidx.compose.ui.platform.LocalContext.current
+    PacedLiveFrame(
+        snapshotUrl = snapshotUrl,
+        playing = true,
+        crossfade = true,
+        contentScale = ContentScale.Crop,
+        contentDescription = "Live camera view",
+    )
+}
+
+/**
+ * Shows the live frame at [snapshotUrl], shared by the tiles and the
+ * full-screen view. URLs are paced by a [FramePacer] so a frame still
+ * downloading is finished rather than cancelled, and the last loaded frame
+ * stays up between frames (no spinner flash). While not [playing] the shown
+ * frame is frozen. [modifier] applies to the drawn frame (e.g. zoom).
+ */
+@Composable
+private fun PacedLiveFrame(
+    snapshotUrl: String?,
+    playing: Boolean,
+    crossfade: Boolean,
+    contentScale: ContentScale,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
     val pacer = remember { FramePacer() }
     var frameUrl by remember { mutableStateOf(pacer.offer(snapshotUrl)) }
-    LaunchedEffect(snapshotUrl) {
-        pacer.offer(snapshotUrl)?.let { frameUrl = it }
+    LaunchedEffect(snapshotUrl, playing) {
+        if (playing) {
+            pacer.offer(snapshotUrl)?.let { frameUrl = it }
+        } else {
+            pacer.dropPending()
+        }
+    }
+    if (frameUrl == null) {
+        CircularProgressIndicator(color = Color.White)
+        return
     }
     var lastSuccessPainter by remember { mutableStateOf<Painter?>(null) }
     SubcomposeAsyncImage(
         model = ImageRequest.Builder(context)
             .data(frameUrl)
-            .crossfade(true)
-            .memoryCachePolicy(coil3.request.CachePolicy.DISABLED)
-            .diskCachePolicy(coil3.request.CachePolicy.DISABLED)
+            .crossfade(crossfade)
+            .memoryCachePolicy(CachePolicy.DISABLED)
+            .diskCachePolicy(CachePolicy.DISABLED)
             .build(),
-        contentDescription = "Live camera view",
+        contentDescription = contentDescription,
         onState = { coilState ->
             if (coilState is AsyncImagePainter.State.Success) {
                 lastSuccessPainter = coilState.painter
@@ -263,17 +282,13 @@ private fun LiveThumbnail(snapshotUrl: String?) {
         modifier = Modifier.fillMaxSize(),
     ) {
         val painterState by painter.state.collectAsStateWithLifecycle()
-        val displayPainter = if (painterState is AsyncImagePainter.State.Success) {
-            painterState.painter
-        } else {
-            lastSuccessPainter
-        }
+        val displayPainter = (painterState as? AsyncImagePainter.State.Success)?.painter ?: lastSuccessPainter
         if (displayPainter != null) {
             Image(
                 painter = displayPainter,
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
+                contentScale = contentScale,
+                modifier = Modifier.fillMaxSize().then(modifier),
             )
         } else {
             CircularProgressIndicator(color = Color.White)
@@ -298,30 +313,18 @@ private fun FullscreenCameraView(
     // Rotate to landscape for a wide, immersive live view.
     ForceLandscape()
 
-    val view = LocalView.current
-    if (!view.isInEditMode) {
-        DisposableEffect(Unit) {
-            val window = (view.context as? Activity)?.window
-            val controller = window?.let { WindowCompat.getInsetsController(it, view) }
-            controller?.apply {
-                systemBarsBehavior =
-                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                hide(WindowInsetsCompat.Type.systemBars())
-            }
-            onDispose {
-                controller?.show(WindowInsetsCompat.Type.systemBars())
-            }
-        }
-    }
+    HideSystemBars()
 
     BackHandler(onBack = onClose)
 
     var playing by remember { mutableStateOf(true) }
 
+    // Black like any video surface: letterboxing and the white controls
+    // stay legible whatever the app theme.
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface),
+            .background(Color.Black),
         contentAlignment = Alignment.Center,
     ) {
         LiveVideoFrame(snapshotUrl = snapshotUrl, playing = playing)
@@ -407,25 +410,11 @@ private fun LiveVideoFrame(
     snapshotUrl: String?,
     playing: Boolean,
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-
     // Digital (client-side) zoom applied to the rendered frame. State lives here
     // so pinch/pan persists as new snapshots are swapped in.
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
-
-    // Advance the shown frame only while playing so pausing freezes the image,
-    // and only once the frame in flight has loaded (see FramePacer).
-    val pacer = remember { FramePacer() }
-    var displayedUrl by remember { mutableStateOf(pacer.offer(snapshotUrl)) }
-    LaunchedEffect(snapshotUrl, playing) {
-        if (playing) {
-            pacer.offer(snapshotUrl)?.let { displayedUrl = it }
-        } else {
-            pacer.dropPending()
-        }
-    }
 
     Box(
         modifier = Modifier
@@ -462,55 +451,20 @@ private fun LiveVideoFrame(
             },
         contentAlignment = Alignment.Center,
     ) {
-        if (displayedUrl != null) {
-            var lastSuccessPainter by remember { mutableStateOf<Painter?>(null) }
-
-            SubcomposeAsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data(displayedUrl)
-                    .crossfade(false)
-                    .memoryCachePolicy(coil3.request.CachePolicy.DISABLED)
-                    .diskCachePolicy(coil3.request.CachePolicy.DISABLED)
-                    .build(),
-                contentDescription = "Live view",
-                onState = { coilState ->
-                    if (coilState is AsyncImagePainter.State.Success) {
-                        lastSuccessPainter = coilState.painter
-                    }
-                    if (coilState is AsyncImagePainter.State.Success || coilState is AsyncImagePainter.State.Error) {
-                        pacer.settled(displayedUrl)?.let { displayedUrl = it }
-                    }
-                },
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                val painterState by painter.state.collectAsStateWithLifecycle()
-                val displayPainter = if (painterState is AsyncImagePainter.State.Success) {
-                    painterState.painter
-                } else {
-                    lastSuccessPainter
-                }
-
-                if (displayPainter != null) {
-                    Image(
-                        painter = displayPainter,
-                        contentDescription = "Live view",
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer {
-                                scaleX = scale
-                                scaleY = scale
-                                translationX = offset.x
-                                translationY = offset.y
-                            },
-                    )
-                } else {
-                    CircularProgressIndicator(color = Color.White)
-                }
-            }
-        } else {
-            CircularProgressIndicator(color = Color.White)
-        }
+        // Only advances while playing, so pausing freezes the image.
+        PacedLiveFrame(
+            snapshotUrl = snapshotUrl,
+            playing = playing,
+            crossfade = false,
+            contentScale = ContentScale.Fit,
+            contentDescription = "Live view",
+            modifier = Modifier.graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                translationX = offset.x
+                translationY = offset.y
+            },
+        )
     }
 }
 

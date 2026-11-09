@@ -21,6 +21,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -76,6 +81,9 @@ import java.util.Locale
 
 private const val DEFAULT_MINUTE_WIDTH = 4f
 private const val MIN_MINUTE_WIDTH = 1f
+
+/** How far before the day's first activity the lanes open. */
+private const val LEAD_IN_MINUTES = 30f
 private const val MAX_MINUTE_WIDTH = 40f
 private const val TOTAL_MINUTES = 24 * 60
 
@@ -255,6 +263,20 @@ fun TimelineScreen(
                             data.soundSegments.isNotEmpty() ||
                             data.motionSegments.isNotEmpty()
 
+                    // One scroll position for all lanes, so a time lines up
+                    // across them. A new day opens at its first activity
+                    // rather than at midnight.
+                    val laneScroll = rememberScrollState()
+                    val density = LocalDensity.current
+                    val firstMinute = listOf(data.objectSegments, data.soundSegments, data.motionSegments)
+                        .flatten().minOfOrNull { it.startMinute }
+                    LaunchedEffect(data.date, firstMinute != null) {
+                        if (firstMinute != null) {
+                            val minute = (firstMinute - LEAD_IN_MINUTES).coerceAtLeast(0f)
+                            laneScroll.scrollTo(with(density) { (minute * minuteWidth).dp.roundToPx() })
+                        }
+                    }
+
                     if (!hasSegments) {
                         EmptyState(
                             (if (data.alertOnly) "No alerts on " else "No activity on ") + "${data.date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))}.",
@@ -274,6 +296,7 @@ fun TimelineScreen(
                                 segments = data.objectSegments,
                                 color = MaterialTheme.colorScheme.primary,
                                 locale = locale,
+                                scrollState = laneScroll,
                                 minuteWidth = minuteWidth,
                                 onMinuteWidthChange = { minuteWidth = it.coerceIn(MIN_MINUTE_WIDTH, MAX_MINUTE_WIDTH) },
                                 onSegmentClick = onOpenRecording
@@ -285,6 +308,7 @@ fun TimelineScreen(
                                 segments = data.soundSegments,
                                 color = MaterialTheme.colorScheme.tertiary,
                                 locale = locale,
+                                scrollState = laneScroll,
                                 minuteWidth = minuteWidth,
                                 onMinuteWidthChange = { minuteWidth = it.coerceIn(MIN_MINUTE_WIDTH, MAX_MINUTE_WIDTH) },
                                 onSegmentClick = onOpenRecording
@@ -296,6 +320,7 @@ fun TimelineScreen(
                                 segments = data.motionSegments,
                                 color = MaterialTheme.colorScheme.secondary,
                                 locale = locale,
+                                scrollState = laneScroll,
                                 minuteWidth = minuteWidth,
                                 onMinuteWidthChange = { minuteWidth = it.coerceIn(MIN_MINUTE_WIDTH, MAX_MINUTE_WIDTH) },
                                 onSegmentClick = onOpenRecording
@@ -315,11 +340,11 @@ private fun TimelineLane(
     segments: List<TimelineSegment>,
     color: Color,
     locale: Locale,
+    scrollState: ScrollState,
     minuteWidth: Float,
     onMinuteWidthChange: (Float) -> Unit,
     onSegmentClick: (Int) -> Unit
 ) {
-    val scrollState = rememberScrollState()
     // The gesture detector below is installed once; read the latest width and
     // callback through State so each pinch builds on the current zoom instead
     // of restarting from the width the lane was first composed with.
@@ -348,11 +373,14 @@ private fun TimelineLane(
                     }
                 }
         ) {
-            val textPaint = remember {
-                android.graphics.Paint().apply {
-                    this.color = android.graphics.Color.GRAY
-                    this.textSize = 24f
-                    this.textAlign = android.graphics.Paint.Align.CENTER
+            // Scaled with the font size and themed, unlike a fixed-pixel grey.
+            val labelColor = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
+            val labelSizePx = with(LocalDensity.current) { 11.sp.toPx() }
+            val textPaint = remember(labelColor, labelSizePx) {
+                android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                    this.color = labelColor
+                    this.textSize = labelSizePx
+                    this.textAlign = android.graphics.Paint.Align.LEFT
                 }
             }
 
@@ -384,11 +412,13 @@ private fun TimelineLane(
                     )
                     
                     if (hour < 24) {
+                        // Label sits just right of its own gridline, so a bar
+                        // starting on the line reads as that hour.
                         drawIntoCanvas { canvas ->
                             canvas.nativeCanvas.drawText(
                                 String.format(locale, "%02d:00", hour),
-                                x + (30 * pxPerMinute),
-                                size.height - 10f,
+                                x + 4.dp.toPx(),
+                                size.height - 8.dp.toPx(),
                                 textPaint
                             )
                         }

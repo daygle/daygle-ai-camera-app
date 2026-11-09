@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -127,10 +128,15 @@ class TimelineViewModel @Inject constructor(
                 tzOffsetMinutes = tzOffsetMinutes(selectedDate),
             )
             val timeline = timelineResult.getOrNull()
+            val timelineError = timelineResult.exceptionOrNull()
             if (timeline != null) {
                 lastTimeline = timeline
                 lastRecordings = null
                 _state.value = TimelineUiState.Ready(buildReady(timeline))
+            } else if (!(timelineError is HttpException && timelineError.code() == 404)) {
+                // Offline, timed out, signed out...: the fallback would fail
+                // the same way, so report this error instead of a second request.
+                _state.value = TimelineUiState.Error(timelineError?.friendlyMessage() ?: "Unknown error")
             } else {
                 // Older server without the timeline endpoint: group full
                 // recordings client-side, preserving the previous behaviour.

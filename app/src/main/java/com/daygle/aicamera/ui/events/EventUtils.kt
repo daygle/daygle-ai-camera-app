@@ -51,6 +51,7 @@ internal fun dateRangeLabel(start: LocalDate?, end: LocalDate?): String {
     val formatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
         .withLocale(Locale.getDefault())
     if (start != null && end != null) {
+        if (start == end) return if (start == LocalDate.now()) "Today" else start.format(formatter)
         return "${start.format(formatter)} - ${end.format(formatter)}"
     }
     return if (start != null) "From ${start.format(formatter)}" else "Until ${end!!.format(formatter)}"

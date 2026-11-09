@@ -24,8 +24,15 @@ object PushController {
         fun notificationSettings(): NotificationSettingsStore
     }
 
-    fun start(context: Context) {
+    /**
+     * Start the listener, or make sure it is running. With [resync] a running
+     * listener drops its stream and reconnects with the saved settings (used
+     * after they change); without it a healthy stream is left alone, so the
+     * periodic keep-alive doesn't cut the connection every 15 minutes.
+     */
+    fun start(context: Context, resync: Boolean = false) {
         val intent = Intent(context, NtfyService::class.java)
+        if (resync) intent.action = NtfyService.ACTION_RESYNC
         runCatching {
             ContextCompat.startForegroundService(context, intent)
         }.onFailure { Log.w(TAG, "Could not start alert listener: ${it.message}") }
@@ -37,14 +44,17 @@ object PushController {
         PushKeepAliveWorker.cancel(context)
     }
 
-    /** Start or stop the listener to match the saved config. */
-    suspend fun sync(context: Context) {
+    /**
+     * Start or stop the listener to match the saved config. Pass [resync] when
+     * the config may have changed, so a running listener picks it up at once.
+     */
+    suspend fun sync(context: Context, resync: Boolean = false) {
         val entryPoint = EntryPointAccessors.fromApplication(
             context.applicationContext,
             PushControllerEntryPoint::class.java
         )
         val config = entryPoint.notificationSettings().current()
-        if (config.isSubscribable) start(context) else stop(context)
+        if (config.isSubscribable) start(context, resync) else stop(context)
     }
 
     private const val TAG = "PushController"

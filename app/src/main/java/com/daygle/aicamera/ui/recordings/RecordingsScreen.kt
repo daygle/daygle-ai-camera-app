@@ -18,23 +18,23 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Face
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.PlayCircle
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Videocam
-import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -53,10 +53,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -73,32 +73,32 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.daygle.aicamera.ui.LifecycleResumeEffect
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.daygle.aicamera.data.model.Detection
+import com.daygle.aicamera.data.model.FaceFacets
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.data.model.aiDescription
 import com.daygle.aicamera.data.model.aiTags
 import com.daygle.aicamera.data.model.faceIdentities
-import com.daygle.aicamera.data.model.FaceFacets
+import com.daygle.aicamera.ui.LifecycleResumeEffect
+import com.daygle.aicamera.ui.LocalUse24Hour
 import com.daygle.aicamera.ui.components.AiDescriptionText
+import com.daygle.aicamera.ui.components.EmptyState
+import com.daygle.aicamera.ui.components.ErrorState
+import com.daygle.aicamera.ui.components.InsightChips
+import com.daygle.aicamera.ui.components.LoadingState
+import com.daygle.aicamera.ui.events.dateRangeLabel
+import com.daygle.aicamera.ui.formatDetectionSummary
+import com.daygle.aicamera.ui.formatDuration
+import com.daygle.aicamera.ui.formatEventLabel
+import com.daygle.aicamera.ui.formatTimestamp
+import com.daygle.aicamera.ui.isMotion
+import com.daygle.aicamera.ui.isSound
 import com.daygle.aicamera.ui.library.FaceFilterChips
 import com.daygle.aicamera.ui.library.FilterSection
 import com.daygle.aicamera.ui.library.LoadMoreEffect
 import com.daygle.aicamera.ui.library.PagingFooter
-import com.daygle.aicamera.ui.components.InsightChips
-import com.daygle.aicamera.ui.formatDetectionSummary
-import com.daygle.aicamera.ui.components.EmptyState
-import com.daygle.aicamera.ui.components.ErrorState
-import com.daygle.aicamera.ui.components.LoadingState
-import com.daygle.aicamera.ui.formatDuration
-import com.daygle.aicamera.ui.LocalUse24Hour
-import com.daygle.aicamera.ui.formatEventLabel
-import com.daygle.aicamera.ui.formatTimestamp
-import com.daygle.aicamera.ui.events.dateRangeLabel
-import com.daygle.aicamera.ui.isMotion
-import com.daygle.aicamera.ui.isSound
 import java.time.Instant
 import java.time.ZoneId
 
@@ -627,7 +627,9 @@ private fun RecordingRow(
                             !recording.mediaReady -> Icons.Filled.Videocam
                             isSound -> Icons.Filled.GraphicEq
                             isMotion -> Icons.AutoMirrored.Filled.DirectionsRun
-                            else -> Icons.Filled.PlayCircle
+                            // A type icon, not a second play control (the
+                            // play button is on the right).
+                            else -> Icons.Filled.Videocam
                         },
                         contentDescription = null,
                         tint = if (recording.mediaReady) {
@@ -668,7 +670,7 @@ private fun RecordingRow(
                                     .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
                             ) {
                                 Icon(
-                                    Icons.Filled.PlayCircle,
+                                    Icons.Filled.PlayArrow,
                                     contentDescription = "Play Recording",
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.size(20.dp)

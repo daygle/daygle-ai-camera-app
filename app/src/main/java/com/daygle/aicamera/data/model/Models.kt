@@ -26,7 +26,6 @@ data class Camera(
     val id: String = "",
     val name: String? = null,
     val enabled: Boolean = true,
-    val backend: String? = null,
 ) {
     val displayName: String get() = name?.takeIf { it.isNotBlank() } ?: id
 }

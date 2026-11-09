@@ -18,7 +18,7 @@ import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -43,15 +43,15 @@ import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.data.model.aiDescription
 import com.daygle.aicamera.data.model.aiVerdict
 import com.daygle.aicamera.data.model.faceIdentities
+import com.daygle.aicamera.ui.LocalUse24Hour
 import com.daygle.aicamera.ui.components.AiDescriptionText
 import com.daygle.aicamera.ui.components.InsightChips
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.doubleOrNull
-import com.daygle.aicamera.ui.LocalUse24Hour
 import com.daygle.aicamera.ui.formatDetectionSummary
 import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatTimestamp
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
 
 @Composable
 internal fun EventRow(
@@ -225,7 +225,7 @@ internal fun EventRow(
                                 .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
                         ) {
                             Icon(
-                                Icons.Filled.PlayCircle,
+                                Icons.Filled.PlayArrow,
                                 contentDescription = "Play Recording",
                                 tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                 modifier = Modifier.size(20.dp),

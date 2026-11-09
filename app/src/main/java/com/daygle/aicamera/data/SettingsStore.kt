@@ -2,9 +2,11 @@ package com.daygle.aicamera.data
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.Dispatchers
@@ -14,7 +16,12 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "connection")
+// A corrupt file (e.g. a write cut short by a crash or full disk) is reset
+// rather than failing every read, which would crash the app on each launch.
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
+    name = "connection",
+    corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
+)
 
 private const val CF_ACCESS_CLIENT_ID_KEY = "cf_access_client_id"
 private const val CF_ACCESS_CLIENT_SECRET_KEY = "cf_access_client_secret"

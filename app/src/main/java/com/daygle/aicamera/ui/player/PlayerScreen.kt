@@ -1,6 +1,5 @@
 package com.daygle.aicamera.ui.player
 
-import android.app.Activity
 import android.view.LayoutInflater
 import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
@@ -50,16 +49,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -83,6 +78,7 @@ import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatTimestamp
 import com.daygle.aicamera.ui.ForceLandscape
 import com.daygle.aicamera.ui.components.ErrorState
+import com.daygle.aicamera.ui.HideSystemBars
 
 private const val MIN_ZOOM = 1f
 private const val MAX_ZOOM = 5f
@@ -313,21 +309,7 @@ private fun FullscreenPlayer(
     // Rotate to landscape for a wide, immersive playback view.
     ForceLandscape()
 
-    val view = LocalView.current
-    if (!view.isInEditMode) {
-        DisposableEffect(Unit) {
-            val window = (view.context as? Activity)?.window
-            val controller = window?.let { WindowCompat.getInsetsController(it, view) }
-            controller?.apply {
-                systemBarsBehavior =
-                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                hide(WindowInsetsCompat.Type.systemBars())
-            }
-            onDispose {
-                controller?.show(WindowInsetsCompat.Type.systemBars())
-            }
-        }
-    }
+    HideSystemBars()
 
     BackHandler(onBack = onExitFullscreen)
 

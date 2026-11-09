@@ -1,15 +1,12 @@
 package com.daygle.aicamera.util
 
-import android.Manifest
 import android.content.ContentValues
 import android.content.Context
-import android.content.pm.PackageManager
 import android.media.MediaScannerConnection
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.widget.Toast
-import androidx.core.content.ContextCompat
 import com.daygle.aicamera.data.suspendRunCatching
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -33,25 +30,18 @@ class FileDownloader(
                 val body = response.body
                 val resolver = context.contentResolver
 
-                // Android 9 and below require WRITE_EXTERNAL_STORAGE for MediaStore
-                // writes (a runtime permission this app never requests). Fall back
-                // to app-specific storage and index the file so gallery apps
-                // still show it.
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
-                    ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
-                    PackageManager.PERMISSION_GRANTED
-                ) {
+                // Android 9 and below need WRITE_EXTERNAL_STORAGE for MediaStore
+                // writes, which the app doesn't ask for. Save to app-specific
+                // storage instead and index the file so gallery apps show it.
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
                     saveToAppStorage(body, fileName, mimeType)
                     return@use
                 }
                 val contentValues = ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
                     put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        val folder = if (mimeType.startsWith("image")) Environment.DIRECTORY_PICTURES else Environment.DIRECTORY_MOVIES
-                        put(MediaStore.MediaColumns.RELATIVE_PATH, "$folder/Daygle")
-                        put(MediaStore.MediaColumns.IS_PENDING, 1)
-                    }
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, "${mediaFolder(mimeType)}/Daygle")
+                    put(MediaStore.MediaColumns.IS_PENDING, 1)
                 }
 
                 val collection = if (mimeType.startsWith("image")) {
@@ -70,11 +60,9 @@ class FileDownloader(
                         }
                     } ?: throw Exception("Could not open output stream")
 
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        contentValues.clear()
-                        contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
-                        resolver.update(uri, contentValues, null, null)
-                    }
+                    contentValues.clear()
+                    contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                    resolver.update(uri, contentValues, null, null)
                 } catch (e: Exception) {
                     resolver.delete(uri, null, null)
                     throw e
@@ -93,9 +81,7 @@ class FileDownloader(
 
     /** Permission-free save target for Android 9 and below. */
     private fun saveToAppStorage(body: ResponseBody, fileName: String, mimeType: String) {
-        val dir = context.getExternalFilesDir(
-            if (mimeType.startsWith("image")) Environment.DIRECTORY_PICTURES else Environment.DIRECTORY_MOVIES
-        ) ?: context.filesDir
+        val dir = context.getExternalFilesDir(mediaFolder(mimeType)) ?: context.filesDir
         val target = File(dir, fileName)
         target.outputStream().use { output ->
             body.byteStream().use { input ->
@@ -105,4 +91,7 @@ class FileDownloader(
         // Register with MediaStore so the file appears in gallery apps.
         MediaScannerConnection.scanFile(context, arrayOf(target.absolutePath), arrayOf(mimeType), null)
     }
+
+    private fun mediaFolder(mimeType: String): String =
+        if (mimeType.startsWith("image")) Environment.DIRECTORY_PICTURES else Environment.DIRECTORY_MOVIES
 }

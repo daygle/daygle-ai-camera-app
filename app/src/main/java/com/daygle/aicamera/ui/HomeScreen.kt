@@ -42,6 +42,7 @@ fun HomeScreen(
     onOpenNotifications: () -> Unit,
     onOpenAlerts: () -> Unit,
     onOpenServerDetails: () -> Unit,
+    onOpenServerStats: () -> Unit,
     onOpenAbout: () -> Unit,
     onSignOut: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
@@ -115,6 +116,7 @@ fun HomeScreen(
                 onOpenNotifications = onOpenNotifications,
                 onOpenAlerts = onOpenAlerts,
                 onOpenServerDetails = onOpenServerDetails,
+                onOpenServerStats = onOpenServerStats,
                 onOpenAbout = onOpenAbout,
                 modifier = contentModifier,
             )

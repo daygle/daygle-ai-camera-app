@@ -9,10 +9,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.flow.StateFlow
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.daygle.aicamera.ui.components.LoadingState
@@ -21,6 +21,8 @@ import com.daygle.aicamera.ui.notifications.NotificationsScreen
 import com.daygle.aicamera.ui.onboarding.OnboardingScreen
 import com.daygle.aicamera.ui.player.PlayerScreen
 import com.daygle.aicamera.ui.snapshots.SnapshotScreen
+import com.daygle.aicamera.ui.stats.ServerStatsScreen
+import kotlinx.coroutines.flow.StateFlow
 
 private object Routes {
     const val CONNECT = "connect"
@@ -30,6 +32,7 @@ private object Routes {
     const val NOTIFICATIONS = "notifications"
     const val ALERTS = "alerts"
     const val SERVER_DETAILS = "server_details"
+    const val SERVER_STATS = "server_stats"
     const val ABOUT = "about"
     const val PLAYER = "player/{recordingId}"
     const val SNAPSHOT = "snapshot/{eventId}"
@@ -65,12 +68,15 @@ fun DaygleNavHost(
                 val startRoute = if (start == StartDestination.HOME) Routes.HOME else Routes.CONNECT
 
                 // A tapped push alert can request a specific event snapshot.
-                // Navigate once the home graph is active (the request survives a
-                // fresh process restore, which lands on HOME after reconnect).
+                // Navigate once the user is signed in, i.e. past the connect
+                // screen. This follows the back stack rather than [start], which
+                // stays CONNECT for the rest of a session that began signed out.
                 val pendingSnapshotId by snapshotEventId.collectAsStateWithLifecycle()
-                LaunchedEffect(start, pendingSnapshotId) {
+                val currentEntry by navController.currentBackStackEntryAsState()
+                val signedIn = currentEntry?.destination?.route.let { it != null && it != Routes.CONNECT }
+                LaunchedEffect(signedIn, pendingSnapshotId) {
                     val id = pendingSnapshotId
-                    if (start == StartDestination.HOME && id != null) {
+                    if (signedIn && id != null) {
                         navController.navigate(Routes.snapshot(id)) { launchSingleTop = true }
                         onSnapshotEventConsumed()
                     }
@@ -94,6 +100,7 @@ fun DaygleNavHost(
                             onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
                             onOpenAlerts = { navController.navigate(Routes.ALERTS) },
                             onOpenServerDetails = { navController.navigate(Routes.SERVER_DETAILS) },
+                            onOpenServerStats = { navController.navigate(Routes.SERVER_STATS) },
                             onOpenAbout = { navController.navigate(Routes.ABOUT) },
                             onSignOut = signOut,
                         )
@@ -118,6 +125,9 @@ fun DaygleNavHost(
                             onBack = { navController.popBackStack() },
                             onSignOut = signOut,
                         )
+                    }
+                    composable(Routes.SERVER_STATS) {
+                        ServerStatsScreen(onBack = { navController.popBackStack() })
                     }
                     composable(Routes.NOTIFICATIONS) {
                         NotificationsScreen(onBack = { navController.popBackStack() })

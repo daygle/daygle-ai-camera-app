@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,6 +25,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -32,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -63,14 +66,21 @@ fun AlertsScreen(onBack: () -> Unit, viewModel: AlertsViewModel = hiltViewModel(
         },
         bottomBar = {
             if (state.config != null) {
-                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    state.message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
-                    Button(
-                        onClick = viewModel::save,
-                        enabled = state.edited.isNotEmpty() && !state.saving,
-                        modifier = Modifier.fillMaxWidth(),
+                // Opaque, so the list doesn't show through behind the button
+                // as it scrolls under the bar.
+                Surface(color = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 3.dp) {
+                    Column(
+                        Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text(if (state.saving) "Saving…" else "Save Recipients")
+                        state.message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
+                        Button(
+                            onClick = viewModel::save,
+                            enabled = state.edited.isNotEmpty() && !state.saving,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(if (state.saving) "Saving…" else "Save Recipients")
+                        }
                     }
                 }
             }
@@ -102,6 +112,7 @@ fun AlertsScreen(onBack: () -> Unit, viewModel: AlertsViewModel = hiltViewModel(
 private fun Centered(padding: PaddingValues, content: @Composable () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
+        verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) { content() }
 }
@@ -109,7 +120,12 @@ private fun Centered(padding: PaddingValues, content: @Composable () -> Unit) {
 @Composable
 private fun Notice(padding: PaddingValues, text: String, retry: (() -> Unit)? = null) {
     Centered(padding) {
-        Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
         if (retry != null) {
             OutlinedButton(onClick = retry, modifier = Modifier.padding(top = 12.dp)) { Text("Try Again") }
         }
@@ -123,7 +139,8 @@ private fun AlertCard(
     onRecipient: (RecipientChannel, String, Boolean) -> Unit,
 ) {
     SettingsSection(title = target.title) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Inset to line up with the section title above.
+        Column(Modifier.padding(start = 20.dp, end = 20.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(target.scope, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             RecipientPicker(
                 legend = "Email Recipients",

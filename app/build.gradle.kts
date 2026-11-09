@@ -14,7 +14,13 @@ android {
     lint {
         lintConfig = file("lint.xml")
     }
-    compileSdk = 37
+    // Compile against the newest stable platform release (37.2), which only
+    // adds APIs on top of 37; targetSdk below has no minor level.
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 2
+        }
+    }
 
     val gitVersionName = System.getenv("VERSION_NAME") ?: project.findProperty("VERSION_NAME") as? String ?: "1.0.0"
     val gitVersionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: (project.findProperty("VERSION_CODE") as? String)?.toIntOrNull() ?: 1

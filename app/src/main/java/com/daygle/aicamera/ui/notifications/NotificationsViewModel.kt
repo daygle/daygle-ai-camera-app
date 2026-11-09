@@ -1,6 +1,7 @@
 package com.daygle.aicamera.ui.notifications
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
@@ -10,6 +11,7 @@ import com.daygle.aicamera.data.PushRecipientOption
 import com.daygle.aicamera.data.defaultPushRecipients
 import com.daygle.aicamera.data.pushRecipientOptions
 import com.daygle.aicamera.data.serverErrorDetail
+import com.daygle.aicamera.data.suspendRunCatching
 import com.daygle.aicamera.push.PushController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,7 +54,11 @@ class NotificationsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val config = store.current()
+            val config = suspendRunCatching { store.current() }.getOrElse {
+                Log.w(TAG, "Could not read the alert settings", it)
+                _state.update { s -> s.copy(message = "Couldn't read the saved alert settings.") }
+                return@launch
+            }
             _state.update {
                 it.copy(
                     enabled = config.enabled,
@@ -172,9 +178,19 @@ class NotificationsViewModel @Inject constructor(
         )
         _state.update { it.copy(enabled = config.enabled) }
         viewModelScope.launch {
-            store.save(config)
-            PushController.sync(getApplication<Application>())
-            onSaved(config.enabled)
+            suspendRunCatching {
+                store.save(config)
+                PushController.sync(getApplication<Application>(), resync = true)
+            }.onSuccess {
+                onSaved(config.enabled)
+            }.onFailure {
+                Log.w(TAG, "Could not save the alert settings", it)
+                _state.update { s -> s.copy(message = "Couldn't save the alert settings. Try again.") }
+            }
         }
+    }
+
+    private companion object {
+        const val TAG = "NotificationsViewModel"
     }
 }

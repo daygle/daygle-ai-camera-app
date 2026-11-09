@@ -1,6 +1,5 @@
 package com.daygle.aicamera.ui.theme
 
-import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -22,6 +21,7 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
+import com.daygle.aicamera.ui.findActivity
 
 private val Accent = Color(0xFF00A3FF)
 private val AccentDark = Color(0xFF0084D1)
@@ -31,8 +31,11 @@ private val DarkColors = darkColorScheme(
     onPrimary = Color.Black,
     primaryContainer = Color(0xFF004A77),
     onPrimaryContainer = Color(0xFFC2E7FF),
-    secondary = Color(0xFF30363D),
-    onSecondary = Color(0xFFE6EDF0),
+    // Material draws foreground content in secondary (e.g. the selected
+    // navigation label, the timeline's motion bars), so on a dark background
+    // it must be a light tone.
+    secondary = Color(0xFFC9D1D9),
+    onSecondary = Color(0xFF1F2328),
     secondaryContainer = Color(0xFF21262D),
     onSecondaryContainer = Color(0xFFC9D1D9),
     // Distinct accent (violet) used to set sound detections apart from the
@@ -47,6 +50,8 @@ private val DarkColors = darkColorScheme(
     onSurface = Color(0xFFF0F6FC),
     surfaceVariant = Color(0xFF21262D),
     onSurfaceVariant = Color(0xFF8B949E),
+    // Raised cards (settings sections): surface equals the background here.
+    surfaceBright = Color(0xFF161B22),
     surfaceContainerLow = Color(0xFF161B22),
     surfaceContainer = Color(0xFF21262D),
     surfaceContainerHigh = Color(0xFF262C33),
@@ -76,6 +81,7 @@ private val LightColors = lightColorScheme(
     onSurface = Color(0xFF1F2328),
     surfaceVariant = Color(0xFFE6EDF0),
     onSurfaceVariant = Color(0xFF656D76),
+    surfaceBright = Color(0xFFFFFFFF),
     surfaceContainerLow = Color(0xFFF0F2F5),
     surfaceContainer = Color(0xFFE6EDF0),
     surfaceContainerHigh = Color(0xFFDDE3E6),
@@ -114,7 +120,7 @@ fun DaygleTheme(
     val colors = if (effectiveDark) DarkColors else LightColors
     if (!view.isInEditMode) {
         SideEffect {
-            val window = (view.context as Activity).window
+            val window = view.context.findActivity()?.window ?: return@SideEffect
             @Suppress("DEPRECATION")
             window.statusBarColor = colors.background.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !effectiveDark

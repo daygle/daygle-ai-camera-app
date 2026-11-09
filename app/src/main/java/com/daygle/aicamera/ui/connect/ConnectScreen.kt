@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -24,6 +25,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -65,6 +67,8 @@ fun ConnectScreen(
         state.customHeaderName.isNotBlank() ||
         state.customHeaderValue.isNotBlank()
     LaunchedEffect(hasAdvanced) { if (hasAdvanced) showAdvanced = true }
+    // "Done" on the keyboard submits, as tapping Connect would.
+    val submit = KeyboardActions(onDone = { viewModel.connect(onConnected) })
 
     Column(
         modifier = modifier
@@ -116,6 +120,7 @@ fun ConnectScreen(
             singleLine = true,
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+            keyboardActions = submit,
             trailingIcon = {
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
                     Icon(
@@ -220,6 +225,7 @@ fun ConnectScreen(
                 singleLine = true,
                 visualTransformation = if (customHeaderValueVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                keyboardActions = submit,
                 trailingIcon = {
                     IconButton(onClick = { customHeaderValueVisible = !customHeaderValueVisible }) {
                         Icon(
@@ -239,6 +245,7 @@ fun ConnectScreen(
                 error,
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
             )
         }
 
@@ -249,10 +256,12 @@ fun ConnectScreen(
             modifier = Modifier.fillMaxWidth(),
         ) {
             if (state.connecting) {
+                // The button is disabled while connecting, so draw in its
+                // (disabled) content colour; onPrimary would be near-invisible.
                 CircularProgressIndicator(
-                    modifier = Modifier.height(20.dp),
+                    modifier = Modifier.size(20.dp),
                     strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary,
+                    color = LocalContentColor.current,
                 )
             } else {
                 Text("Connect")

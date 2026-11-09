@@ -1,16 +1,21 @@
 package com.daygle.aicamera.ui.settings
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import android.util.Log
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.AppPreferencesStore
+import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.SettingsStore
 import com.daygle.aicamera.data.ThemeMode
+import com.daygle.aicamera.data.suspendRunCatching
 import com.daygle.aicamera.ui.HomeTab
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -38,17 +43,32 @@ data class SettingsUiState(
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    application: Application,
     private val prefs: AppPreferencesStore,
     private val settingsStore: SettingsStore,
-) : AndroidViewModel(application) {
+    private val repository: CameraRepository,
+) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
 
+    /**
+     * Whether the signed-in account is an admin. Admin-only items (alert
+     * recipients, server stats) stay hidden until the server confirms it.
+     */
+    val isAdmin: StateFlow<Boolean> = repository.account
+        .map { it?.isAdmin == true }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), repository.account.value?.isAdmin == true)
+
     init {
+        // The role can change on the server (an admin edits this account), so
+        // re-check whenever Settings opens.
+        viewModelScope.launch { repository.refreshAccount() }
         viewModelScope.launch {
-            val connection = settingsStore.current()
+            // A storage/Keystore failure must not crash Settings: show the
+            // defaults and an empty server label instead.
+            val connection = suspendRunCatching { settingsStore.current() }
+                .onFailure { Log.w(TAG, "Could not read the saved connection", it) }
+                .getOrNull()
             val savedNav = HomeTab.parse(prefs.currentNavItems())
 
             _state.update {
@@ -56,7 +76,7 @@ class SettingsViewModel @Inject constructor(
                     themeMode = prefs.currentThemeMode().key,
                     use24Hour = prefs.currentUse24Hour(),
                     refreshIntervalMs = prefs.currentRefreshIntervalMs(),
-                    serverLabel = connection.baseUrl.toServerLabel(),
+                    serverLabel = connection?.baseUrl?.toServerLabel().orEmpty(),
                     navItems = savedNav,
                 )
             }
@@ -88,16 +108,11 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    /** Show or hide a tab. Settings can't be hidden (see [HomeTab.parse]). */
     fun toggleNavItem(tab: HomeTab) {
-        val current = _state.value.navItems.toMutableList()
-        if (current.contains(tab)) {
-            if (current.size > 1) {
-                current.remove(tab)
-            }
-        } else {
-            current.add(tab)
-        }
-        updateNavItems(current)
+        if (tab == HomeTab.Settings) return
+        val current = _state.value.navItems
+        updateNavItems(if (tab in current) current - tab else current + tab)
     }
 
     private fun updateNavItems(items: List<HomeTab>) {
@@ -105,6 +120,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             prefs.setNavItems(items.joinToString(",") { it.name })
         }
+    }
+
+    private companion object {
+        const val TAG = "SettingsViewModel"
     }
 }
 
