@@ -92,11 +92,6 @@ fun DashboardScreen(
     // Keep polling while visible; stop while backgrounded or covered by another screen.
     LifecycleResumeEffect(onPause = viewModel::pause, onResume = viewModel::resume)
 
-    // Keep the display awake while the live page is in front - both the camera
-    // grid and the full-screen view show a live feed that shouldn't time out
-    // mid-watch. Cleared when another tab replaces this screen.
-    KeepScreenOn()
-
     // The camera currently expanded into the full-screen live view (null = grid).
     var selectedCameraId by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(selectedCameraId) {
@@ -301,8 +296,8 @@ private fun PacedLiveFrame(
  * tile is tapped. Hides the system bars while active, fills the display with the
  * selected camera's feed, supports pinch-to-zoom / pan / double-tap-to-zoom and
  * play-pause, and exits on back press or the close control. System bars are
- * restored on dispose. The display itself is kept awake by [DashboardScreen]
- * while this page is in front.
+ * restored on dispose. The display is kept awake only while this view is
+ * open; the camera grid lets the screen time out as usual to save battery.
  */
 @Composable
 private fun FullscreenCameraView(
@@ -314,6 +309,10 @@ private fun FullscreenCameraView(
     ForceLandscape()
 
     HideSystemBars()
+
+    // Someone watching one camera full-screen shouldn't have it time out
+    // mid-watch. Cleared when the view closes (back to the grid).
+    KeepScreenOn()
 
     BackHandler(onBack = onClose)
 
