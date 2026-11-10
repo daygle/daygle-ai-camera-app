@@ -10,6 +10,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.net.ConnectivityManager
+import android.net.Network
 import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
@@ -31,6 +33,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -87,6 +91,15 @@ class NtfyService : Service() {
     @Volatile
     private var currentCall: okhttp3.Call? = null
 
+    /**
+     * The device's current default network, or null while offline. The loop
+     * waits on it instead of retrying (and waking the radio) on a timer while
+     * there is nothing to connect over. Unused if the callback can't be
+     * registered, in which case the loop simply retries with backoff.
+     */
+    private val defaultNetwork = MutableStateFlow<Network?>(null)
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+
     private val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(20, TimeUnit.SECONDS)
@@ -129,6 +142,44 @@ class NtfyService : Service() {
     override fun onCreate() {
         super.onCreate()
         ensureChannels(this)
+        watchNetwork()
+    }
+
+    /**
+     * Follow the default network. When it changes (Wi-Fi to mobile, or back
+     * after being offline) the open stream is bound to a socket on the old
+     * network that may never see another byte; reconnect at once on the new
+     * one rather than waiting for the read timeout. The resume point means
+     * nothing published in between is missed.
+     */
+    private fun watchNetwork() {
+        val connectivity = getSystemService(ConnectivityManager::class.java) ?: return
+        defaultNetwork.value = connectivity.activeNetwork
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                val previous = defaultNetwork.value
+                defaultNetwork.value = network
+                if (previous != network) requestReconnect()
+            }
+
+            override fun onLost(network: Network) {
+                defaultNetwork.compareAndSet(network, null)
+            }
+        }
+        runCatching { connectivity.registerDefaultNetworkCallback(callback) }
+            .onSuccess { networkCallback = callback }
+            .onFailure { Log.w(TAG, "Could not watch network changes", it) }
+    }
+
+    private val watchingNetwork: Boolean get() = networkCallback != null
+
+    private val hasNetwork: Boolean get() = !watchingNetwork || defaultNetwork.value != null
+
+    /** Drop the current stream (if any) so the loop reconnects straight away. */
+    private fun requestReconnect() {
+        val call = currentCall ?: return
+        resyncRequested.set(true)
+        call.cancel()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -180,6 +231,14 @@ class NtfyService : Service() {
                     stopSelfSafely()
                     return
                 }
+                // Offline: sleep until a network appears rather than failing
+                // a connect attempt every backoff interval, then connect at
+                // once (re-reading the settings, which may have changed).
+                if (!hasNetwork) {
+                    defaultNetwork.first { it != null }
+                    backoffMs = MIN_BACKOFF_MS
+                    continue
+                }
                 // A first connect streams only what is published from now on;
                 // a reconnect to the same subscription resumes from the last
                 // server time seen (see [ResumePoint]).
@@ -205,6 +264,9 @@ class NtfyService : Service() {
                     backoffMs = MIN_BACKOFF_MS
                     continue
                 }
+                // The connection dropped because the device went offline: the
+                // top of the loop waits for the network, with no timer.
+                if (!hasNetwork) continue
                 delay(backoffMs)
                 backoffMs = (backoffMs * 2).coerceAtMost(MAX_BACKOFF_MS)
             }
@@ -331,6 +393,10 @@ class NtfyService : Service() {
     }
 
     override fun onDestroy() {
+        networkCallback?.let { callback ->
+            runCatching { getSystemService(ConnectivityManager::class.java)?.unregisterNetworkCallback(callback) }
+        }
+        networkCallback = null
         currentCall?.cancel()
         scope.cancel()
         super.onDestroy()

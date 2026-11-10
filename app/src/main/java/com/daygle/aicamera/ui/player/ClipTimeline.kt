@@ -150,12 +150,13 @@ private fun clipTimelineColors(): ClipTimelineColors {
 fun ClipTimeline(recording: Recording, player: Player, modifier: Modifier = Modifier) {
     var position by remember { mutableDoubleStateOf(0.0) }
     var playerDuration by remember { mutableDoubleStateOf(0.0) }
+    // Follow the playhead every 200 ms while playing; while paused (or the
+    // app is backgrounded) only update on player events such as a seek.
     LaunchedEffect(player) {
-        while (true) {
+        player.sampleWhilePlaying(tick = { delay(200) }) {
             position = player.currentPosition / 1000.0
             val d = player.duration
             playerDuration = if (d != C.TIME_UNSET && d > 0) d / 1000.0 else 0.0
-            delay(200)
         }
     }
     // The decoded file's length is authoritative; the stored one fills in until it loads.
