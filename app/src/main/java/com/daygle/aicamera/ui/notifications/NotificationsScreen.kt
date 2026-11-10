@@ -237,6 +237,7 @@ fun NotificationsScreen(
                             options = state.pushTestOptions,
                             selected = state.pushTestSelected,
                             sending = state.pushTestSending,
+                            offline = state.offline,
                             onToggle = viewModel::onPushTestRecipient,
                             onSend = viewModel::sendServerTest,
                         )
@@ -261,19 +262,27 @@ fun NotificationsScreen(
 /**
  * Admins only: have the server send a test push through ntfy to the ticked
  * users' own topics (the same picker as the server's Settings page), or the
- * shared topic with nobody ticked.
+ * shared topic with nobody ticked. While [offline] the recipients are greyed
+ * out and sending posts the test on this device instead.
  */
 @Composable
 private fun ServerPushTest(
     options: List<PushRecipientOption>,
     selected: Set<String>,
     sending: Boolean,
+    offline: Boolean,
     onToggle: (String, Boolean) -> Unit,
     onSend: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("Test Notification Recipients", style = MaterialTheme.typography.titleSmall)
-        if (options.isEmpty()) {
+        if (offline) {
+            Text(
+                "You're offline. Testing through the server needs a connection; until then, sending shows the test on this device instead.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        } else if (options.isEmpty()) {
             Text(
                 "No users have a push topic yet. Each user sets one as Push Topic on their Daygle profile.",
                 style = MaterialTheme.typography.bodySmall,
@@ -285,10 +294,15 @@ private fun ServerPushTest(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .toggleable(value = checked, role = Role.Checkbox, onValueChange = { onToggle(option.value, it) }),
+                    .toggleable(
+                        value = checked,
+                        enabled = !offline,
+                        role = Role.Checkbox,
+                        onValueChange = { onToggle(option.value, it) },
+                    ),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Checkbox(checked = checked, onCheckedChange = null)
+                Checkbox(checked = checked, onCheckedChange = null, enabled = !offline)
                 Spacer(Modifier.width(8.dp))
                 Column {
                     Text(option.name, style = MaterialTheme.typography.bodyMedium)
@@ -308,7 +322,13 @@ private fun ServerPushTest(
         OutlinedButton(onClick = onSend, enabled = !sending, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
-            Text(if (sending) "Sending…" else "Send Test Through Server")
+            Text(
+                when {
+                    sending -> "Sending…"
+                    offline -> "Send Test (Offline: On This Device)"
+                    else -> "Send Test Through Server"
+                },
+            )
         }
     }
 }
