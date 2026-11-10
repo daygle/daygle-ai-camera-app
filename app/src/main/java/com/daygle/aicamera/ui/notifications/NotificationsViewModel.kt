@@ -5,20 +5,25 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
+import com.daygle.aicamera.data.CloudflareAccessRequiredException
 import com.daygle.aicamera.data.NotificationConfig
 import com.daygle.aicamera.data.NotificationSettingsStore
 import com.daygle.aicamera.data.PushRecipientOption
 import com.daygle.aicamera.data.defaultPushRecipients
+import com.daygle.aicamera.data.onlineStatus
 import com.daygle.aicamera.data.pushRecipientOptions
 import com.daygle.aicamera.data.serverErrorDetail
 import com.daygle.aicamera.data.suspendRunCatching
+import com.daygle.aicamera.push.NtfyService
 import com.daygle.aicamera.push.PushController
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.IOException
 import javax.inject.Inject
 
 data class NotificationsUiState(
@@ -36,6 +41,8 @@ data class NotificationsUiState(
     val pushTestOptions: List<PushRecipientOption> = emptyList(),
     val pushTestSelected: Set<String> = emptySet(),
     val pushTestSending: Boolean = false,
+    /** The device has no network; a server test falls back to an on-device one. */
+    val offline: Boolean = false,
     val discovering: Boolean = false,
     val message: String? = null,
 ) {
@@ -51,6 +58,10 @@ class NotificationsViewModel @Inject constructor(
 
     private val _state = MutableStateFlow(NotificationsUiState())
     val state: StateFlow<NotificationsUiState> = _state.asStateFlow()
+
+    /** Whether the admin's test recipients have been read from the server. */
+    private var targetsLoaded = false
+    private var targetsJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -71,13 +82,40 @@ class NotificationsViewModel @Inject constructor(
                 )
             }
         }
-        loadPushTestTargets()
+        watchConnectivity()
+    }
+
+    /**
+     * Follow the network so the server test can say it is offline up front.
+     * The first state also loads the admin's test recipients; if that failed
+     * offline, they are loaded again once a connection comes back.
+     */
+    private fun watchConnectivity() {
+        viewModelScope.launch {
+            getApplication<Application>().onlineStatus().collect { online ->
+                _state.update { it.copy(offline = !online) }
+                if (!targetsLoaded) loadPushTestTargets()
+            }
+        }
     }
 
     /** For an admin, the users a server-sent test push can go to. */
     private fun loadPushTestTargets() {
-        viewModelScope.launch {
-            val targets = repository.pushTestTargets().getOrNull() ?: return@launch
+        if (targetsJob?.isActive == true) return
+        targetsJob = viewModelScope.launch {
+            val result = repository.pushTestTargets()
+            if (result.isFailure) {
+                // Offline (or the server is down): if this account is already
+                // known to be an admin, still show the server test so it can
+                // fall back to an on-device test; recipients load later.
+                if (repository.account.value?.isAdmin == true) {
+                    _state.update { it.copy(canServerTest = true) }
+                }
+                return@launch
+            }
+            targetsLoaded = true
+            // A successful null means the account isn't an admin.
+            val targets = result.getOrNull() ?: return@launch
             val options = pushRecipientOptions(targets.users)
             _state.update {
                 it.copy(
@@ -101,20 +139,42 @@ class NotificationsViewModel @Inject constructor(
     fun sendServerTest() {
         val s = _state.value
         if (s.pushTestSending) return
+        if (s.offline) {
+            _state.update { it.copy(message = sendOnDeviceInstead()) }
+            return
+        }
         _state.update { it.copy(pushTestSending = true, message = null) }
         viewModelScope.launch {
             // Keep the list order, not the order the boxes were ticked.
             val recipients = s.pushTestOptions.map { it.value }.filter { it in s.pushTestSelected }
             val result = repository.sendPushTest(recipients)
-            _state.update {
-                it.copy(
-                    pushTestSending = false,
-                    message = result.fold(
-                        onSuccess = { topics -> "Test notification sent to ${topics.joinToString(", ")}." },
-                        onFailure = { error -> serverErrorDetail(error) ?: "Couldn't send the test notification." },
-                    ),
-                )
-            }
+            val message = result.fold(
+                onSuccess = { topics -> "Test notification sent to ${topics.joinToString(", ")}." },
+                onFailure = { error ->
+                    if (error.isUnreachable()) {
+                        sendOnDeviceInstead()
+                    } else {
+                        serverErrorDetail(error) ?: "Couldn't send the test notification."
+                    }
+                },
+            )
+            _state.update { it.copy(pushTestSending = false, message = message) }
+        }
+    }
+
+    /**
+     * The server can't be reached, so post the test on this device instead
+     * and say plainly that only this phone's side was checked.
+     */
+    private fun sendOnDeviceInstead(): String {
+        val posted = NtfyService.postTestNotification(getApplication())
+        val offline = _state.value.offline
+        val reason = if (offline) "You're offline" else "The server couldn't be reached"
+        val retry = if (offline) "once you're connected" else "when it's reachable"
+        return if (posted) {
+            "$reason, so the test was shown on this device instead. That checks notifications appear here, not delivery from the server; send it through the server again $retry."
+        } else {
+            "$reason, and notifications are turned off on this device. Enable them, then try again."
         }
     }
 
@@ -194,3 +254,7 @@ class NotificationsViewModel @Inject constructor(
         const val TAG = "NotificationsViewModel"
     }
 }
+
+/** A network failure reaching the server (not a server or sign-in refusal). */
+private fun Throwable.isUnreachable(): Boolean =
+    this is IOException && this !is CloudflareAccessRequiredException
