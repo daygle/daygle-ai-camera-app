@@ -32,20 +32,23 @@ class PushTestRecipientsTest {
     }
 
     @Test
-    fun listsActiveUsersWithATopicByName() {
+    fun pushPickerListsActiveUsersWithATopicThenFlagsTheRest() {
+        // The test push uses the shared picker rows (as the Alerts screen does).
         assertEquals(
             listOf(
-                PushRecipientOption("user:2", "amy", "amy-phone"),
-                PushRecipientOption("user:1", "Zed Smith", "zed-phone"),
+                RecipientOption("user:2", "amy", "amy-phone", orphan = false),
+                RecipientOption("user:1", "Zed Smith", "zed-phone", orphan = false),
+                RecipientOption("user:3", "notopic", "No push topic", orphan = true),
+                RecipientOption("user:4", "gone", "Inactive, gets no push", orphan = true),
             ),
-            pushRecipientOptions(users),
+            recipientOptions(listOf("user:3", "user:4"), users, RecipientChannel.PUSH),
         )
     }
 
     @Test
     fun ticksTheSignedInUserOnlyWhenTheyCanReceive() {
-        val options = pushRecipientOptions(users)
-        assertEquals(setOf("user:1"), defaultPushRecipients(options, meId = 1))
-        assertEquals(emptySet<String>(), defaultPushRecipients(options, meId = 3))
+        assertEquals(setOf("user:1"), defaultPushRecipients(users, meId = 1))
+        assertEquals(emptySet<String>(), defaultPushRecipients(users, meId = 3))
+        assertEquals(emptySet<String>(), defaultPushRecipients(users, meId = 4))
     }
 }
