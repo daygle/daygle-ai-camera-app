@@ -38,6 +38,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.daygle.aicamera.data.AlertSource
 import com.daygle.aicamera.data.AlertTarget
 import com.daygle.aicamera.data.RecipientChannel
 import com.daygle.aicamera.data.model.AppUser
@@ -138,6 +139,14 @@ private fun AlertCard(
     users: List<AppUser>,
     onRecipient: (RecipientChannel, String, Boolean) -> Unit,
 ) {
+    // Camera offline is switched on in the server's Settings, not per alert,
+    // and with nobody ticked its emails go to the From address.
+    val offline = target.source == AlertSource.CAMERA_OFFLINE
+    val offNote = if (offline) {
+        "Camera offline alerts are off. Turn them on in the server's Settings."
+    } else {
+        null
+    }
     SettingsSection(title = target.title) {
         // Inset to line up with the section title above.
         Column(Modifier.padding(start = 20.dp, end = 20.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -145,18 +154,19 @@ private fun AlertCard(
             RecipientPicker(
                 legend = "Email Recipients",
                 channelOn = target.emailOn,
-                offNote = "Email is off for this alert. Turn it on on the server's Alerts page.",
+                offNote = offNote ?: "Email is off for this alert. Turn it on on the server's Alerts page.",
                 emptyNote = "No users have an email address yet. Add one on the server's Users page.",
                 selected = target.email,
                 users = users,
                 channel = RecipientChannel.EMAIL,
                 onToggle = onRecipient,
+                footer = if (offline) "With nobody ticked, offline emails go to the From address set under Email Alerts." else null,
             )
             HorizontalDivider()
             RecipientPicker(
                 legend = "Push Recipients",
                 channelOn = target.pushOn,
-                offNote = "Push is off for this alert. Turn it on on the server's Alerts page.",
+                offNote = offNote ?: "Push is off for this alert. Turn it on on the server's Alerts page.",
                 emptyNote = "No users have a push topic yet. Each user sets one as Push Topic on their profile.",
                 selected = target.push,
                 users = users,

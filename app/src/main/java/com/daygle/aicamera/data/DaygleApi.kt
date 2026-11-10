@@ -29,7 +29,8 @@ import retrofit2.http.Query
 
 /**
  * Endpoints on the Daygle AI Camera server consumed by the app. All are reads
- * except [pushTest], [saveCamerasConfig] and [saveFaceRules], which need the
+ * except [pushTest], [saveCamerasConfig], [saveFaceRules] and
+ * [saveCameraOfflineSettings], which need the
  * session's CSRF token and a same-origin `Origin` header (see
  * [CameraRepository.sendPushTest]).
  */
@@ -160,6 +161,18 @@ interface DaygleApi {
 
     @PUT("api/settings/face-detection-rules")
     suspend fun saveFaceRules(
+        @Header("X-CSRF-Token") csrfToken: String,
+        @Header("Origin") origin: String,
+        @Body body: JsonObject,
+    ): JsonObject
+
+    /** Camera offline alert settings: on/off, delay, email and push recipients. */
+    @GET("api/settings/camera-offline")
+    suspend fun cameraOfflineSettings(): JsonObject
+
+    /** Admins only. The server rebuilds the settings from this whole body. */
+    @PUT("api/settings/camera-offline")
+    suspend fun saveCameraOfflineSettings(
         @Header("X-CSRF-Token") csrfToken: String,
         @Header("Origin") origin: String,
         @Body body: JsonObject,

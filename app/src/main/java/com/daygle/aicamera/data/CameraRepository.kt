@@ -242,6 +242,10 @@ class CameraRepository(
                 users = session.api.users(),
                 cameras = session.api.camerasConfig().arrayAt("cameras"),
                 faceRules = session.api.faceRules().arrayAt("rules"),
+                // Optional: without it the screen just leaves camera offline out.
+                cameraOffline = suspendRunCatching { session.api.cameraOfflineSettings() }
+                    .onFailure { Log.w(TAG, "Could not read camera offline alert settings", it) }
+                    .getOrNull(),
             )
         }
     }
@@ -250,11 +254,16 @@ class CameraRepository(
      * Save the edited alert config. Only the parts that changed are sent: a
      * camera save makes the server re-apply the camera settings.
      */
-    suspend fun saveAlertConfig(cameras: JsonArray?, faceRules: JsonArray?): Result<Unit> = suspendRunCatching {
+    suspend fun saveAlertConfig(
+        cameras: JsonArray?,
+        faceRules: JsonArray?,
+        cameraOffline: JsonObject? = null,
+    ): Result<Unit> = suspendRunCatching {
         val csrfToken = session.api.me().csrfToken.orEmpty()
         val origin = checkNotNull(session.currentBaseUrl) { "Not connected to a server." }
         if (cameras != null) session.api.saveCamerasConfig(csrfToken, origin, JsonObject(mapOf("cameras" to cameras)))
         if (faceRules != null) session.api.saveFaceRules(csrfToken, origin, JsonObject(mapOf("rules" to faceRules)))
+        if (cameraOffline != null) session.api.saveCameraOfflineSettings(csrfToken, origin, cameraOffline)
     }
 
     /**
