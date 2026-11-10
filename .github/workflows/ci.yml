@@ -39,17 +39,16 @@ jobs:
           add-job-summary: always
 
       # Lint both variants first: warningsAsErrors is on, so any lint warning
-      # fails the job before anything is built.
+      # fails the job before anything is built. --warning-mode=fail also fails
+      # on Gradle deprecation warnings.
       - name: Lint
-        run: ./gradlew lintDebug lintRelease --warning-mode=all --stacktrace
+        run: ./gradlew lintDebug lintRelease --warning-mode=fail --stacktrace
 
-      - name: Unit tests
-        run: ./gradlew testDebugUnitTest --warning-mode=all --stacktrace
-
-      # Builds the (unsigned) release bundle so R8 minification and native
-      # debug symbol extraction are validated on every PR, not only at release.
-      - name: Build release bundle (R8)
-        run: ./gradlew bundleRelease --warning-mode=all --stacktrace
+      # One Gradle invocation, so configuration runs once. The (unsigned) release
+      # bundle validates R8 minification and native debug symbol extraction on
+      # every PR, not only at release.
+      - name: Unit tests and release bundle (R8)
+        run: ./gradlew testDebugUnitTest bundleRelease --warning-mode=fail --stacktrace
 
       - name: Upload test and lint reports
         if: always()

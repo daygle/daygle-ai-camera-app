@@ -64,10 +64,7 @@ jobs:
       # Lint gates the release: warningsAsErrors is on, so any lint warning
       # stops the workflow here, before anything is signed or published.
       - name: Lint
-        run: ./gradlew lintRelease --warning-mode=all --stacktrace
-
-      - name: Unit tests
-        run: ./gradlew testDebugUnitTest --warning-mode=all --stacktrace
+        run: ./gradlew lintRelease --warning-mode=fail --stacktrace
 
       # Releases are a signed App Bundle only; an unsigned bundle cannot be
       # uploaded to Play, so missing signing secrets fail the release.
@@ -82,12 +79,12 @@ jobs:
           printf '%s' "$RELEASE_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
           echo "RELEASE_KEYSTORE_FILE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
 
-      - name: Build signed release bundle
+      - name: Unit tests and signed release bundle
         env:
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-        run: ./gradlew bundleRelease --warning-mode=all --stacktrace
+        run: ./gradlew testDebugUnitTest bundleRelease --warning-mode=fail --stacktrace
 
       # Fail loudly rather than publishing an unsigned bundle.
       - name: Verify bundle signature and name it after the version

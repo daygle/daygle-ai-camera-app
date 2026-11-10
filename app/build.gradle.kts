@@ -113,6 +113,11 @@ android {
 
 kotlin {
     jvmToolchain(21)
+    compilerOptions {
+        // Any Kotlin compiler warning (deprecations, unchecked casts, unused values...)
+        // fails the build, matching lint's warningsAsErrors.
+        allWarningsAsErrors = true
+    }
 }
 
 dependencies {
