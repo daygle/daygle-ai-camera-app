@@ -43,9 +43,10 @@ private const val BOX_ALPHA = 0.78f
 fun DetectionOverlay(source: OverlaySource, player: Player, modifier: Modifier = Modifier) {
     var time by remember { mutableDoubleStateOf(0.0) }
     var videoSize by remember { mutableStateOf(player.videoSize) }
+    // Track every frame while playing. A paused clip's boxes don't move, so
+    // stop requesting frames then (and redraw only after a seek or similar).
     LaunchedEffect(player) {
-        while (true) {
-            withFrameNanos { }
+        player.sampleWhilePlaying(tick = { withFrameNanos { } }) {
             time = player.currentPosition / 1000.0
             videoSize = player.videoSize
         }
