@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   release:
-    name: Build APK and publish to GitHub Releases
+    name: Build AAB and publish to GitHub Releases
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -61,71 +61,60 @@ jobs:
           } >> "$GITHUB_ENV"
           echo "Releasing version $VERSION (versionCode $VERSION_CODE, prerelease $PRERELEASE)"
 
-      # Release signing is driven by repository secrets (see README "Release
-      # signing"). When they are absent the workflow keeps its old behaviour
-      # and publishes the debug APK.
-      - name: Check release signing secrets
-        id: signing
-        env:
-          RELEASE_KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
-        run: |
-          if [ -n "$RELEASE_KEYSTORE_B64" ]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::RELEASE_KEYSTORE_B64 is not set; publishing the debug APK instead of a signed release APK (see README 'Release signing')."
-          fi
+      # Lint gates the release: warningsAsErrors is on, so any lint warning
+      # stops the workflow here, before anything is signed or published.
+      - name: Lint
+        run: ./gradlew lintRelease --warning-mode=fail --stacktrace
 
+      # Releases are a signed App Bundle only; an unsigned bundle cannot be
+      # uploaded to Play, so missing signing secrets fail the release.
       - name: Decode release keystore
-        if: steps.signing.outputs.enabled == 'true'
         env:
           RELEASE_KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
         run: |
+          if [ -z "$RELEASE_KEYSTORE_B64" ]; then
+            echo "::error::Repository secret RELEASE_KEYSTORE_B64 is not set (see README 'Release signing')."
+            exit 1
+          fi
           printf '%s' "$RELEASE_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
           echo "RELEASE_KEYSTORE_FILE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
 
-      - name: Test and build release APK
-        if: steps.signing.outputs.enabled == 'true'
+      - name: Unit tests and signed release bundle
         env:
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-        run: ./gradlew testDebugUnitTest assembleRelease bundleRelease --warning-mode=all --stacktrace
+        run: ./gradlew testDebugUnitTest bundleRelease --warning-mode=fail --stacktrace
 
-      - name: Test and build debug APK (release signing not configured)
-        if: steps.signing.outputs.enabled == 'false'
-        run: ./gradlew testDebugUnitTest assembleDebug --warning-mode=all --stacktrace
-
-      - name: Name APK after the version
+      # Fail loudly rather than publishing an unsigned bundle.
+      - name: Verify bundle signature and name it after the version
         run: |
-          if [ "${{ steps.signing.outputs.enabled }}" = "true" ]; then
-            mv app/build/outputs/apk/release/app-release.apk "app/build/outputs/apk/release/DaygleAICamera-$VERSION_NAME-release.apk"
-            mv app/build/outputs/bundle/release/app-release.aab "app/build/outputs/bundle/release/DaygleAICamera-$VERSION_NAME-release.aab"
-          else
-            mv app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/DaygleAICamera-$VERSION_NAME-debug.apk"
+          AAB=app/build/outputs/bundle/release/app-release.aab
+          if [ ! -f "$AAB" ]; then
+            echo "::error::No bundle at $AAB."
+            ls -l app/build/outputs/bundle/release/ || true
+            exit 1
           fi
+          OUT=$(jarsigner -verify "$AAB")
+          if ! echo "$OUT" | grep -q "jar verified"; then
+            echo "$OUT"
+            echo "::error::$AAB is not signed."
+            exit 1
+          fi
+          mv "$AAB" "app/build/outputs/bundle/release/DaygleAICamera-$VERSION_NAME-release.aab"
 
-      - name: Upload APK artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: DaygleAICamera-apks-${{ env.VERSION_NAME }}
-          path: app/build/outputs/apk/*/*.apk
-          if-no-files-found: error
-          retention-days: 14
-
+      # archive: false uploads the .aab as-is instead of wrapping it in a zip.
       - name: Upload bundle artifact
-        if: steps.signing.outputs.enabled == 'true'
         uses: actions/upload-artifact@v7
         with:
-          name: DaygleAICamera-bundle-${{ env.VERSION_NAME }}
-          path: app/build/outputs/bundle/release/*.aab
+          path: app/build/outputs/bundle/release/DaygleAICamera-${{ env.VERSION_NAME }}-release.aab
+          archive: false
           if-no-files-found: error
           retention-days: 14
 
       # The mapping file and native symbols are already embedded in the .aab for
       # Play; keep copies so stack traces can also be retraced locally.
       - name: Upload R8 mapping and native debug symbols
-        if: steps.signing.outputs.enabled == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: DaygleAICamera-debug-files-${{ env.VERSION_NAME }}
@@ -153,24 +142,11 @@ jobs:
             echo "No existing release for $TAG; creating fresh."
           fi
 
-      - name: Create GitHub Release and Upload APK + AAB
-        if: steps.signing.outputs.enabled == 'true'
+      - name: Create GitHub Release and upload AAB
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
-          files: |
-            app/build/outputs/apk/*/*.apk
-            app/build/outputs/bundle/release/*.aab
-          generate_release_notes: true
-          draft: false
-          prerelease: ${{ env.PRERELEASE }}
-
-      - name: Create GitHub Release and Upload APK (debug fallback)
-        if: steps.signing.outputs.enabled == 'false'
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ github.ref_name }}
-          files: app/build/outputs/apk/*/*.apk
+          files: app/build/outputs/bundle/release/*.aab
           generate_release_notes: true
           draft: false
           prerelease: ${{ env.PRERELEASE }}

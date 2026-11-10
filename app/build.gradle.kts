@@ -13,6 +13,10 @@ android {
 
     lint {
         lintConfig = file("lint.xml")
+        // Fail the build on any lint warning, not just errors. CI runs lint before
+        // building, so a release can never ship with an open warning.
+        abortOnError = true
+        warningsAsErrors = true
     }
     // Compile against the newest stable platform release (37.2), which only
     // adds APIs on top of 37; targetSdk below has no minor level.
@@ -109,6 +113,11 @@ android {
 
 kotlin {
     jvmToolchain(21)
+    compilerOptions {
+        // Any Kotlin compiler warning (deprecations, unchecked casts, unused values...)
+        // fails the build, matching lint's warningsAsErrors.
+        allWarningsAsErrors = true
+    }
 }
 
 dependencies {
