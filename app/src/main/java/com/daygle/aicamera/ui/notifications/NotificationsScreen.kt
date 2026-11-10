@@ -7,7 +7,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -22,7 +21,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -33,7 +31,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.daygle.aicamera.data.PushRecipientOption
+import com.daygle.aicamera.data.RecipientChannel
+import com.daygle.aicamera.data.model.AppUser
+import com.daygle.aicamera.ui.components.RecipientPicker
 import com.daygle.aicamera.ui.components.SettingsSection
 import com.daygle.aicamera.ui.components.SettingsSwitchRow
 import com.daygle.aicamera.ui.permissions.AppPermissions
@@ -234,7 +234,7 @@ fun NotificationsScreen(
 
                     if (state.canServerTest) {
                         ServerPushTest(
-                            options = state.pushTestOptions,
+                            users = state.pushTestUsers,
                             selected = state.pushTestSelected,
                             sending = state.pushTestSending,
                             onToggle = viewModel::onPushTestRecipient,
@@ -265,45 +265,21 @@ fun NotificationsScreen(
  */
 @Composable
 private fun ServerPushTest(
-    options: List<PushRecipientOption>,
+    users: List<AppUser>,
     selected: Set<String>,
     sending: Boolean,
     onToggle: (String, Boolean) -> Unit,
     onSend: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("Test Notification Recipients", style = MaterialTheme.typography.titleSmall)
-        if (options.isEmpty()) {
-            Text(
-                "No users have a push topic yet. Each user sets one as Push Topic on their Daygle profile.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        options.forEach { option ->
-            val checked = option.value in selected
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .toggleable(value = checked, role = Role.Checkbox, onValueChange = { onToggle(option.value, it) }),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Checkbox(checked = checked, onCheckedChange = null)
-                Spacer(Modifier.width(8.dp))
-                Column {
-                    Text(option.name, style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        option.topic,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-        Text(
-            "With nobody ticked, the test goes to the shared topic.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        RecipientPicker(
+            legend = "Test Notification Recipients",
+            selected = selected.toList(),
+            users = users,
+            channel = RecipientChannel.PUSH,
+            onToggle = { _, value, checked -> onToggle(value, checked) },
+            emptyNote = "No users have a push topic yet. Each user sets one as Push Topic on their Daygle profile.",
+            footer = "With nobody ticked, the test goes to the shared topic.",
         )
         OutlinedButton(onClick = onSend, enabled = !sending, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))

@@ -7,9 +7,10 @@ import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
 import com.daygle.aicamera.data.NotificationConfig
 import com.daygle.aicamera.data.NotificationSettingsStore
-import com.daygle.aicamera.data.PushRecipientOption
+import com.daygle.aicamera.data.RecipientChannel
 import com.daygle.aicamera.data.defaultPushRecipients
-import com.daygle.aicamera.data.pushRecipientOptions
+import com.daygle.aicamera.data.model.AppUser
+import com.daygle.aicamera.data.recipientOptions
 import com.daygle.aicamera.data.serverErrorDetail
 import com.daygle.aicamera.data.suspendRunCatching
 import com.daygle.aicamera.push.PushController
@@ -33,7 +34,8 @@ data class NotificationsUiState(
     val userTopic: String = "",
     /** Admins can have the server send a test push through ntfy to chosen users. */
     val canServerTest: Boolean = false,
-    val pushTestOptions: List<PushRecipientOption> = emptyList(),
+    /** The users the test push picker offers (the shared recipient picker). */
+    val pushTestUsers: List<AppUser> = emptyList(),
     val pushTestSelected: Set<String> = emptySet(),
     val pushTestSending: Boolean = false,
     val discovering: Boolean = false,
@@ -78,12 +80,11 @@ class NotificationsViewModel @Inject constructor(
     private fun loadPushTestTargets() {
         viewModelScope.launch {
             val targets = repository.pushTestTargets().getOrNull() ?: return@launch
-            val options = pushRecipientOptions(targets.users)
             _state.update {
                 it.copy(
                     canServerTest = true,
-                    pushTestOptions = options,
-                    pushTestSelected = defaultPushRecipients(options, targets.meId),
+                    pushTestUsers = targets.users,
+                    pushTestSelected = defaultPushRecipients(targets.users, targets.meId),
                 )
             }
         }
@@ -103,8 +104,10 @@ class NotificationsViewModel @Inject constructor(
         if (s.pushTestSending) return
         _state.update { it.copy(pushTestSending = true, message = null) }
         viewModelScope.launch {
-            // Keep the list order, not the order the boxes were ticked.
-            val recipients = s.pushTestOptions.map { it.value }.filter { it in s.pushTestSelected }
+            // Keep the picker's order, not the order the boxes were ticked.
+            val recipients = recipientOptions(s.pushTestSelected.toList(), s.pushTestUsers, RecipientChannel.PUSH)
+                .map { it.value }
+                .filter { it in s.pushTestSelected }
             val result = repository.sendPushTest(recipients)
             _state.update {
                 it.copy(

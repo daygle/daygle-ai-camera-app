@@ -3,20 +3,15 @@ package com.daygle.aicamera.ui.alerts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -32,7 +27,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -42,7 +36,7 @@ import com.daygle.aicamera.data.AlertSource
 import com.daygle.aicamera.data.AlertTarget
 import com.daygle.aicamera.data.RecipientChannel
 import com.daygle.aicamera.data.model.AppUser
-import com.daygle.aicamera.data.recipientOptions
+import com.daygle.aicamera.ui.components.RecipientPicker
 import com.daygle.aicamera.ui.components.SettingsSection
 
 /**
@@ -153,8 +147,7 @@ private fun AlertCard(
             Text(target.scope, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             RecipientPicker(
                 legend = "Email Recipients",
-                channelOn = target.emailOn,
-                offNote = offNote ?: "Email is off for this alert. Turn it on on the server's Alerts page.",
+                offNote = if (target.emailOn) null else offNote ?: "Email is off for this alert. Turn it on on the server's Alerts page.",
                 emptyNote = "No users have an email address yet. Add one on the server's Users page.",
                 selected = target.email,
                 users = users,
@@ -165,8 +158,7 @@ private fun AlertCard(
             HorizontalDivider()
             RecipientPicker(
                 legend = "Push Recipients",
-                channelOn = target.pushOn,
-                offNote = offNote ?: "Push is off for this alert. Turn it on on the server's Alerts page.",
+                offNote = if (target.pushOn) null else offNote ?: "Push is off for this alert. Turn it on on the server's Alerts page.",
                 emptyNote = "No users have a push topic yet. Each user sets one as Push Topic on their profile.",
                 selected = target.push,
                 users = users,
@@ -175,46 +167,5 @@ private fun AlertCard(
                 footer = "With nobody ticked, pushes go to the shared topic.",
             )
         }
-    }
-}
-
-@Composable
-private fun RecipientPicker(
-    legend: String,
-    channelOn: Boolean,
-    offNote: String,
-    emptyNote: String,
-    selected: List<String>,
-    users: List<AppUser>,
-    channel: RecipientChannel,
-    onToggle: (RecipientChannel, String, Boolean) -> Unit,
-    footer: String? = null,
-) {
-    val options = recipientOptions(selected, users, channel)
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(legend, style = MaterialTheme.typography.titleSmall)
-        if (!channelOn) Text(offNote, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (options.isEmpty()) Text(emptyNote, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        options.forEach { option ->
-            val checked = option.value in selected
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .toggleable(value = checked, role = Role.Checkbox, onValueChange = { onToggle(channel, option.value, it) }),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Checkbox(checked = checked, onCheckedChange = null)
-                Spacer(Modifier.width(8.dp))
-                Column {
-                    Text(option.name, style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        option.detail,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (option.orphan) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-        footer?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
