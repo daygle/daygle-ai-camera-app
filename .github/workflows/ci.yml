@@ -38,21 +38,18 @@ jobs:
         with:
           add-job-summary: always
 
-      - name: Run checks and build debug APK
-        run: ./gradlew lintDebug testDebugUnitTest assembleDebug --warning-mode=all --stacktrace
+      # Lint both variants first: warningsAsErrors is on, so any lint warning
+      # fails the job before anything is built.
+      - name: Lint
+        run: ./gradlew lintDebug lintRelease --warning-mode=all --stacktrace
 
-      # Builds the (unsigned) release variant so R8 minification and native
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest --warning-mode=all --stacktrace
+
+      # Builds the (unsigned) release bundle so R8 minification and native
       # debug symbol extraction are validated on every PR, not only at release.
       - name: Build release bundle (R8)
         run: ./gradlew bundleRelease --warning-mode=all --stacktrace
-
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v7
-        with:
-          name: DaygleAICamera-debug-apk
-          path: app/build/outputs/apk/debug/**/*.apk
-          if-no-files-found: error
-          retention-days: 14
 
       - name: Upload test and lint reports
         if: always()

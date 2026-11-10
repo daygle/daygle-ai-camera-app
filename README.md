@@ -87,8 +87,9 @@ For environments requiring specific HTTP headers (like proxy API keys), configur
 
 ### Build Commands
 ```bash
-./gradlew assembleDebug    # Debug APK -> app/build/outputs/apk/debug/
-./gradlew assembleRelease  # Signed release APK -> app/build/outputs/apk/release/ (see Release signing)
+./gradlew assembleDebug    # Debug APK for local testing -> app/build/outputs/apk/debug/
+./gradlew lintDebug lintRelease  # Lint; any warning fails the build (warningsAsErrors)
+./gradlew bundleRelease    # Signed release App Bundle -> app/build/outputs/bundle/release/ (see Release signing)
 ```
 
 ### Release signing
@@ -101,9 +102,9 @@ RELEASE_KEY_ALIAS=daygle
 RELEASE_KEY_PASSWORD=...
 ```
 
-If no keystore is configured, `assembleRelease` produces an unsigned APK that Android will not install.
+If no keystore is configured, `bundleRelease` produces an unsigned bundle that Google Play will not accept.
 
-To make CI publish signed release APKs, add these repository secrets under *Settings → Secrets and variables → Actions*:
+To let CI publish signed release bundles, add these repository secrets under *Settings → Secrets and variables → Actions*:
 
 | Secret | Value |
 | --- | --- |
@@ -116,10 +117,11 @@ To make CI publish signed release APKs, add these repository secrets under *Sett
 > Back up the keystore and its passwords. Android only installs an update over an existing app when both are signed with the same key — if the key is lost, users must uninstall and reinstall. Phones that previously installed a *debug* APK must also be uninstalled once before the first signed release APK can be installed.
 
 ### Releases
-Pushing a `vMAJOR.MINOR.PATCH` tag (e.g. `v1.2.3`, or `v1.3.0-beta.1` for a pre-release) runs the unit tests and publishes an APK to GitHub Releases. The `versionCode` is derived from the tag (`v1.2.3` → `1002003`) so it always increases.
+Pushing a `vMAJOR.MINOR.PATCH` tag (e.g. `v1.2.3`, or `v1.3.0-beta.1` for a pre-release) runs lint and the unit tests, then publishes a signed **App Bundle** as `DaygleAICamera-<version>-release.aab` to GitHub Releases. The `versionCode` is derived from the tag (`v1.2.3` → `1002003`) so it always increases.
 
-- With the release-signing secrets configured (see above): a signed **release** APK as `DaygleAICamera-<version>-release.apk`, plus a signed **App Bundle** as `DaygleAICamera-<version>-release.aab` (the `.aab` is what Google Play expects for uploads; the `.apk` is for direct install).
-- Without them: the workflow falls back to the **debug** APK as `DaygleAICamera-<version>-debug.apk`.
+- Lint runs first with `warningsAsErrors` on, so any lint warning stops the release before anything is built or published.
+- The release-signing secrets (see above) are required; without them the workflow fails rather than publishing an unsigned bundle.
+- The `.aab` is also uploaded as a workflow artifact on its own, not wrapped in a zip.
 
 Release builds are minified with R8. The `.aab` embeds both the R8 deobfuscation mapping and the native debug symbols, so Google Play picks them up automatically on upload; copies (`mapping.txt`, `native-debug-symbols.zip`) are also kept as a workflow artifact for retracing stack traces locally.
 
