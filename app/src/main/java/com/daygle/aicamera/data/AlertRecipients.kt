@@ -25,8 +25,12 @@ import kotlinx.serialization.json.contentOrNull
 
 enum class RecipientChannel { EMAIL, PUSH }
 
-/** Where an alert's recipients live: in the cameras config or the face rules. */
-enum class AlertSource { CAMERAS, FACE_RULES }
+/**
+ * Where an alert's recipients live: the cameras config, the face rules, or
+ * the camera offline settings (`GET/PUT /api/settings/camera-offline`, which
+ * keep email recipients under `recipients`).
+ */
+enum class AlertSource { CAMERAS, FACE_RULES, CAMERA_OFFLINE }
 
 /**
  * One alert whose recipients can be picked. [path] leads from the root array
@@ -126,9 +130,13 @@ private val BEHAVIOUR_ALERTS = listOf(
     "ai_tags" to "AI Tags",
 )
 
-/** Every alert in the camera config and face rules, in config order. */
-internal fun alertTargets(cameras: JsonArray, faceRules: JsonArray): List<AlertTarget> {
+/**
+ * Every alert, in config order: camera offline first (when the server sent
+ * its settings), then the camera config's alerts and the face rules.
+ */
+internal fun alertTargets(cameras: JsonArray, faceRules: JsonArray, cameraOffline: JsonObject? = null): List<AlertTarget> {
     val targets = mutableListOf<AlertTarget>()
+    cameraOffline?.let { targets += cameraOfflineTarget(it) }
     val cameraNames = mutableMapOf<String, String>()
     val zoneNames = mutableMapOf<String, String>()
     fun add(source: AlertSource, path: List<Any>, holder: JsonObject, title: String, scope: String, emailOn: Boolean, pushOn: Boolean) {
@@ -195,6 +203,35 @@ internal fun alertTargets(cameras: JsonArray, faceRules: JsonArray): List<AlertT
     return targets
 }
 
+/** The camera offline alert: one for all cameras, on or off as a whole. */
+internal fun cameraOfflineTarget(settings: JsonObject): AlertTarget {
+    val enabled = settings.flag("enabled")
+    return AlertTarget(
+        key = AlertSource.CAMERA_OFFLINE.name,
+        source = AlertSource.CAMERA_OFFLINE,
+        path = emptyList(),
+        title = "Camera Offline",
+        scope = "All cameras",
+        emailOn = enabled,
+        pushOn = enabled,
+        email = recipientList(settings["recipients"]),
+        push = recipientList(settings["push_recipients"]),
+    )
+}
+
+/**
+ * The camera offline [settings] with new recipient lists. The server rebuilds
+ * these settings from the whole body it is sent, so everything else (the
+ * on/off switch, the delay) goes back exactly as read.
+ */
+internal fun withOfflineRecipients(settings: JsonObject, email: List<String>, push: List<String>): JsonObject =
+    JsonObject(
+        settings + mapOf(
+            "recipients" to JsonArray(email.map { JsonPrimitive(it) }),
+            "push_recipients" to JsonArray(push.map { JsonPrimitive(it) }),
+        ),
+    )
+
 /**
  * [root] with the object at [path] given new recipient lists. Face rules
  * store email recipients as a comma-separated string, as the server expects.
@@ -229,4 +266,10 @@ internal fun withRecipients(
 internal fun JsonObject.arrayAt(key: String): JsonArray = (this[key] as? JsonArray) ?: JsonArray(emptyList())
 
 /** What the Alerts screen edits: the users to pick from, and the raw configs. */
-data class AlertConfig(val users: List<AppUser>, val cameras: JsonArray, val faceRules: JsonArray)
+data class AlertConfig(
+    val users: List<AppUser>,
+    val cameras: JsonArray,
+    val faceRules: JsonArray,
+    /** Null when the server didn't send them; the screen then leaves them out. */
+    val cameraOffline: JsonObject? = null,
+)

@@ -10,6 +10,7 @@ import com.daygle.aicamera.data.RecipientChannel
 import com.daygle.aicamera.data.alertTargets
 import com.daygle.aicamera.data.serverErrorDetail
 import com.daygle.aicamera.data.toRecipientRefs
+import com.daygle.aicamera.data.withOfflineRecipients
 import com.daygle.aicamera.data.withRecipients
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -65,7 +66,7 @@ class AlertsViewModel @Inject constructor(
 
     /** Old typed email addresses that belong to a user show (and save) as that user. */
     private fun displayTargets(config: AlertConfig): List<AlertTarget> =
-        alertTargets(config.cameras, config.faceRules).map { it.copy(email = toRecipientRefs(it.email, config.users)) }
+        alertTargets(config.cameras, config.faceRules, config.cameraOffline).map { it.copy(email = toRecipientRefs(it.email, config.users)) }
 
     fun onRecipient(key: String, channel: RecipientChannel, value: String, checked: Boolean) = _state.update { s ->
         s.copy(
@@ -87,8 +88,10 @@ class AlertsViewModel @Inject constructor(
         if (s.saving || s.edited.isEmpty()) return
         var cameras = config.cameras
         var faceRules = config.faceRules
+        var cameraOffline = config.cameraOffline
         var camerasChanged = false
         var faceRulesChanged = false
+        var cameraOfflineChanged = false
         for (target in s.targets.filter { it.key in s.edited }) {
             when (target.source) {
                 AlertSource.CAMERAS -> {
@@ -99,13 +102,21 @@ class AlertsViewModel @Inject constructor(
                     faceRules = withRecipients(faceRules, target.path, target.source, target.email, target.push)
                     faceRulesChanged = true
                 }
+                AlertSource.CAMERA_OFFLINE -> {
+                    cameraOffline = cameraOffline?.let { withOfflineRecipients(it, target.email, target.push) }
+                    cameraOfflineChanged = true
+                }
             }
         }
         _state.update { it.copy(saving = true, message = null) }
         viewModelScope.launch {
-            repository.saveAlertConfig(cameras.takeIf { camerasChanged }, faceRules.takeIf { faceRulesChanged })
+            repository.saveAlertConfig(
+                cameras.takeIf { camerasChanged },
+                faceRules.takeIf { faceRulesChanged },
+                cameraOffline?.takeIf { cameraOfflineChanged },
+            )
                 .onSuccess {
-                    val saved = config.copy(cameras = cameras, faceRules = faceRules)
+                    val saved = config.copy(cameras = cameras, faceRules = faceRules, cameraOffline = cameraOffline)
                     _state.update { it.copy(saving = false, config = saved, edited = emptySet(), message = "Alert recipients saved.") }
                 }
                 .onFailure { error ->

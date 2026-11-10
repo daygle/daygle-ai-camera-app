@@ -111,4 +111,32 @@ class AlertRecipientsTest {
         assertEquals(JsonPrimitive("user:1, a@example.com"), rule["email_recipients"])
         assertEquals(JsonPrimitive("Unknown Person"), rule["name"])
     }
+
+    private val cameraOffline: JsonObject = json.parseToJsonElement(
+        """{"enabled": true, "offline_delay_minutes": 5, "recipients": ["glen@example.com"], "push_recipients": ["user:1"]}""",
+    ).jsonObject
+
+    @Test
+    fun cameraOfflineComesFirstWithItsOwnRecipientKeys() {
+        val targets = alertTargets(cameras, faceRules, cameraOffline)
+        val offline = targets.first()
+        assertEquals(AlertSource.CAMERA_OFFLINE, offline.source)
+        assertEquals("Camera Offline", offline.title)
+        assertEquals("All cameras", offline.scope)
+        assertTrue(offline.emailOn)
+        assertEquals(listOf("glen@example.com"), offline.email)
+        assertEquals(listOf("user:1"), offline.push)
+        assertEquals(6, targets.size)
+        // Without the settings (older server) the list is as before.
+        assertEquals(5, alertTargets(cameras, faceRules).size)
+    }
+
+    @Test
+    fun savingCameraOfflineKeepsTheSwitchAndDelay() {
+        val updated = withOfflineRecipients(cameraOffline, listOf("user:1", "old@typed.com"), emptyList())
+        assertEquals(JsonArray(listOf(JsonPrimitive("user:1"), JsonPrimitive("old@typed.com"))), updated["recipients"])
+        assertEquals(JsonArray(emptyList()), updated["push_recipients"])
+        assertEquals(JsonPrimitive(true), updated["enabled"])
+        assertEquals(JsonPrimitive(5), updated["offline_delay_minutes"])
+    }
 }
