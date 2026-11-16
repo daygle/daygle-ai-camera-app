@@ -14,7 +14,6 @@ import com.daygle.aicamera.data.model.PushSettings
 import com.daygle.aicamera.data.model.PushTestRequest
 import com.daygle.aicamera.data.model.PushTestResponse
 import com.daygle.aicamera.data.model.Recording
-import com.daygle.aicamera.data.model.RecordingFalsePositiveResult
 import com.daygle.aicamera.data.model.ServerResources
 import com.daygle.aicamera.data.model.StorageStatus
 import com.daygle.aicamera.data.model.SystemSettings
@@ -212,7 +211,7 @@ interface DaygleApi {
         @Header("Origin") origin: String,
         @Path("id") recordingId: Int,
         @Body body: JsonObject,
-    ): RecordingFalsePositiveResult
+    ): JsonObject
 
     /** Admin only: other roles get 403. */
     @GET("api/settings/system")

@@ -7,6 +7,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import kotlinx.coroutines.CancellationException
 import java.util.concurrent.TimeUnit
 
 /**
@@ -27,6 +28,10 @@ class PushKeepAliveWorker(
         return try {
             PushController.sync(applicationContext)
             Result.success()
+        } catch (e: CancellationException) {
+            // WorkManager stopped the work: let it finish cancelling rather
+            // than reporting a failure to retry.
+            throw e
         } catch (e: Exception) {
             Log.w(TAG, "Keep-alive sync failed, will retry: ${e.message}")
             Result.retry()

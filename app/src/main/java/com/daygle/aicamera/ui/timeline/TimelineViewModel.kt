@@ -1,5 +1,7 @@
 package com.daygle.aicamera.ui.timeline
 
+import com.daygle.aicamera.ui.library.endOfDayIso
+import com.daygle.aicamera.ui.library.startOfDayIso
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
@@ -138,9 +140,13 @@ class TimelineViewModel @Inject constructor(
                 // the same way, so report this error instead of a second request.
                 _state.value = TimelineUiState.Error(timelineError?.friendlyMessage() ?: "Unknown error")
             } else {
-                // Older server without the timeline endpoint: group full
-                // recordings client-side, preserving the previous behaviour.
-                val recordingsResult = repository.recordings()
+                // Older server without the timeline endpoint: group the day's
+                // recordings client-side. Asking for that day (not just the
+                // newest page) keeps earlier days from showing as empty.
+                val recordingsResult = repository.recordingsBetween(
+                    since = startOfDayIso(selectedDate),
+                    until = endOfDayIso(selectedDate),
+                )
                 if (recordingsResult.isSuccess) {
                     lastTimeline = null
                     lastRecordings = recordingsResult.getOrThrow()

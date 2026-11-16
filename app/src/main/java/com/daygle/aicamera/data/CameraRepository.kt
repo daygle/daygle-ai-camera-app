@@ -17,9 +17,14 @@ import com.daygle.aicamera.data.model.ServerResources
 import com.daygle.aicamera.data.model.StorageStatus
 import com.daygle.aicamera.data.model.SystemSettings
 import com.daygle.aicamera.data.model.TimelineResponse
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -36,6 +41,9 @@ class CameraRepository(
 ) {
 
     private val _account = MutableStateFlow<AuthUser?>(null)
+
+    /** Work that outlives the screen that started it (a background sign-in). */
+    private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
      * The signed-in user (id and role), or null while unknown: before the
@@ -87,15 +95,23 @@ class CameraRepository(
      * The session cookie lives only in memory, so after a process restart it
      * is always gone. Signing in here - before any screen fires its first
      * API call - avoids a guaranteed 401 in the server log on every launch.
-     * Failures (offline, tunnel down, etc.) are ignored: navigation proceeds
-     * as before and screens recover via the usual lazy re-auth path.
+     *
+     * The launch waits at most [RESTORE_SIGN_IN_WAIT_MS] for it: an
+     * unreachable server would otherwise hold the app on its loading screen
+     * through every connect and read timeout. A slower sign-in carries on in
+     * the background, and API calls made meanwhile wait for it (they re-use
+     * its session through [AuthInterceptor]). Failures (offline, tunnel down)
+     * are ignored: screens recover via the usual lazy re-auth path.
      */
     suspend fun restore(): Boolean {
         settings.migrateLegacyCredentials()
         val connection = settings.current()
         session.update(connection)
-        if (connection.isConfigured && session.login() is LoginResult.Success) {
-            refreshAccount()
+        if (connection.isConfigured) {
+            val signIn = backgroundScope.async {
+                if (session.login() is LoginResult.Success) refreshAccount()
+            }
+            withTimeoutOrNull(RESTORE_SIGN_IN_WAIT_MS) { signIn.await() }
         }
         return connection.isConfigured
     }
@@ -203,8 +219,15 @@ class CameraRepository(
     suspend fun libraryFacets(kind: String, since: String?, until: String?): Result<LibraryFacets> =
         suspendRunCatching { session.api.libraryFacets(kind, since, until) }
 
-    suspend fun recordings(cameraId: String? = null): Result<List<Recording>> =
-        suspendRunCatching { session.api.recordings(cameraId = cameraId).items }
+    /**
+     * Recordings started between [since] and [until] (ISO-8601), up to one
+     * full server page. For servers without the timeline endpoint, which then
+     * build the day's timeline from these.
+     */
+    suspend fun recordingsBetween(since: String?, until: String?): Result<List<Recording>> =
+        suspendRunCatching {
+            session.api.recordings(limit = MAX_PAGE_SIZE, startedAfter = since, startedBefore = until).items
+        }
 
     suspend fun event(eventId: Int): Result<Event> = suspendRunCatching { session.api.event(eventId) }
 
@@ -338,6 +361,12 @@ class CameraRepository(
 
         /** Rows per list page; more load as the user scrolls. */
         const val PAGE_SIZE = 50
+
+        /** Longest the launch waits for [restore]'s sign-in before showing the app. */
+        const val RESTORE_SIGN_IN_WAIT_MS = 4_000L
+
+        /** The server's largest `/api/recordings` page. */
+        private const val MAX_PAGE_SIZE = 500
     }
 }
 

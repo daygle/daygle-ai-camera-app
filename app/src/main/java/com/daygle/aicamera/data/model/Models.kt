@@ -63,7 +63,6 @@ data class Alert(
     val id: Int = 0,
     @SerialName("event_id") val eventId: Int? = null,
     @SerialName("recording_id") val recordingId: Int? = null,
-    @SerialName("rule_name") val ruleName: String? = null,
     val label: String? = null,
     val confidence: Double = 0.0,
     val message: String? = null,
@@ -76,12 +75,9 @@ data class Event(
     @SerialName("created_at") val createdAt: String? = null,
     val source: String? = null,
     @SerialName("snapshot_path") val snapshotPath: String? = null,
-    @SerialName("thumbnail_path") val thumbnailPath: String? = null,
-    @SerialName("alert_triggered") val alertTriggered: Int = 0,
     @SerialName("trigger_type") val triggerType: String? = null,
     @SerialName("trigger_label") val triggerLabel: String? = null,
     val detections: List<Detection> = emptyList(),
-    @SerialName("recording_status") val recordingStatus: String? = null,
     val recordings: List<Recording> = emptyList(),
     // The clip this event belongs to (recording : events = 1:many) and the
     // strongest alert fired for it (alert : event = 1:1), if any.
@@ -201,8 +197,6 @@ data class FalsePositive(
     val by: String = "user",
     val reason: String? = null,
 ) {
-    val byAi: Boolean get() = by == "ai"
-
     /** Who marked it, for the chip: "AI", "User" or "AI + User". */
     val source: String
         get() = when (by) {
@@ -211,14 +205,6 @@ data class FalsePositive(
             else -> "User"
         }
 }
-
-/** Response of `POST /api/recordings/{id}/false-positive`. */
-@Serializable
-data class RecordingFalsePositiveResult(
-    val id: Int = 0,
-    @SerialName("events_updated") val eventsUpdated: Int = 0,
-    @SerialName("false_positive") val falsePositive: FalsePositive? = null,
-)
 
 /** One detection-track sample; only whether it localized anything matters here. */
 @Serializable
@@ -264,7 +250,6 @@ data class TimelineSegmentDto(
     // True when the clip fired an alert (servers that predate the flag omit it).
     val alerted: Boolean = false,
     @SerialName("timeline_start_seconds") val timelineStartSeconds: Double = 0.0,
-    @SerialName("timeline_end_seconds") val timelineEndSeconds: Double = 0.0,
     @SerialName("timeline_duration_seconds") val timelineDurationSeconds: Double = 0.0,
 )
 
@@ -274,10 +259,6 @@ data class TimelineResponse(
     val camera: TimelineCamera? = null,
     val cameras: List<TimelineCamera> = emptyList(),
     val day: String? = null,
-    @SerialName("day_start") val dayStart: String? = null,
-    @SerialName("day_end") val dayEnd: String? = null,
-    @SerialName("timeline_timezone_offset_minutes") val timezoneOffsetMinutes: Int = 0,
-    @SerialName("pre_event_seconds") val preEventSeconds: Int = 0,
     val recordings: List<TimelineSegmentDto> = emptyList(),
 )
 

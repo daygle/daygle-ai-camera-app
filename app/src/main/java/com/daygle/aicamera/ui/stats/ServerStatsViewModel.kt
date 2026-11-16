@@ -12,6 +12,7 @@ import com.daygle.aicamera.ui.library.startOfDayIso
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -100,10 +101,14 @@ class ServerStatsViewModel @Inject constructor(
     }
 
     private suspend fun refreshOnce() {
-        val resourcesCall = viewModelScope.async { repository.serverResources() }
-        val healthCall = viewModelScope.async { repository.cameraHealth() }
-        val resources = resourcesCall.await()
-        val health = healthCall.await().getOrNull()
+        // Both requests are children of the caller's job, so stopping the
+        // poll (the screen paused) cancels them too instead of letting them
+        // finish and update a screen nobody is looking at.
+        val (resources, health) = coroutineScope {
+            val resourcesCall = async { repository.serverResources() }
+            val healthCall = async { repository.cameraHealth() }
+            resourcesCall.await() to healthCall.await().getOrNull()
+        }
         val error = resources.exceptionOrNull()
         if (error is HttpException && (error.code() == 401 || error.code() == 403)) {
             // Camera health is open to every account, so still show it.
