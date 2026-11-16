@@ -114,7 +114,10 @@ fun TimelineScreen(
                     }
                     showDatePicker = false
                 }) { Text("Apply") }
-            }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            },
         ) {
             DatePicker(
                 state = dateState,

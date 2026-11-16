@@ -248,9 +248,6 @@ class RecordingsViewModel @Inject constructor(
         loadFacets()
     }
 
-    /** Absolute URL for streaming or downloading a recording's MP4. */
-    fun streamUrl(recordingId: Int): String? = repository.recordingStreamUrl(recordingId)
-
     /** A filter the server applies: reload from the first page. */
     private fun updateFilter(transform: (RecordingsFilter) -> RecordingsFilter) {
         val next = transform(filter)

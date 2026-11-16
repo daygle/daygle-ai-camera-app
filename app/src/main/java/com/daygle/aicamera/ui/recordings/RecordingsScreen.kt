@@ -41,8 +41,6 @@ import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.DateRangePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -57,7 +55,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -95,12 +92,11 @@ import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatTimestamp
 import com.daygle.aicamera.ui.isMotion
 import com.daygle.aicamera.ui.isSound
+import com.daygle.aicamera.ui.library.DateRangeFilterDialog
 import com.daygle.aicamera.ui.library.FaceFilterChips
 import com.daygle.aicamera.ui.library.FilterSection
 import com.daygle.aicamera.ui.library.LoadMoreEffect
 import com.daygle.aicamera.ui.library.PagingFooter
-import java.time.Instant
-import java.time.ZoneId
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -319,34 +315,12 @@ private fun RecordingsFilterSheet(
     var showDatePicker by remember { mutableStateOf(false) }
 
     if (showDatePicker) {
-        val pickerState = rememberDateRangePickerState(
-            initialSelectedStartDateMillis = state.dateStart?.atStartOfDay(ZoneId.systemDefault())?.toInstant()?.toEpochMilli(),
-            initialSelectedEndDateMillis = state.dateEnd?.atStartOfDay(ZoneId.systemDefault())?.toInstant()?.toEpochMilli(),
+        DateRangeFilterDialog(
+            start = state.dateStart,
+            end = state.dateEnd,
+            onApply = viewModel::setDateRange,
+            onDismiss = { showDatePicker = false },
         )
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    val start = pickerState.selectedStartDateMillis?.let {
-                        Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
-                    }
-                    val end = pickerState.selectedEndDateMillis?.let {
-                        Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
-                    }
-                    viewModel.setDateRange(start, end)
-                    showDatePicker = false
-                }) {
-                    Text("Apply")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancel")
-                }
-            },
-        ) {
-            DateRangePicker(state = pickerState)
-        }
     }
 
     ModalBottomSheet(

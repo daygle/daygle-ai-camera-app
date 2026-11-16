@@ -47,8 +47,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.DateRangePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
@@ -64,7 +62,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -96,6 +93,7 @@ import com.daygle.aicamera.data.model.aiVerification
 import com.daygle.aicamera.data.model.faceIdentities
 import com.daygle.aicamera.data.model.FaceFacets
 import com.daygle.aicamera.ui.components.AiDescriptionText
+import com.daygle.aicamera.ui.library.DateRangeFilterDialog
 import com.daygle.aicamera.ui.library.FaceFilterChips
 import com.daygle.aicamera.ui.library.FilterSection
 import com.daygle.aicamera.ui.library.LoadMoreEffect
@@ -116,8 +114,6 @@ import com.daygle.aicamera.ui.events.isSoundEvent
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
-import java.time.Instant
-import java.time.ZoneId
 import com.daygle.aicamera.ui.HideSystemBars
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -312,7 +308,8 @@ fun SnapshotsScreen(
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             items(data.filtered, key = { it.id }) { event ->
-                                val eventUrl = viewModel.thumbnailUrl(event.id)
+                                // Built once per row instead of on every recomposition.
+                                val eventUrl = remember(event.id) { viewModel.thumbnailUrl(event.id) }
                                 SnapshotRow(
                                     event = event,
                                     url = eventUrl,
@@ -353,34 +350,12 @@ private fun SnapshotsFilterSheet(
     var showDatePicker by remember { mutableStateOf(false) }
 
     if (showDatePicker) {
-        val pickerState = rememberDateRangePickerState(
-            initialSelectedStartDateMillis = state.dateStart?.atStartOfDay(ZoneId.systemDefault())?.toInstant()?.toEpochMilli(),
-            initialSelectedEndDateMillis = state.dateEnd?.atStartOfDay(ZoneId.systemDefault())?.toInstant()?.toEpochMilli(),
+        DateRangeFilterDialog(
+            start = state.dateStart,
+            end = state.dateEnd,
+            onApply = viewModel::setDateRange,
+            onDismiss = { showDatePicker = false },
         )
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    val start = pickerState.selectedStartDateMillis?.let {
-                        Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
-                    }
-                    val end = pickerState.selectedEndDateMillis?.let {
-                        Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
-                    }
-                    viewModel.setDateRange(start, end)
-                    showDatePicker = false
-                }) {
-                    Text("Apply")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancel")
-                }
-            },
-        ) {
-            DateRangePicker(state = pickerState)
-        }
     }
 
     ModalBottomSheet(

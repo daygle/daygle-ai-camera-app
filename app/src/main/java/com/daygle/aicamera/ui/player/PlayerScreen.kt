@@ -163,9 +163,10 @@ fun PlayerScreen(
             )
         },
     ) { padding ->
-        if (error != null) {
+        val playbackError = error
+        if (playbackError != null) {
             ErrorState(
-                message = error!!,
+                message = playbackError,
                 onRetry = viewModel::retry,
                 modifier = Modifier.padding(padding)
             )

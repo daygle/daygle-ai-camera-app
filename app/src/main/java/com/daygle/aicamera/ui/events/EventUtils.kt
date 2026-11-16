@@ -54,5 +54,6 @@ internal fun dateRangeLabel(start: LocalDate?, end: LocalDate?): String {
         if (start == end) return if (start == LocalDate.now()) "Today" else start.format(formatter)
         return "${start.format(formatter)} - ${end.format(formatter)}"
     }
-    return if (start != null) "From ${start.format(formatter)}" else "Until ${end!!.format(formatter)}"
+    if (start != null) return "From ${start.format(formatter)}"
+    return if (end != null) "Until ${end.format(formatter)}" else "Anytime"
 }

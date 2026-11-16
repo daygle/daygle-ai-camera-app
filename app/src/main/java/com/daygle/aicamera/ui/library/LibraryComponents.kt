@@ -12,11 +12,15 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DateRangePicker
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -30,6 +34,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.daygle.aicamera.data.model.FaceFacets
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 
 /**
  * Asks for the next page when the list is scrolled within [threshold] rows of
@@ -43,7 +50,7 @@ fun LoadMoreEffect(
     onLoadMore: () -> Unit,
 ) {
     val currentOnLoadMore by rememberUpdatedState(onLoadMore)
-    val nearEnd by remember(listState) {
+    val nearEnd by remember(listState, threshold) {
         derivedStateOf {
             val info = listState.layoutInfo
             val last = info.visibleItemsInfo.lastOrNull()?.index ?: return@derivedStateOf false
@@ -135,5 +142,44 @@ fun FaceFilterChips(
                 shape = RoundedCornerShape(12.dp),
             )
         }
+    }
+}
+
+/**
+ * The date-range picker every library filter sheet opens (Events, Recordings
+ * and Snapshots), remembering the sheet's current window as the initial
+ * selection. Applying yields the picked local dates (null = unbounded).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DateRangeFilterDialog(
+    start: LocalDate?,
+    end: LocalDate?,
+    onApply: (LocalDate?, LocalDate?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val zone = ZoneId.systemDefault()
+    val pickerState = rememberDateRangePickerState(
+        initialSelectedStartDateMillis = start?.atStartOfDay(zone)?.toInstant()?.toEpochMilli(),
+        initialSelectedEndDateMillis = end?.atStartOfDay(zone)?.toInstant()?.toEpochMilli(),
+    )
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                onApply(
+                    pickerState.selectedStartDateMillis?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDate() },
+                    pickerState.selectedEndDateMillis?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDate() },
+                )
+                onDismiss()
+            }) {
+                Text("Apply")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    ) {
+        DateRangePicker(state = pickerState)
     }
 }

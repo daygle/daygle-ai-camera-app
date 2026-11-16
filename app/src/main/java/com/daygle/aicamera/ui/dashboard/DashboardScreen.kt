@@ -150,6 +150,8 @@ fun DashboardScreen(
 private fun CameraTile(card: CameraCard, snapshotUrl: String?, onClick: () -> Unit) {
     Card(
         onClick = onClick,
+        // An offline camera has no feed to open: don't offer the tap.
+        enabled = card.online,
         shape = RoundedCornerShape(24.dp),
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
@@ -329,7 +331,7 @@ private fun FullscreenCameraView(
         LiveVideoFrame(snapshotUrl = snapshotUrl, playing = playing)
 
         if (!playing) {
-            PausedOverlay()
+            PausedOverlay(onResume = { playing = true })
         }
 
         // Gradient scrim so controls are always legible over any video frame
@@ -468,19 +470,27 @@ private fun LiveVideoFrame(
 }
 
 @Composable
-private fun PausedOverlay() {
+private fun PausedOverlay(onResume: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.35f)),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            Icons.Filled.PlayArrow,
-            contentDescription = "Resume",
-            tint = Color.White,
-            modifier = Modifier.size(64.dp),
-        )
+        // The big play glyph is the obvious control, so it resumes the feed
+        // instead of only looking like a button. The scrim around it stays
+        // transparent to touches, keeping pinch-to-zoom on the frozen frame.
+        IconButton(
+            onClick = onResume,
+            modifier = Modifier.size(88.dp),
+        ) {
+            Icon(
+                Icons.Filled.PlayArrow,
+                contentDescription = "Resume live view",
+                tint = Color.White,
+                modifier = Modifier.size(64.dp),
+            )
+        }
     }
 }
 
