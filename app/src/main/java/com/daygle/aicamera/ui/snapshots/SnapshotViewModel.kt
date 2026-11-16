@@ -1,5 +1,6 @@
 package com.daygle.aicamera.ui.snapshots
 
+import com.daygle.aicamera.ui.library.FalsePositiveActions
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -36,4 +37,10 @@ class SnapshotViewModel @Inject constructor(
     }
 
     fun snapshotUrl(eventId: Int): String? = repository.eventSnapshotUrl(eventId)
+
+    /** Admin-only false-positive marking, e.g. straight from a push alert. */
+    val falsePositives = FalsePositiveActions(viewModelScope, repository)
+
+    fun setFalsePositive(eventId: Int, falsePositive: Boolean) =
+        falsePositives.markEvent(eventId, falsePositive) { _event.value = it }
 }

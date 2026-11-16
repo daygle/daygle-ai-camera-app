@@ -1,5 +1,7 @@
 package com.daygle.aicamera.ui.snapshots
 
+import com.daygle.aicamera.ui.library.FalsePositiveActions
+import com.daygle.aicamera.data.model.FalsePositiveFilter
 import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -51,6 +53,8 @@ data class SnapshotsFilter(
     val selectedTriggerTypes: Set<String> = emptySet(),
     val selectedLabels: Set<String> = emptySet(),
     val face: String? = null,
+    /** Hide false positives, or show only them; null = all. */
+    val falsePositive: FalsePositiveFilter? = null,
     val sortOrder: SnapshotsSortOrder = SnapshotsSortOrder.NEWEST,
 ) {
     fun activeCount(): Int {
@@ -61,6 +65,7 @@ data class SnapshotsFilter(
         count += selectedTriggerTypes.size
         count += selectedLabels.size
         if (face != null) count++
+        if (falsePositive != null) count++
         return count
     }
 
@@ -72,6 +77,7 @@ data class SnapshotsFilter(
         label = selectedLabels.firstOrNull(),
         face = face,
         oldestFirst = sortOrder == SnapshotsSortOrder.OLDEST,
+        falsePositive = falsePositive,
     )
 }
 
@@ -142,6 +148,9 @@ class SnapshotsViewModel @Inject constructor(
     private var facets: LibraryFacets? = null
 
     private val pager = LibraryPager<Event>(viewModelScope, idOf = { it.id }) { publish() }
+
+    /** Admin-only false-positive marking from the snapshot viewer. */
+    val falsePositives = FalsePositiveActions(viewModelScope, repository)
     private var queryJob: Job? = null
     private var facetsJob: Job? = null
 
@@ -223,6 +232,8 @@ class SnapshotsViewModel @Inject constructor(
 
     fun setFace(face: String?) = updateFilter { it.copy(face = face) }
 
+    fun setFalsePositive(value: FalsePositiveFilter?) = updateFilter { it.copy(falsePositive = value) }
+
     fun setSortOrder(sortOrder: SnapshotsSortOrder) = updateFilter { it.copy(sortOrder = sortOrder) }
 
     fun clearFilters() {
@@ -231,6 +242,10 @@ class SnapshotsViewModel @Inject constructor(
     }
 
     fun snapshotUrl(eventId: Int): String? = repository.eventSnapshotUrl(eventId)
+
+    /** Mark a snapshot's event a false positive (or real) and show the server's copy. */
+    fun setFalsePositive(eventId: Int, falsePositive: Boolean) =
+        falsePositives.markEvent(eventId, falsePositive) { pager.replace(listOf(it)) }
 
     /** Small capture-time thumbnail for list rows. */
     fun thumbnailUrl(eventId: Int): String? = repository.eventSnapshotUrl(eventId, thumbnail = true)

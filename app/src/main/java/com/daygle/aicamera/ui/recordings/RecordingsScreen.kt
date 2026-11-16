@@ -1,5 +1,7 @@
 package com.daygle.aicamera.ui.recordings
 
+import com.daygle.aicamera.ui.library.FalsePositiveFilterChips
+import androidx.compose.material.icons.filled.DoNotDisturbOn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -366,6 +368,12 @@ private fun RecordingsFilterSheet(
                 }
             }
 
+            // Hide what the server's AI check or a user marked as false
+            // positives, or review only them before the server purges them.
+            FilterSection(title = "False Positives", icon = Icons.Filled.DoNotDisturbOn) {
+                FalsePositiveFilterChips(selected = state.falsePositive, onSelect = viewModel::setFalsePositive)
+            }
+
             // Type (Object vs Sound)
             FilterSection(title = "Detection Type", icon = Icons.Filled.History) {
                 Row(
@@ -578,7 +586,7 @@ private fun RecordingRow(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    InsightChips(aiTags = aiTags, faces = faces, maxTags = 4)
+                    InsightChips(aiTags = aiTags, faces = faces, maxTags = 4, falsePositive = recording.falsePositive)
                     AiDescriptionText(description?.text)
                 }
             },

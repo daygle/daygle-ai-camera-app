@@ -91,8 +91,18 @@ data class Event(
     // (GET /api/events/{id}/snapshot). Sound/frameless events have none.
     @SerialName("has_snapshot") val hasSnapshot: Boolean = false,
     val metadata: Map<String, JsonElement> = emptyMap(),
+    // False-positive decision (servers with false-positive support): 1 = a
+    // false positive, 0 = a real detection, null = not decided yet. [falsePositiveBy]
+    // is `ai` (the server's background AI check) or `user`.
+    @SerialName("false_positive") val falsePositiveFlag: Int? = null,
+    @SerialName("false_positive_by") val falsePositiveBy: String? = null,
+    @SerialName("false_positive_reason") val falsePositiveReason: String? = null,
 ) {
     val alerted: Boolean get() = alert != null
+
+    /** Who marked this event a false positive and why; null when it is not one. */
+    val falsePositive: FalsePositive?
+        get() = if (falsePositiveFlag == 1) FalsePositive(falsePositiveBy ?: "user", falsePositiveReason) else null
 
     /** The clip this event plays: its own [recordingId], else the first linked recording. */
     val playableRecordingId: Int? get() = recordingId ?: recordings.firstOrNull()?.id
@@ -172,12 +182,43 @@ data class Recording(
     val track: List<TrackSample>? = null,
     // What kept the clip recording past its first post-event window, if anything.
     val extensions: RecordingExtensions? = null,
+    // Set when the clip counts as a false positive: at least one of its
+    // events is one and none of the others is real (computed by the server).
+    @SerialName("false_positive") val falsePositive: FalsePositive? = null,
 ) {
     val topLabel: String? get() = triggerLabel ?: triggerType ?: detections.maxByOrNull { it.confidence }?.label ?: labels.firstOrNull()
 
     /** Whether the clip's file is written and can be played. */
     val mediaReady: Boolean get() = mediaReadyFlag != false
 }
+
+/**
+ * A false-positive mark: [by] is `ai` (the server's AI check), `user`, or
+ * `mixed` on a recording whose events were marked by both.
+ */
+@Serializable
+data class FalsePositive(
+    val by: String = "user",
+    val reason: String? = null,
+) {
+    val byAi: Boolean get() = by == "ai"
+
+    /** Who marked it, for the chip: "AI", "User" or "AI + User". */
+    val source: String
+        get() = when (by) {
+            "ai" -> "AI"
+            "mixed" -> "AI + User"
+            else -> "User"
+        }
+}
+
+/** Response of `POST /api/recordings/{id}/false-positive`. */
+@Serializable
+data class RecordingFalsePositiveResult(
+    val id: Int = 0,
+    @SerialName("events_updated") val eventsUpdated: Int = 0,
+    @SerialName("false_positive") val falsePositive: FalsePositive? = null,
+)
 
 /** One detection-track sample; only whether it localized anything matters here. */
 @Serializable

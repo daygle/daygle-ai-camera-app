@@ -19,9 +19,17 @@ data class LibraryQuery(
     val oldestFirst: Boolean = false,
     /** Events only: the AI verification verdict to match (`ai_check`). */
     val aiCheck: AiVerdict? = null,
+    /** Hide false positives, or list only them (`false_positive`); null = all. */
+    val falsePositive: FalsePositiveFilter? = null,
 ) {
     val sort: String get() = if (oldestFirst) "oldest" else "newest"
     val q: String? get() = query?.trim()?.takeIf { it.isNotEmpty() }
+}
+
+/** The library lists' False Positives filter (the server's `false_positive` parameter). */
+enum class FalsePositiveFilter(val queryValue: String, val label: String) {
+    HIDE("hide", "Hide False Positives"),
+    ONLY("only", "Only False Positives"),
 }
 
 /** `GET /api/library/facets`: Label and Face options for the selected time window. */

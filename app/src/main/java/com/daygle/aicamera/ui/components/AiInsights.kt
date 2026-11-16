@@ -15,12 +15,15 @@ import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DoNotDisturbOn
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.outlined.Face
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -42,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import com.daygle.aicamera.data.model.AiVerdict
 import com.daygle.aicamera.data.model.AiVerification
 import com.daygle.aicamera.data.model.FaceIdentities
+import com.daygle.aicamera.data.model.FalsePositive
 import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatMotionFraction
 
@@ -60,14 +64,30 @@ fun InsightChips(
     verification: AiVerification? = null,
     motionFraction: Double? = null,
     maxTags: Int = Int.MAX_VALUE,
+    falsePositive: FalsePositive? = null,
 ) {
-    if (aiTags.isEmpty() && faces.isEmpty && verification == null && motionFraction == null) return
+    if (aiTags.isEmpty() && faces.isEmpty && verification == null && motionFraction == null &&
+        falsePositive == null
+    ) return
     var showVerdict by rememberSaveable(verification) { mutableStateOf(false) }
+    var showFalsePositive by rememberSaveable(falsePositive) { mutableStateOf(false) }
     FlowRow(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
+        falsePositive?.let { mark ->
+            // Outlined like the web UI's dashed badge; tapping shows who
+            // marked it and, for the AI, the model's reasons.
+            InsightChip(
+                text = "False Positive · ${mark.source}",
+                icon = Icons.Filled.DoNotDisturbOn,
+                color = MaterialTheme.colorScheme.error,
+                description = "${falsePositiveSummary(mark)} Tap for details.",
+                dashed = true,
+                onClick = { showFalsePositive = true },
+            )
+        }
         verification?.let { record ->
             // Tapping the verdict shows the model's reasons: the web UI's
             // info bubble, which a phone has no hover to open.
@@ -126,6 +146,63 @@ fun InsightChips(
     }
     if (showVerdict && verification != null) {
         AiVerdictDialog(verification) { showVerdict = false }
+    }
+    if (showFalsePositive && falsePositive != null) {
+        AlertDialog(
+            onDismissRequest = { showFalsePositive = false },
+            icon = { Icon(Icons.Filled.DoNotDisturbOn, contentDescription = null) },
+            title = { Text("False Positive") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(falsePositiveSummary(falsePositive), style = MaterialTheme.typography.bodyMedium)
+                    falsePositive.reason?.takeIf { it.isNotBlank() }?.let { reason ->
+                        Text(
+                            reason,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showFalsePositive = false }) { Text("Close") } },
+        )
+    }
+}
+
+/** One sentence saying who marked a false positive. */
+fun falsePositiveSummary(mark: FalsePositive): String = when (mark.by) {
+    "ai" -> "The AI model judged that nothing it was asked about is really there."
+    "mixed" -> "The AI model and a user marked these detections as false positives."
+    else -> "Marked as a false positive by a user."
+}
+
+/**
+ * Admin-only toggle that marks an event, snapshot or recording a false
+ * positive, or (when [marked]) records it as a real detection so the
+ * server's AI check leaves it alone. [busy] disables it while saving.
+ */
+@Composable
+fun FalsePositiveButton(
+    marked: Boolean,
+    busy: Boolean,
+    onSet: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedButton(
+        onClick = { onSet(!marked) },
+        enabled = !busy,
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Icon(
+            if (marked) Icons.Filled.Check else Icons.Filled.DoNotDisturbOn,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+        )
+        Text(
+            if (marked) "Not False Positive" else "Mark False Positive",
+            modifier = Modifier.padding(start = 8.dp),
+        )
     }
 }
 

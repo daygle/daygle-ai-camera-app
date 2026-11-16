@@ -1,5 +1,9 @@
 package com.daygle.aicamera.ui.snapshots
 
+import com.daygle.aicamera.ui.library.FalsePositiveMessages
+import com.daygle.aicamera.ui.components.FalsePositiveButton
+import com.daygle.aicamera.ui.library.FalsePositiveFilterChips
+import androidx.compose.material.icons.filled.DoNotDisturbOn
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -125,7 +129,9 @@ fun SnapshotsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var openEventId by remember { mutableStateOf<Int?>(null) }
     var showFilterSheet by remember { mutableStateOf(false) }
-
+    val isAdmin by viewModel.falsePositives.isAdmin.collectAsStateWithLifecycle()
+    val marking by viewModel.falsePositives.busy.collectAsStateWithLifecycle()
+    FalsePositiveMessages(viewModel.falsePositives)
 
     openEventId?.let { eventId ->
         val url = viewModel.snapshotUrl(eventId)
@@ -138,7 +144,10 @@ fun SnapshotsScreen(
                     val fileName = "snapshot-$eventId.jpg"
                     viewModel.download(it, fileName)
                 }
-            }
+            },
+            canMarkFalsePositive = isAdmin,
+            marking = marking,
+            onSetFalsePositive = { viewModel.setFalsePositive(eventId, it) },
         )
     }
 
@@ -400,6 +409,12 @@ private fun SnapshotsFilterSheet(
                 }
             }
 
+            // Hide what the server's AI check or a user marked as false
+            // positives, or review only them before the server purges them.
+            FilterSection(title = "False Positives", icon = Icons.Filled.DoNotDisturbOn) {
+                FalsePositiveFilterChips(selected = state.falsePositive, onSelect = viewModel::setFalsePositive)
+            }
+
             FilterSection(title = "Detection Type", icon = Icons.Filled.History) {
                 Row(
                     modifier = Modifier
@@ -643,7 +658,12 @@ private fun SnapshotRow(
                 }
                 val description = remember(event) { event.aiDescription() }
                 val faces = remember(event) { event.faceIdentities() }
-                InsightChips(aiTags = description?.tags.orEmpty(), faces = faces, maxTags = 3)
+                InsightChips(
+                    aiTags = description?.tags.orEmpty(),
+                    faces = faces,
+                    maxTags = 3,
+                    falsePositive = event.falsePositive,
+                )
                 AiDescriptionText(description?.text)
             }
             // Action buttons
@@ -699,7 +719,10 @@ private fun SnapshotDialog(
     url: String?,
     event: Event?,
     onDismiss: () -> Unit,
-    onDownload: () -> Unit
+    onDownload: () -> Unit,
+    canMarkFalsePositive: Boolean = false,
+    marking: Boolean = false,
+    onSetFalsePositive: (Boolean) -> Unit = {},
 ) {
     var fullscreen by rememberSaveable { mutableStateOf(false) }
 
@@ -746,7 +769,11 @@ private fun SnapshotDialog(
                         ),
                     )
                 },
-                bottomBar = { if (event != null) SnapshotDetails(event) },
+                bottomBar = {
+                    if (event != null) {
+                        SnapshotDetails(event, canMarkFalsePositive, marking, onSetFalsePositive)
+                    }
+                },
             ) { padding ->
                 Surface(
                     modifier = Modifier
@@ -779,7 +806,12 @@ private fun SnapshotDialog(
  * description and tags, recognised faces and the AI alert verdict.
  */
 @Composable
-internal fun SnapshotDetails(event: Event) {
+internal fun SnapshotDetails(
+    event: Event,
+    canMarkFalsePositive: Boolean = false,
+    marking: Boolean = false,
+    onSetFalsePositive: (Boolean) -> Unit = {},
+) {
     val description = remember(event) { event.aiDescription() }
     val faces = remember(event) { event.faceIdentities() }
     val verdict = remember(event) { event.aiVerification() }
@@ -805,8 +837,21 @@ internal fun SnapshotDetails(event: Event) {
                     color = MaterialTheme.colorScheme.primary,
                 )
             }
-            InsightChips(aiTags = description?.tags.orEmpty(), faces = faces, verification = verdict)
+            InsightChips(
+                aiTags = description?.tags.orEmpty(),
+                faces = faces,
+                verification = verdict,
+                falsePositive = event.falsePositive,
+            )
             AiDescriptionText(description?.text, expandable = false)
+            // Admins only: sound events have no object to judge.
+            if (canMarkFalsePositive && !isSoundEvent(event)) {
+                FalsePositiveButton(
+                    marked = event.falsePositive != null,
+                    busy = marking,
+                    onSet = onSetFalsePositive,
+                )
+            }
         }
     }
 }

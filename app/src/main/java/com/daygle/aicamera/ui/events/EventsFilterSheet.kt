@@ -1,5 +1,7 @@
 package com.daygle.aicamera.ui.events
 
+import com.daygle.aicamera.ui.library.FalsePositiveFilterChips
+import androidx.compose.material.icons.filled.DoNotDisturbOn
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -155,6 +157,12 @@ internal fun EventsFilterSheet(
                         )
                     }
                 }
+            }
+
+            // Hide what the server's AI check or a user marked as false
+            // positives, or review only them before the server purges them.
+            FilterSection(title = "False Positives", icon = Icons.Filled.DoNotDisturbOn) {
+                FalsePositiveFilterChips(selected = state.falsePositive, onSelect = viewModel::setFalsePositive)
             }
 
             // Type (Object vs Sound)

@@ -1,5 +1,6 @@
 package com.daygle.aicamera.ui.events
 
+import com.daygle.aicamera.data.model.FalsePositiveFilter
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
@@ -54,6 +55,8 @@ data class EventsFilter(
     val alertedOnly: Boolean = false,
     /** AI verification verdict to show (Verified, Filtered or Unverified); null = any. */
     val aiCheck: AiVerdict? = null,
+    /** Hide false positives, or show only them; null = all. */
+    val falsePositive: FalsePositiveFilter? = null,
     val sortOrder: EventsSortOrder = EventsSortOrder.NEWEST
 ) {
     fun activeCount(): Int {
@@ -67,6 +70,7 @@ data class EventsFilter(
         if (face != null) count++
         if (alertedOnly) count++
         if (aiCheck != null) count++
+        if (falsePositive != null) count++
         return count
     }
 
@@ -80,6 +84,7 @@ data class EventsFilter(
         alertedOnly = alertedOnly,
         oldestFirst = sortOrder == EventsSortOrder.OLDEST,
         aiCheck = aiCheck,
+        falsePositive = falsePositive,
     )
 }
 
@@ -285,6 +290,9 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
 
     /** Filtered on the server (`ai_check`) so it reaches past the loaded pages. */
     fun setAiCheck(value: AiVerdict?) = updateFilter { it.copy(aiCheck = value) }
+
+    /** Filtered on the server (`false_positive`) so it reaches past the loaded pages. */
+    fun setFalsePositive(value: FalsePositiveFilter?) = updateFilter { it.copy(falsePositive = value) }
 
     fun setSortOrder(order: EventsSortOrder) = updateFilter { it.copy(sortOrder = order) }
 
