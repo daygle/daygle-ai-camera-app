@@ -43,7 +43,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.daygle.aicamera.data.model.AiVerdict
 import com.daygle.aicamera.data.model.FaceFacets
+import com.daygle.aicamera.ui.components.aiVerdictIcon
 import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.library.FaceFilterChips
 import com.daygle.aicamera.ui.library.FilterSection
@@ -156,13 +158,28 @@ internal fun EventsFilterSheet(
                         leadingIcon = { if (state.alertedOnly) Icon(Icons.Filled.NotificationsActive, null, Modifier.size(18.dp)) },
                         shape = RoundedCornerShape(12.dp)
                     )
-                    FilterChip(
-                        selected = state.aiValidatedOnly,
-                        onClick = { viewModel.setAiValidatedOnly(!state.aiValidatedOnly) },
-                        label = { Text("AI Verified Only") },
-                        leadingIcon = { Icon(Icons.Filled.Verified, null, Modifier.size(18.dp)) },
-                        shape = RoundedCornerShape(12.dp)
-                    )
+                }
+            }
+
+            // The AI alert verification verdict: check what the model stopped
+            // (Filtered) or what went out without a verdict (Unverified).
+            FilterSection(title = "AI Check", icon = Icons.Filled.Verified) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    AiVerdict.entries.forEach { verdict ->
+                        val selected = state.aiCheck == verdict
+                        FilterChip(
+                            selected = selected,
+                            onClick = { viewModel.setAiCheck(if (selected) null else verdict) },
+                            label = { Text(verdict.label) },
+                            leadingIcon = { Icon(aiVerdictIcon(verdict), null, Modifier.size(18.dp)) },
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
                 }
             }
 

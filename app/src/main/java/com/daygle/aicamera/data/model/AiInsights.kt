@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 
@@ -22,8 +23,32 @@ data class AiDescription(
     val isEmpty: Boolean get() = text.isNullOrBlank() && tags.isEmpty()
 }
 
-/** The AI alert-verification verdict stored under `metadata.ai_verification`. */
-enum class AiVerdict { CONFIRMED, FILTERED }
+/**
+ * The AI alert-verification verdict stored under `metadata.ai_verification`.
+ * [UNVERIFIED] is an alert sent without a verdict: the model was unsure
+ * (`unsure`), could not be asked (`error`) or was skipped (`skipped`), so a
+ * model that has stopped answering shows up in the list.
+ */
+enum class AiVerdict(
+    /** The server's `ai_check` filter value for this verdict. */
+    val queryValue: String,
+    val label: String,
+) {
+    CONFIRMED("confirmed", "AI Verified"),
+    FILTERED("filtered", "AI Filtered"),
+    UNVERIFIED("unverified", "AI Unverified"),
+}
+
+/**
+ * The verdict with the model's reasons, for the chip's details: [summary] is
+ * one plain sentence and [details] one line per checked object, e.g.
+ * "person: not present - a coat on a hook".
+ */
+data class AiVerification(
+    val verdict: AiVerdict,
+    val summary: String,
+    val details: List<String>,
+)
 
 /** One recognised person from `metadata.face_identities.people`. */
 data class FacePerson(
@@ -58,13 +83,64 @@ fun Event.aiDescription(): AiDescription? {
     return AiDescription(text = record["text"].asString(), tags = tags).takeUnless { it.isEmpty }
 }
 
-/** Whether the AI model confirmed or filtered this event's alert; null when it never ruled. */
-fun Event.aiVerdict(): AiVerdict? =
-    when (metadata["ai_verification"].asObject()?.get("status").asString()) {
-        "confirmed" -> AiVerdict.CONFIRMED
-        "filtered" -> AiVerdict.FILTERED
+/** The AI model's verdict on this event's alert; null when verification never ran. */
+fun Event.aiVerdict(): AiVerdict? = aiVerification()?.verdict
+
+/** The AI alert verdict with its reasons; null when verification never ran. */
+fun Event.aiVerification(): AiVerification? {
+    val record = metadata["ai_verification"].asObject() ?: return null
+    val status = record["status"].asString()
+    val delivered = (record["delivered"] as? JsonPrimitive)?.booleanOrNull
+    val details = (record["labels"].asObject() ?: JsonObject(emptyMap())).mapNotNull { (label, value) ->
+        value.asObject()?.let { verdictLine(label, it) }
+    }
+    return when (status) {
+        "confirmed" -> AiVerification(AiVerdict.CONFIRMED, "The AI model confirmed this alert.", details)
+        "filtered" -> AiVerification(
+            AiVerdict.FILTERED,
+            // A filtered event can still notify when another of its alerts passed.
+            if (delivered == false) {
+                "Notification not sent: the AI model judged this a false alarm."
+            } else {
+                "The AI model rejected part of this alert; the rest was still sent."
+            },
+            details,
+        )
+        "unsure" -> AiVerification(
+            AiVerdict.UNVERIFIED, "The AI model could not tell from the snapshot, so the alert was sent.", details,
+        )
+        "error" -> AiVerification(
+            AiVerdict.UNVERIFIED, "The AI model could not check this alert, so it was sent unverified.", details,
+        )
+        "skipped" -> AiVerification(
+            AiVerdict.UNVERIFIED,
+            record["reason"].asString()?.trimEnd('.', ' ')?.let { "Sent without AI verification: $it." }
+                ?: "Sent without AI verification.",
+            details,
+        )
         else -> null
     }
+}
+
+private fun verdictLine(label: String, answer: JsonObject): String {
+    val name = label.replace('_', ' ')
+    val error = answer["error"].asString()
+    val present = (answer["present"] as? JsonPrimitive)?.booleanOrNull
+    val unsure = (answer["unsure"] as? JsonPrimitive)?.booleanOrNull == true
+    var verdict = when {
+        error != null -> "error ($error)"
+        unsure -> "unsure"
+        present == false -> "not present"
+        present == true -> "confirmed"
+        else -> "unchecked"
+    }
+    answer["reason"].asString()?.takeIf { error == null }?.let { verdict += " - $it" }
+    answer["instead"].asString()?.let { instead ->
+        val article = if (instead.first().lowercaseChar() in "aeiou") "an" else "a"
+        verdict += "; looks like $article $instead"
+    }
+    return "$name: $verdict"
+}
 
 /** Faces recognition saw on this event; empty for events that ran no face match. */
 fun Event.faceIdentities(): FaceIdentities {

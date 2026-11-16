@@ -3,7 +3,6 @@ package com.daygle.aicamera.ui.events
 import com.daygle.aicamera.data.SessionManager
 import com.daygle.aicamera.data.model.AiVerdict
 import com.daygle.aicamera.data.model.Event
-import com.daygle.aicamera.data.model.aiVerdict
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -12,26 +11,30 @@ class EventsViewModelTest {
     private val json = SessionManager.json
 
     @Test
-    fun filtersByAiValidatedOnly() {
-        val confirmedEvent = json.decodeFromString<Event>(
-            """{"id": 1, "metadata": {"ai_verification": {"status": "confirmed"}}}"""
-        )
-        val filteredEvent = json.decodeFromString<Event>(
-            """{"id": 2, "metadata": {"ai_verification": {"status": "filtered"}}}"""
-        )
-        val unverifiedEvent = json.decodeFromString<Event>(
-            """{"id": 3, "metadata": {}}"""
-        )
+    fun filtersByAiCheck() {
+        val events = listOf(
+            """{"id": 1, "metadata": {"ai_verification": {"status": "confirmed"}}}""",
+            """{"id": 2, "metadata": {"ai_verification": {"status": "filtered"}}}""",
+            """{"id": 3, "metadata": {"ai_verification": {"status": "unsure"}}}""",
+            """{"id": 4, "metadata": {"ai_verification": {"status": "error"}}}""",
+            """{"id": 5, "metadata": {"ai_verification": {"status": "skipped"}}}""",
+            """{"id": 6, "metadata": {}}""",
+        ).map { json.decodeFromString<Event>(it) }
 
-        val events = listOf(confirmedEvent, filteredEvent, unverifiedEvent)
+        assertEquals(6, EventsViewModel.applyLocalFilters(events, EventsFilter()).size)
+        fun ids(verdict: AiVerdict) =
+            EventsViewModel.applyLocalFilters(events, EventsFilter(aiCheck = verdict)).map { it.id }
+        assertEquals(listOf(1), ids(AiVerdict.CONFIRMED))
+        assertEquals(listOf(2), ids(AiVerdict.FILTERED))
+        assertEquals(listOf(3, 4, 5), ids(AiVerdict.UNVERIFIED))
+    }
 
-        val filterOff = EventsFilter(aiValidatedOnly = false)
-        assertEquals(3, EventsViewModel.applyLocalFilters(events, filterOff).size)
-
-        val filterOn = EventsFilter(aiValidatedOnly = true)
-        val result = EventsViewModel.applyLocalFilters(events, filterOn)
-        assertEquals(1, result.size)
-        assertEquals(1, result.single().id)
-        assertEquals(AiVerdict.CONFIRMED, result.single().aiVerdict())
+    @Test
+    fun aiCheckIsSentToTheServerAndCountsAsAFilter() {
+        val filter = EventsFilter(aiCheck = AiVerdict.FILTERED)
+        assertEquals(AiVerdict.FILTERED, filter.toQuery().aiCheck)
+        assertEquals("filtered", filter.toQuery().aiCheck?.queryValue)
+        assertEquals(1, filter.activeCount())
+        assertEquals(null, EventsFilter().toQuery().aiCheck)
     }
 }

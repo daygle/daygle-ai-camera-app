@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.daygle.aicamera.data.model.Detection
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.data.model.aiDescription
-import com.daygle.aicamera.data.model.aiVerdict
+import com.daygle.aicamera.data.model.aiVerification
 import com.daygle.aicamera.data.model.faceIdentities
 import com.daygle.aicamera.ui.LocalUse24Hour
 import com.daygle.aicamera.ui.components.AiDescriptionText
@@ -79,7 +79,7 @@ internal fun EventRow(
 
     val description = remember(event) { event.aiDescription() }
     val faces = remember(event) { event.faceIdentities() }
-    val verdict = remember(event) { event.aiVerdict() }
+    val verdict = remember(event) { event.aiVerification() }
 
     Card(
         onClick = {
@@ -156,7 +156,7 @@ internal fun EventRow(
                     InsightChips(
                         aiTags = description?.tags.orEmpty(),
                         faces = faces,
-                        verdict = verdict,
+                        verification = verdict,
                         maxTags = 4,
                     )
                     AiDescriptionText(description?.text)

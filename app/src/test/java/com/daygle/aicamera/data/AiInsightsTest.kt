@@ -8,6 +8,7 @@ import com.daygle.aicamera.data.model.TimelineResponse
 import com.daygle.aicamera.data.model.aiDescription
 import com.daygle.aicamera.data.model.aiTags
 import com.daygle.aicamera.data.model.aiVerdict
+import com.daygle.aicamera.data.model.aiVerification
 import com.daygle.aicamera.data.model.faceIdentities
 import com.daygle.aicamera.data.model.motionFraction
 import kotlinx.serialization.decodeFromString
@@ -88,5 +89,50 @@ class AiInsightsTest {
             """{"recordings": [{"id": 1, "alerted": true}, {"id": 2}]}"""
         )
         assertEquals(listOf(true, false), timeline.recordings.map { it.alerted })
+    }
+
+    @Test
+    fun verificationCarriesSummaryAndReasons() {
+        val filtered = json.decodeFromString<Event>(
+            """{"id": 7, "metadata": {"ai_verification": {"status": "filtered", "delivered": false,
+               "labels": {"person": {"present": false, "reason": "a coat on a hook", "instead": "owl"}}}}}"""
+        ).aiVerification()!!
+        assertEquals(AiVerdict.FILTERED, filtered.verdict)
+        assertTrue(filtered.summary.startsWith("Notification not sent"))
+        assertEquals(listOf("person: not present - a coat on a hook; looks like an owl"), filtered.details)
+
+        val partial = json.decodeFromString<Event>(
+            """{"id": 8, "metadata": {"ai_verification": {"status": "filtered", "delivered": true, "labels": {}}}}"""
+        ).aiVerification()!!
+        assertTrue(partial.summary.contains("the rest was still sent"))
+    }
+
+    @Test
+    fun unsureErrorAndSkippedAreUnverified() {
+        val unsure = json.decodeFromString<Event>(
+            """{"id": 9, "metadata": {"ai_verification": {"status": "unsure",
+               "labels": {"fire_hydrant": {"present": null, "unsure": true, "reason": "too dark"}}}}}"""
+        ).aiVerification()!!
+        assertEquals(AiVerdict.UNVERIFIED, unsure.verdict)
+        assertEquals(listOf("fire hydrant: unsure - too dark"), unsure.details)
+
+        val error = json.decodeFromString<Event>(
+            """{"id": 10, "metadata": {"ai_verification": {"status": "error",
+               "labels": {"person": {"present": null, "error": "model did not answer within 20s"}}}}}"""
+        ).aiVerification()!!
+        assertEquals(AiVerdict.UNVERIFIED, error.verdict)
+        assertEquals(listOf("person: error (model did not answer within 20s)"), error.details)
+
+        val skipped = json.decodeFromString<Event>(
+            """{"id": 11, "metadata": {"ai_verification": {"status": "skipped",
+               "reason": "Verification queue backlog; delivered unverified."}}}"""
+        ).aiVerification()!!
+        assertEquals(AiVerdict.UNVERIFIED, skipped.verdict)
+        assertEquals("Sent without AI verification: Verification queue backlog; delivered unverified.", skipped.summary)
+
+        val unknown = json.decodeFromString<Event>(
+            """{"id": 12, "metadata": {"ai_verification": {"status": "something-new"}}}"""
+        )
+        assertNull(unknown.aiVerification())
     }
 }
