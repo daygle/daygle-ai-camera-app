@@ -4,6 +4,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -11,15 +12,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.outlined.Face
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.daygle.aicamera.data.model.AiVerdict
+import com.daygle.aicamera.data.model.AiVerification
 import com.daygle.aicamera.data.model.FaceIdentities
 import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatMotionFraction
@@ -52,30 +57,28 @@ fun InsightChips(
     modifier: Modifier = Modifier,
     aiTags: List<String> = emptyList(),
     faces: FaceIdentities = FaceIdentities(),
-    verdict: AiVerdict? = null,
+    verification: AiVerification? = null,
     motionFraction: Double? = null,
     maxTags: Int = Int.MAX_VALUE,
 ) {
-    if (aiTags.isEmpty() && faces.isEmpty && verdict == null && motionFraction == null) return
+    if (aiTags.isEmpty() && faces.isEmpty && verification == null && motionFraction == null) return
+    var showVerdict by rememberSaveable(verification) { mutableStateOf(false) }
     FlowRow(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        when (verdict) {
-            AiVerdict.CONFIRMED -> InsightChip(
-                text = "AI Verified",
-                icon = Icons.Filled.Verified,
-                color = MaterialTheme.colorScheme.primary,
-                description = "The AI model confirmed this alert",
+        verification?.let { record ->
+            // Tapping the verdict shows the model's reasons: the web UI's
+            // info bubble, which a phone has no hover to open.
+            InsightChip(
+                text = record.verdict.label,
+                icon = aiVerdictIcon(record.verdict),
+                color = aiVerdictColor(record.verdict),
+                description = "${record.summary} Tap for the AI model's reasons.",
+                dashed = record.verdict == AiVerdict.UNVERIFIED,
+                onClick = { showVerdict = true },
             )
-            AiVerdict.FILTERED -> InsightChip(
-                text = "AI Filtered",
-                icon = Icons.Filled.Block,
-                color = MaterialTheme.colorScheme.error,
-                description = "Notification not sent: the AI model judged this a false alarm",
-            )
-            null -> Unit
         }
         motionFraction?.let { fraction ->
             InsightChip(
@@ -121,6 +124,46 @@ fun InsightChips(
             )
         }
     }
+    if (showVerdict && verification != null) {
+        AiVerdictDialog(verification) { showVerdict = false }
+    }
+}
+
+/** The icon for an AI verification verdict, shared by the chips and the Events filter. */
+fun aiVerdictIcon(verdict: AiVerdict): ImageVector = when (verdict) {
+    AiVerdict.CONFIRMED -> Icons.Filled.Verified
+    AiVerdict.FILTERED -> Icons.Filled.Block
+    AiVerdict.UNVERIFIED -> Icons.AutoMirrored.Outlined.HelpOutline
+}
+
+@Composable
+private fun aiVerdictColor(verdict: AiVerdict): Color = when (verdict) {
+    AiVerdict.CONFIRMED -> MaterialTheme.colorScheme.primary
+    AiVerdict.FILTERED -> MaterialTheme.colorScheme.error
+    AiVerdict.UNVERIFIED -> MaterialTheme.colorScheme.onSurfaceVariant
+}
+
+/** The verdict's summary and the model's reason for each checked object. */
+@Composable
+private fun AiVerdictDialog(verification: AiVerification, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(aiVerdictIcon(verification.verdict), contentDescription = null) },
+        title = { Text(verification.verdict.label) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(verification.summary, style = MaterialTheme.typography.bodyMedium)
+                verification.details.forEach { line ->
+                    Text(
+                        line,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+    )
 }
 
 @Composable
@@ -130,14 +173,18 @@ private fun InsightChip(
     color: Color,
     description: String,
     dashed: Boolean = false,
+    onClick: (() -> Unit)? = null,
 ) {
     Surface(
         shape = RoundedCornerShape(8.dp),
         color = color.copy(alpha = 0.10f),
         // AI tags get an outline so they read as "named by the model", apart
         // from the solid detection and verdict chips (the web UI dashes them).
+        // An Unverified verdict is outlined too: the model gave no ruling.
         border = if (dashed) BorderStroke(1.dp, color.copy(alpha = 0.45f)) else null,
-        modifier = Modifier.semantics { contentDescription = description },
+        modifier = Modifier
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .semantics { contentDescription = description },
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),

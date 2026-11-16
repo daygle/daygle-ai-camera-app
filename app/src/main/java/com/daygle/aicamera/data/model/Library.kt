@@ -17,6 +17,8 @@ data class LibraryQuery(
     val face: String? = null,
     val alertedOnly: Boolean = false,
     val oldestFirst: Boolean = false,
+    /** Events only: the AI verification verdict to match (`ai_check`). */
+    val aiCheck: AiVerdict? = null,
 ) {
     val sort: String get() = if (oldestFirst) "oldest" else "newest"
     val q: String? get() = query?.trim()?.takeIf { it.isNotEmpty() }

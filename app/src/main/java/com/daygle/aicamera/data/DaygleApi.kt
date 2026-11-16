@@ -64,6 +64,8 @@ interface DaygleApi {
         @Query("q") query: String? = null,
         @Query("face") face: String? = null,
         @Query("sort") sort: String? = null,
+        /** AI verification verdict: `filtered`, `confirmed` or `unverified`. */
+        @Query("ai_check") aiCheck: String? = null,
     ): Page<Event>
 
     /** One event with its detections, alert and metadata (AI description, faces). */

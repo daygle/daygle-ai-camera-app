@@ -66,7 +66,7 @@ import com.daygle.aicamera.R
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.data.model.aiDescription
 import com.daygle.aicamera.data.model.aiTags
-import com.daygle.aicamera.data.model.aiVerdict
+import com.daygle.aicamera.data.model.aiVerification
 import com.daygle.aicamera.data.model.faceIdentities
 import com.daygle.aicamera.data.model.linkedEvents
 import com.daygle.aicamera.ui.LocalUse24Hour
@@ -232,7 +232,7 @@ private fun ClipDetails(recording: Recording, cameraNames: Map<String, String>) 
     val description = remember(recording) { recording.aiDescription() }
     val aiTags = remember(recording) { recording.aiTags() }
     val faces = remember(recording) { recording.faceIdentities() }
-    val verdict = remember(recording) { linked.firstNotNullOfOrNull { it.aiVerdict() } }
+    val verdict = remember(recording) { linked.firstNotNullOfOrNull { it.aiVerification() } }
     val detections = remember(recording) {
         (recording.detections + linked.flatMap { it.detections })
             .filter { it.label.isNotBlank() }
@@ -279,7 +279,7 @@ private fun ClipDetails(recording: Recording, cameraNames: Map<String, String>) 
                 color = MaterialTheme.colorScheme.primary,
             )
         }
-        InsightChips(aiTags = aiTags, faces = faces, verdict = verdict)
+        InsightChips(aiTags = aiTags, faces = faces, verification = verdict)
         if (description?.text != null) {
             Surface(
                 color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.35f),

@@ -27,7 +27,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -74,6 +73,7 @@ import com.daygle.aicamera.ui.LifecycleResumeEffect
 import com.daygle.aicamera.ui.library.LoadMoreEffect
 import com.daygle.aicamera.ui.library.PagingFooter
 import com.daygle.aicamera.ui.components.EmptyState
+import com.daygle.aicamera.ui.components.aiVerdictIcon
 import com.daygle.aicamera.ui.components.ErrorState
 import com.daygle.aicamera.ui.components.LoadingState
 import com.daygle.aicamera.ui.components.ZoomableImage
@@ -264,12 +264,12 @@ fun EventsScreen(
                         )
                     }
 
-                    if (data.filter.aiValidatedOnly) {
+                    data.filter.aiCheck?.let { verdict ->
                         FilterChip(
                             selected = true,
-                            onClick = { viewModel.setAiValidatedOnly(false) },
-                            label = { Text("AI Verified Only") },
-                            leadingIcon = { Icon(Icons.Filled.Verified, null, Modifier.size(18.dp)) },
+                            onClick = { viewModel.setAiCheck(null) },
+                            label = { Text(verdict.label) },
+                            leadingIcon = { Icon(aiVerdictIcon(verdict), null, Modifier.size(18.dp)) },
                             shape = RoundedCornerShape(12.dp)
                         )
                     }

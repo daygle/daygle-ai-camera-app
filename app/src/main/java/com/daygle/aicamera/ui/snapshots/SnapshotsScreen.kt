@@ -92,7 +92,7 @@ import com.daygle.aicamera.R
 import com.daygle.aicamera.data.model.Detection
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.data.model.aiDescription
-import com.daygle.aicamera.data.model.aiVerdict
+import com.daygle.aicamera.data.model.aiVerification
 import com.daygle.aicamera.data.model.faceIdentities
 import com.daygle.aicamera.data.model.FaceFacets
 import com.daygle.aicamera.ui.components.AiDescriptionText
@@ -807,7 +807,7 @@ private fun SnapshotDialog(
 internal fun SnapshotDetails(event: Event) {
     val description = remember(event) { event.aiDescription() }
     val faces = remember(event) { event.faceIdentities() }
-    val verdict = remember(event) { event.aiVerdict() }
+    val verdict = remember(event) { event.aiVerification() }
     Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
         Column(
             modifier = Modifier
@@ -830,7 +830,7 @@ internal fun SnapshotDetails(event: Event) {
                     color = MaterialTheme.colorScheme.primary,
                 )
             }
-            InsightChips(aiTags = description?.tags.orEmpty(), faces = faces, verdict = verdict)
+            InsightChips(aiTags = description?.tags.orEmpty(), faces = faces, verification = verdict)
             AiDescriptionText(description?.text, expandable = false)
         }
     }
