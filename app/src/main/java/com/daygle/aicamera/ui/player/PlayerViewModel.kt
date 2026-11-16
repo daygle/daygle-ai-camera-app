@@ -1,5 +1,6 @@
 package com.daygle.aicamera.ui.player
 
+import com.daygle.aicamera.ui.library.FalsePositiveActions
 import android.content.Context
 import androidx.annotation.OptIn
 import androidx.lifecycle.SavedStateHandle
@@ -111,6 +112,14 @@ class PlayerViewModel @Inject constructor(
                 _overlayBase.value = withContext(Dispatchers.Default) { overlaySource(recording) }
             }
         }
+    }
+
+    /** Admin-only: mark every event in this clip a false positive (or real). */
+    val falsePositives = FalsePositiveActions(viewModelScope, repository)
+
+    fun setFalsePositive(falsePositive: Boolean) {
+        if (recordingId <= 0) return
+        falsePositives.markRecording(recordingId, falsePositive) { _details.value = it }
     }
 
     fun setOverlayEnabled(enabled: Boolean) {

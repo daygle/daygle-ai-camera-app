@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import retrofit2.HttpException
 
 /**
@@ -131,6 +132,7 @@ class CameraRepository(
                 face = query.face,
                 sort = query.sort,
                 aiCheck = query.aiCheck?.queryValue,
+                falsePositive = query.falsePositive?.queryValue,
             )
         }
 
@@ -154,6 +156,7 @@ class CameraRepository(
                     alertedOnly = query.alertedOnly,
                     face = query.face,
                     sort = query.sort,
+                    falsePositive = query.falsePositive?.queryValue,
                 )
             } catch (e: HttpException) {
                 if (e.code() != 404) throw e
@@ -169,6 +172,7 @@ class CameraRepository(
                     query = query.q,
                     face = query.face,
                     sort = query.sort,
+                    falsePositive = query.falsePositive?.queryValue,
                 )
                 page.copy(items = page.items.filter { it.hasSnapshot || !it.snapshotPath.isNullOrBlank() })
             }
@@ -188,6 +192,7 @@ class CameraRepository(
                 alertedOnly = query.alertedOnly,
                 face = query.face,
                 sort = query.sort,
+                falsePositive = query.falsePositive?.queryValue,
             )
         }
 
@@ -277,6 +282,31 @@ class CameraRepository(
         session.api.pushTest(csrfToken, origin, PushTestRequest(recipients)).topics
     }
 
+    /**
+     * Admins only: mark an event (or the snapshot it saved) a false positive
+     * ([falsePositive] true) or a real detection (false), then re-read it so
+     * the caller shows what the server stored.
+     */
+    suspend fun markEventFalsePositive(eventId: Int, falsePositive: Boolean): Result<Event> = suspendRunCatching {
+        val csrfToken = session.api.me().csrfToken.orEmpty()
+        val origin = checkNotNull(session.currentBaseUrl) { "Not connected to a server." }
+        session.api.markEventFalsePositive(csrfToken, origin, eventId, falsePositiveBody(falsePositive))
+        session.api.event(eventId)
+    }
+
+    /**
+     * Admins only: apply one decision to every event in a recording, then
+     * re-read the recording (its false-positive status is worked out by the
+     * server from those events).
+     */
+    suspend fun markRecordingFalsePositive(recordingId: Int, falsePositive: Boolean): Result<Recording> =
+        suspendRunCatching {
+            val csrfToken = session.api.me().csrfToken.orEmpty()
+            val origin = checkNotNull(session.currentBaseUrl) { "Not connected to a server." }
+            session.api.markRecordingFalsePositive(csrfToken, origin, recordingId, falsePositiveBody(falsePositive))
+            session.api.recording(recordingId)
+        }
+
     suspend fun systemSettings(): Result<SystemSettings> = suspendRunCatching { session.api.systemSettings() }
 
     /** Host CPU, load, RAM, GPU and video decoding (admin only). */
@@ -310,3 +340,7 @@ class CameraRepository(
         const val PAGE_SIZE = 50
     }
 }
+
+/** Body of the false-positive mark endpoints. */
+internal fun falsePositiveBody(falsePositive: Boolean): JsonObject =
+    JsonObject(mapOf("false_positive" to JsonPrimitive(falsePositive)))

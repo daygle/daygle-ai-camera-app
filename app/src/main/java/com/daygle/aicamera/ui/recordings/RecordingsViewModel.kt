@@ -1,5 +1,6 @@
 package com.daygle.aicamera.ui.recordings
 
+import com.daygle.aicamera.data.model.FalsePositiveFilter
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
@@ -47,6 +48,8 @@ data class RecordingsFilter(
     val selectedTriggerTypes: Set<String> = emptySet(),
     val selectedLabels: Set<String> = emptySet(),
     val face: String? = null,
+    /** Hide false positives, or show only them; null = all. */
+    val falsePositive: FalsePositiveFilter? = null,
     val sortOrder: SortOrder = SortOrder.NEWEST,
 ) {
     fun activeCount(): Int {
@@ -57,6 +60,7 @@ data class RecordingsFilter(
         count += selectedTriggerTypes.size
         count += selectedLabels.size
         if (face != null) count++
+        if (falsePositive != null) count++
         return count
     }
 
@@ -68,6 +72,7 @@ data class RecordingsFilter(
         label = selectedLabels.firstOrNull(),
         face = face,
         oldestFirst = sortOrder == SortOrder.OLDEST,
+        falsePositive = falsePositive,
     )
 }
 
@@ -240,6 +245,8 @@ class RecordingsViewModel @Inject constructor(
     }
 
     fun setFace(face: String?) = updateFilter { it.copy(face = face) }
+
+    fun setFalsePositive(value: FalsePositiveFilter?) = updateFilter { it.copy(falsePositive = value) }
 
     fun setSortOrder(sortOrder: SortOrder) = updateFilter { it.copy(sortOrder = sortOrder) }
 

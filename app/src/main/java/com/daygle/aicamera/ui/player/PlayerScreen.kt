@@ -1,5 +1,7 @@
 package com.daygle.aicamera.ui.player
 
+import com.daygle.aicamera.ui.library.FalsePositiveMessages
+import com.daygle.aicamera.ui.components.FalsePositiveButton
 import android.view.LayoutInflater
 import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
@@ -93,6 +95,9 @@ fun PlayerScreen(
 ) {
     val error by viewModel.error.collectAsStateWithLifecycle()
     val details by viewModel.details.collectAsStateWithLifecycle()
+    val isAdmin by viewModel.falsePositives.isAdmin.collectAsStateWithLifecycle()
+    val marking by viewModel.falsePositives.busy.collectAsStateWithLifecycle()
+    FalsePositiveMessages(viewModel.falsePositives)
     val cameraNames by viewModel.cameraNames.collectAsStateWithLifecycle()
     val overlaySource by viewModel.overlay.collectAsStateWithLifecycle()
     val overlayEnabled by viewModel.overlayEnabled.collectAsStateWithLifecycle()
@@ -214,7 +219,7 @@ fun PlayerScreen(
                             player = player,
                             modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 16.dp),
                         )
-                        ClipDetails(it, cameraNames)
+                        ClipDetails(it, cameraNames, isAdmin, marking, viewModel::setFalsePositive)
                     }
                 }
             }
@@ -227,7 +232,13 @@ fun PlayerScreen(
  * server's AI model made of it (description, tags, faces, alert verdict).
  */
 @Composable
-private fun ClipDetails(recording: Recording, cameraNames: Map<String, String>) {
+private fun ClipDetails(
+    recording: Recording,
+    cameraNames: Map<String, String>,
+    canMarkFalsePositive: Boolean = false,
+    marking: Boolean = false,
+    onSetFalsePositive: (Boolean) -> Unit = {},
+) {
     val use24Hour = LocalUse24Hour.current
     val linked = remember(recording) { recording.linkedEvents() }
     val description = remember(recording) { recording.aiDescription() }
@@ -280,7 +291,15 @@ private fun ClipDetails(recording: Recording, cameraNames: Map<String, String>) 
                 color = MaterialTheme.colorScheme.primary,
             )
         }
-        InsightChips(aiTags = aiTags, faces = faces, verification = verdict)
+        InsightChips(aiTags = aiTags, faces = faces, verification = verdict, falsePositive = recording.falsePositive)
+        // Admins only, and only a clip with events: marking applies to them.
+        if (canMarkFalsePositive && linked.isNotEmpty()) {
+            FalsePositiveButton(
+                marked = recording.falsePositive != null,
+                busy = marking,
+                onSet = onSetFalsePositive,
+            )
+        }
         if (description?.text != null) {
             Surface(
                 color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.35f),

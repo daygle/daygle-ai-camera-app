@@ -158,6 +158,7 @@ internal fun EventRow(
                         faces = faces,
                         verification = verdict,
                         maxTags = 4,
+                        falsePositive = event.falsePositive,
                     )
                     AiDescriptionText(description?.text)
                 }

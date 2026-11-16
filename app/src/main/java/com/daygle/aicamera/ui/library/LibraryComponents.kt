@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.daygle.aicamera.data.model.FaceFacets
+import com.daygle.aicamera.data.model.FalsePositiveFilter
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -110,6 +111,34 @@ internal fun FilterSection(
             Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
         content()
+    }
+}
+
+/**
+ * The False Positives filter (single choice): hide them, or list only them.
+ * Tapping the selected chip clears it. Servers without false-positive
+ * support ignore the parameter, so the list is unchanged there.
+ */
+@Composable
+internal fun FalsePositiveFilterChips(
+    selected: FalsePositiveFilter?,
+    onSelect: (FalsePositiveFilter?) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FalsePositiveFilter.entries.forEach { option ->
+            val isSelected = selected == option
+            FilterChip(
+                selected = isSelected,
+                onClick = { onSelect(if (isSelected) null else option) },
+                label = { Text(option.label) },
+                shape = RoundedCornerShape(12.dp),
+            )
+        }
     }
 }
 

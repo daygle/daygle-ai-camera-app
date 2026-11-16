@@ -14,6 +14,7 @@ import com.daygle.aicamera.data.model.PushSettings
 import com.daygle.aicamera.data.model.PushTestRequest
 import com.daygle.aicamera.data.model.PushTestResponse
 import com.daygle.aicamera.data.model.Recording
+import com.daygle.aicamera.data.model.RecordingFalsePositiveResult
 import com.daygle.aicamera.data.model.ServerResources
 import com.daygle.aicamera.data.model.StorageStatus
 import com.daygle.aicamera.data.model.SystemSettings
@@ -29,8 +30,8 @@ import retrofit2.http.Query
 
 /**
  * Endpoints on the Daygle AI Camera server consumed by the app. All are reads
- * except [pushTest], [saveCamerasConfig], [saveFaceRules] and
- * [saveCameraOfflineSettings], which need the
+ * except [pushTest], [saveCamerasConfig], [saveFaceRules],
+ * [saveCameraOfflineSettings] and the false-positive marks, which need the
  * session's CSRF token and a same-origin `Origin` header (see
  * [CameraRepository.sendPushTest]).
  */
@@ -66,6 +67,8 @@ interface DaygleApi {
         @Query("sort") sort: String? = null,
         /** AI verification verdict: `filtered`, `confirmed` or `unverified`. */
         @Query("ai_check") aiCheck: String? = null,
+        /** `hide` or `only` false positives (older servers ignore it). */
+        @Query("false_positive") falsePositive: String? = null,
     ): Page<Event>
 
     /** One event with its detections, alert and metadata (AI description, faces). */
@@ -85,6 +88,7 @@ interface DaygleApi {
         @Query("alerted_only") alertedOnly: Boolean = false,
         @Query("face") face: String? = null,
         @Query("sort") sort: String? = null,
+        @Query("false_positive") falsePositive: String? = null,
     ): Page<Event>
 
     /**
@@ -114,6 +118,7 @@ interface DaygleApi {
         @Query("alerted_only") alertedOnly: Boolean = false,
         @Query("face") face: String? = null,
         @Query("sort") sort: String? = null,
+        @Query("false_positive") falsePositive: String? = null,
     ): Page<Recording>
 
     /** Label and face options, with counts, for one library list's time window. */
@@ -187,6 +192,27 @@ interface DaygleApi {
         @Header("Origin") origin: String,
         @Body body: PushTestRequest,
     ): PushTestResponse
+
+    /**
+     * Admins only. Marks an event (and its snapshot) a false positive
+     * (`{"false_positive": true}`), a real detection (`false`), or undecided (`null`).
+     */
+    @POST("api/events/{id}/false-positive")
+    suspend fun markEventFalsePositive(
+        @Header("X-CSRF-Token") csrfToken: String,
+        @Header("Origin") origin: String,
+        @Path("id") eventId: Int,
+        @Body body: JsonObject,
+    ): JsonObject
+
+    /** Admins only. The same decision for every event in a recording. */
+    @POST("api/recordings/{id}/false-positive")
+    suspend fun markRecordingFalsePositive(
+        @Header("X-CSRF-Token") csrfToken: String,
+        @Header("Origin") origin: String,
+        @Path("id") recordingId: Int,
+        @Body body: JsonObject,
+    ): RecordingFalsePositiveResult
 
     /** Admin only: other roles get 403. */
     @GET("api/settings/system")
