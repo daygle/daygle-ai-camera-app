@@ -87,7 +87,7 @@ fun EventsScreen(
     viewModel: EventsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val isAdmin by viewModel.falsePositives.isAdmin.collectAsStateWithLifecycle()
+    val canMark by viewModel.falsePositives.canMark.collectAsStateWithLifecycle()
     FalsePositiveMessages(viewModel.falsePositives)
     var showFilterSheet by remember { mutableStateOf(value = false) }
     var snapshotEventId by remember { mutableStateOf<Int?>(null) }
@@ -322,7 +322,7 @@ fun EventsScreen(
                         },
                         onPlayRecording = onPlayRecording,
                         onOpenSnapshot = { snapshotEventId = it },
-                        canMarkFalsePositive = isAdmin,
+                        canMarkFalsePositive = canMark,
                         onSetFalsePositive = viewModel::markFalsePositive,
                         modifier = Modifier.weight(1f),
                     )
@@ -354,7 +354,7 @@ fun EventsScreen(
                                     event,
                                     onPlayRecording = onPlayRecording,
                                     onOpenSnapshot = { snapshotEventId = it },
-                                    canMarkFalsePositive = isAdmin,
+                                    canMarkFalsePositive = canMark,
                                     onSetFalsePositive = { viewModel.markFalsePositive(event.id, it) },
                                 )
                             }

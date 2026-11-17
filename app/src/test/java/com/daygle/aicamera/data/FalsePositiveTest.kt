@@ -74,6 +74,7 @@ class FalsePositiveTest {
         fun http(code: Int) = HttpException(Response.error<Any>(code, "".toResponseBody()))
         assertTrue(falsePositiveErrorMessage(http(404)).contains("Update the Daygle server"))
         assertTrue(falsePositiveErrorMessage(http(405)).contains("Update the Daygle server"))
+        assertTrue(falsePositiveErrorMessage(http(403)).contains("Only admins"))
         assertEquals("This recording has no detections to mark.", falsePositiveErrorMessage(http(409)))
         assertTrue(falsePositiveErrorMessage(http(500)).startsWith("Couldn't update:"))
     }

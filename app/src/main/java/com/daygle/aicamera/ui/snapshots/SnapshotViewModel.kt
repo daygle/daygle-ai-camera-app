@@ -38,7 +38,7 @@ class SnapshotViewModel @Inject constructor(
 
     fun snapshotUrl(eventId: Int): String? = repository.eventSnapshotUrl(eventId)
 
-    /** Admin-only false-positive marking, e.g. straight from a push alert. */
+    /** False-positive marking, e.g. straight from a push alert. */
     val falsePositives = FalsePositiveActions(viewModelScope, repository)
 
     fun setFalsePositive(eventId: Int, falsePositive: Boolean) =

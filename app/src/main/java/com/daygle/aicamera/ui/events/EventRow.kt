@@ -94,7 +94,7 @@ internal fun EventRow(
     val faces = remember(event) { event.faceIdentities() }
     val verdict = remember(event) { event.aiVerification() }
 
-    // Admins long-press a row to mark it a false positive (or a real
+    // A signed-in user long-presses a row to mark it a false positive (or a real
     // detection). Sound events have no detector box to judge.
     val canMark = canMarkFalsePositive && !isSound
     var menuOpen by remember { mutableStateOf(false) }

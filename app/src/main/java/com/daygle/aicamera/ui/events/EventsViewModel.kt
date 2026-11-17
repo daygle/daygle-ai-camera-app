@@ -174,7 +174,7 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
 
     private val pager = LibraryPager<Event>(viewModelScope, idOf = { it.id }) { publish() }
 
-    /** Admins mark a row as a false positive (or not) with a long press. */
+    /** Signed-in users mark a row as a false positive (or not) with a long press. */
     val falsePositives = FalsePositiveActions(viewModelScope, repository)
 
     private var pollJob: Job? = null

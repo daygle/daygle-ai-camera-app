@@ -149,7 +149,7 @@ class SnapshotsViewModel @Inject constructor(
 
     private val pager = LibraryPager<Event>(viewModelScope, idOf = { it.id }) { publish() }
 
-    /** Admin-only false-positive marking from the snapshot viewer. */
+    /** False-positive marking from the snapshot viewer. */
     val falsePositives = FalsePositiveActions(viewModelScope, repository)
     private var queryJob: Job? = null
     private var facetsJob: Job? = null

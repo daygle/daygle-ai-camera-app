@@ -130,7 +130,7 @@ fun SnapshotsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var openEventId by remember { mutableStateOf<Int?>(null) }
     var showFilterSheet by remember { mutableStateOf(false) }
-    val isAdmin by viewModel.falsePositives.isAdmin.collectAsStateWithLifecycle()
+    val canMark by viewModel.falsePositives.canMark.collectAsStateWithLifecycle()
     val marking by viewModel.falsePositives.busy.collectAsStateWithLifecycle()
     FalsePositiveMessages(viewModel.falsePositives)
 
@@ -146,7 +146,7 @@ fun SnapshotsScreen(
                     viewModel.download(it, fileName)
                 }
             },
-            canMarkFalsePositive = isAdmin,
+            canMarkFalsePositive = canMark,
             marking = marking,
             onSetFalsePositive = { viewModel.setFalsePositive(eventId, it) },
         )
@@ -849,7 +849,7 @@ internal fun SnapshotDetails(
                 shownDetections = event.detections,
             )
             AiDescriptionText(description?.text, expandable = false)
-            // Admins only: sound events have no object to judge.
+            // Sound events have no object to judge.
             if (canMarkFalsePositive && !isSoundEvent(event)) {
                 FalsePositiveButton(
                     marked = event.falsePositive != null,

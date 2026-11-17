@@ -225,7 +225,7 @@ fun falsePositiveSummary(mark: FalsePositive): String = when (mark.by) {
 }
 
 /**
- * Admin-only toggle that marks an event, snapshot or recording a false
+ * Toggle (any signed-in user) that marks an event, snapshot or recording a false
  * positive, or (when [marked]) records it as a real detection so the
  * server's AI check leaves it alone. [busy] disables it while saving.
  */

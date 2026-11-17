@@ -21,18 +21,20 @@ import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
 /**
- * Admin-only false-positive marking shared by the screens that offer it
- * (snapshot viewers and the recording player). The server decides who may
- * mark; [isAdmin] only hides the control from accounts it would refuse.
+ * False-positive marking shared by the screens that offer it (the Events
+ * list, snapshot viewers and the recording player). Any signed-in account
+ * may mark on current servers; [canMark] hides the control until the
+ * account is known. Older servers allowed admins only and answer a viewer
+ * with 403 (see [falsePositiveErrorMessage]).
  * [message] is a one-line result for a toast, cleared by [consumeMessage].
  */
 class FalsePositiveActions(
     private val scope: CoroutineScope,
     private val repository: CameraRepository,
 ) {
-    val isAdmin: StateFlow<Boolean> = repository.account
-        .map { it?.isAdmin == true }
-        .stateIn(scope, SharingStarted.Eagerly, repository.account.value?.isAdmin == true)
+    val canMark: StateFlow<Boolean> = repository.account
+        .map { it != null }
+        .stateIn(scope, SharingStarted.Eagerly, repository.account.value != null)
 
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy.asStateFlow()
@@ -75,10 +77,12 @@ class FalsePositiveActions(
 
 /**
  * Why marking failed. A 404/405 means a server from before false-positive
- * support; a 409 is a recording with no detections to mark.
+ * support; a 403 a server from before viewers could mark; a 409 is a
+ * recording with no detections to mark.
  */
 fun falsePositiveErrorMessage(error: Throwable): String = when ((error as? HttpException)?.code()) {
     404, 405 -> "This server doesn't support false positives yet. Update the Daygle server."
+    403 -> "Only admins can mark false positives on this server. Update the Daygle server to let viewers mark."
     409 -> "This recording has no detections to mark."
     else -> "Couldn't update: ${error.friendlyMessage()}"
 }
