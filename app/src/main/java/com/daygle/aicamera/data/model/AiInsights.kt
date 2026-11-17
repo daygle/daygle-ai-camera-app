@@ -192,22 +192,24 @@ fun Recording.faceIdentities(): FaceIdentities =
     linkedEvents().fold(FaceIdentities()) { acc, event -> acc + event.faceIdentities() }
 
 /**
- * What the server's AI check found a misread object really is
- * (`metadata.ai_false_positive_check.misidentified`), detected label to real
- * name, e.g. `dog` to `cat`. Something real was there, so such an event is
- * never a false positive; empty once it is marked one anyway.
+ * Labels the server's AI check reclassified
+ * (`metadata.ai_false_positive_check.reclassified`), original label to the
+ * corrected one, e.g. `dog` to `cat` for a cat the detector called a dog.
+ * The event's detections already carry the corrected label; this keeps the
+ * original visible. Something real was there, so such an event is never a
+ * false positive; empty once it is marked one anyway.
  */
-fun Event.misidentified(): Map<String, String> {
+fun Event.reclassified(): Map<String, String> {
     if (falsePositive != null) return emptyMap()
-    val record = metadata["ai_false_positive_check"].asObject()?.get("misidentified").asObject()
+    val record = metadata["ai_false_positive_check"].asObject()?.get("reclassified").asObject()
         ?: return emptyMap()
     return record.mapNotNull { (label, value) -> value.asString()?.let { label to it } }.toMap()
 }
 
-/** [Event.misidentified] across every event in the clip; empty for a false-positive clip. */
-fun Recording.misidentified(): Map<String, String> =
+/** [Event.reclassified] across every event in the clip; empty for a false-positive clip. */
+fun Recording.reclassified(): Map<String, String> =
     if (falsePositive != null) emptyMap()
-    else linkedEvents().fold(emptyMap()) { acc, event -> acc + event.misidentified() }
+    else linkedEvents().fold(emptyMap()) { acc, event -> acc + event.reclassified() }
 
 /**
  * How the server understood a plain-English search (`GET /api/event-search`):

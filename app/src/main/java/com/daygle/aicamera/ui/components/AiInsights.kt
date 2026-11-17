@@ -66,10 +66,10 @@ fun InsightChips(
     motionFraction: Double? = null,
     maxTags: Int = Int.MAX_VALUE,
     falsePositive: FalsePositive? = null,
-    misidentified: Map<String, String> = emptyMap(),
+    reclassified: Map<String, String> = emptyMap(),
 ) {
     if (aiTags.isEmpty() && faces.isEmpty && verification == null && motionFraction == null &&
-        falsePositive == null && misidentified.isEmpty()
+        falsePositive == null && reclassified.isEmpty()
     ) return
     var showVerdict by rememberSaveable(verification) { mutableStateOf(false) }
     var showFalsePositive by rememberSaveable(falsePositive) { mutableStateOf(false) }
@@ -90,15 +90,16 @@ fun InsightChips(
                 onClick = { showFalsePositive = true },
             )
         }
-        misidentified.forEach { (label, instead) ->
-            // Something real was there under the wrong label (a cat the
-            // detector called a dog): the server never purges it.
+        reclassified.forEach { (label, name) ->
+            // A real object under the wrong label (a cat the detector called
+            // a dog): the server corrected the label and never purges it.
             InsightChip(
-                text = misidentifiedText(instead),
+                text = reclassifiedText(label),
                 icon = Icons.Filled.SwapHoriz,
                 color = MaterialTheme.colorScheme.tertiary,
-                description = "Detected as ${formatEventLabel(label)}, but the AI model saw " +
-                    "${withArticle(instead)}. Something real was there, so it is not a false positive.",
+                description = "The detector reported ${formatEventLabel(label)}; the AI model saw " +
+                    "${formatEventLabel(name)} and reclassified it. Something real was there, so it is " +
+                    "not a false positive.",
                 dashed = true,
             )
         }
@@ -183,13 +184,8 @@ fun InsightChips(
     }
 }
 
-/** "Looks like a Cat", or "Another Animal" for the server's catch-alls. */
-internal fun misidentifiedText(instead: String): String =
-    if (instead.startsWith("another ")) formatEventLabel(instead) else "Looks like ${withArticle(formatEventLabel(instead))}"
-
-private fun withArticle(name: String): String =
-    if (name.startsWith("another ", ignoreCase = true)) name
-    else "${if (name.take(1).lowercase() in setOf("a", "e", "i", "o", "u")) "an" else "a"} $name"
+/** The chip for a reclassified label: "Reclassified from Dog". */
+internal fun reclassifiedText(originalLabel: String): String = "Reclassified from ${formatEventLabel(originalLabel)}"
 
 /** One sentence saying who marked a false positive. */
 fun falsePositiveSummary(mark: FalsePositive): String = when (mark.by) {

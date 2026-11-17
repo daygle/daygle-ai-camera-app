@@ -1,6 +1,6 @@
 package com.daygle.aicamera.ui.events
 
-import com.daygle.aicamera.data.model.misidentified
+import com.daygle.aicamera.data.model.reclassified
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -160,7 +160,7 @@ internal fun EventRow(
                         verification = verdict,
                         maxTags = 4,
                         falsePositive = event.falsePositive,
-                        misidentified = event.misidentified(),
+                        reclassified = event.reclassified(),
                     )
                     AiDescriptionText(description?.text)
                 }
