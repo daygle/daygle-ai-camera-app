@@ -665,6 +665,7 @@ private fun SnapshotRow(
                     maxTags = 3,
                     falsePositive = event.falsePositive,
                     reclassified = event.reclassified(),
+                    shownDetections = detectionsToShow,
                 )
                 AiDescriptionText(description?.text)
             }
@@ -845,6 +846,7 @@ internal fun SnapshotDetails(
                 verification = verdict,
                 falsePositive = event.falsePositive,
                 reclassified = event.reclassified(),
+                shownDetections = event.detections,
             )
             AiDescriptionText(description?.text, expandable = false)
             // Admins only: sound events have no object to judge.

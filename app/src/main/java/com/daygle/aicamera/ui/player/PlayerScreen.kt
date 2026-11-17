@@ -298,6 +298,7 @@ private fun ClipDetails(
             verification = verdict,
             falsePositive = recording.falsePositive,
             reclassified = recording.reclassified(),
+            shownDetections = detections,
         )
         // Admins only, and only a clip with events: marking applies to them.
         if (canMarkFalsePositive && linked.isNotEmpty()) {

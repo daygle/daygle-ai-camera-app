@@ -593,6 +593,7 @@ private fun RecordingRow(
                         maxTags = 4,
                         falsePositive = recording.falsePositive,
                         reclassified = recording.reclassified(),
+                        shownDetections = detectionsToShow,
                     )
                     AiDescriptionText(description?.text)
                 }

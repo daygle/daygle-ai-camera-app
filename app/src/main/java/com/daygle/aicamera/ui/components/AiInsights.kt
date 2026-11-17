@@ -45,10 +45,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.daygle.aicamera.data.model.AiVerdict
 import com.daygle.aicamera.data.model.AiVerification
+import com.daygle.aicamera.data.model.Detection
 import com.daygle.aicamera.data.model.FaceIdentities
 import com.daygle.aicamera.data.model.FalsePositive
 import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatMotionFraction
+import com.daygle.aicamera.ui.isMotionLabel
 
 /**
  * Wrapping row of the server's newer per-event insights, shared by the Events,
@@ -67,7 +69,13 @@ fun InsightChips(
     maxTags: Int = Int.MAX_VALUE,
     falsePositive: FalsePositive? = null,
     reclassified: Map<String, String> = emptyMap(),
+    shownDetections: List<Detection> = emptyList(),
 ) {
+    // A chip that only repeats a mark already drawn after a detection in the
+    // summary line ([shownDetections]) is left out; see [unmarkedReclassified]
+    // and [verdictWorthShowing].
+    val reclassified = unmarkedReclassified(reclassified, shownDetections)
+    val verification = verdictWorthShowing(verification, shownDetections)
     if (aiTags.isEmpty() && faces.isEmpty && verification == null && motionFraction == null &&
         falsePositive == null && reclassified.isEmpty()
     ) return
@@ -182,6 +190,28 @@ fun InsightChips(
             confirmButton = { TextButton(onClick = { showFalsePositive = false }) { Text("Close") } },
         )
     }
+}
+
+/**
+ * Reclassifications not already shown by a detection's 🔄 mark: the
+ * corrected label with `ai_status` "reclassified". Events from before
+ * per-detection verdicts have no such mark and keep the chip.
+ */
+internal fun unmarkedReclassified(found: Map<String, String>, shown: List<Detection>): Map<String, String> {
+    val marked = shown.filter { it.aiStatus == "reclassified" }.map { it.label.trim().lowercase() }.toSet()
+    return found.filterValues { it.trim().lowercase() !in marked }
+}
+
+/**
+ * The alert verdict chip, unless it is a plain Verified that every object's
+ * ✓ (or 🔄) already says. Filtered and Unverified always show: they explain
+ * what happened to the notification.
+ */
+internal fun verdictWorthShowing(verification: AiVerification?, shown: List<Detection>): AiVerification? {
+    if (verification?.verdict != AiVerdict.CONFIRMED) return verification
+    val objects = shown.filter { it.label.isNotBlank() && !isMotionLabel(it.label) }
+    val repeated = objects.isNotEmpty() && objects.all { it.aiStatus == "confirmed" || it.aiStatus == "reclassified" }
+    return if (repeated) null else verification
 }
 
 /** The chip for a reclassified label: "Reclassified from Dog". */

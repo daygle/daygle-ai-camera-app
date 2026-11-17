@@ -190,6 +190,7 @@ internal fun EventRow(
                             maxTags = 4,
                             falsePositive = event.falsePositive,
                             reclassified = event.reclassified(),
+                            shownDetections = detectionsToShow,
                         )
                         AiDescriptionText(description?.text)
                     }
