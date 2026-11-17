@@ -3,6 +3,7 @@ package com.daygle.aicamera.data
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.data.model.FalsePositiveFilter
 import com.daygle.aicamera.data.model.Recording
+import com.daygle.aicamera.data.model.misidentified
 import com.daygle.aicamera.ui.events.EventsFilter
 import com.daygle.aicamera.ui.library.falsePositiveErrorMessage
 import com.daygle.aicamera.ui.recordings.RecordingsFilter
@@ -75,5 +76,30 @@ class FalsePositiveTest {
         assertTrue(falsePositiveErrorMessage(http(405)).contains("Update the Daygle server"))
         assertEquals("This recording has no detections to mark.", falsePositiveErrorMessage(http(409)))
         assertTrue(falsePositiveErrorMessage(http(500)).startsWith("Couldn't update:"))
+    }
+
+    @Test
+    fun misreadObjectsAreMisidentifiedNotFalsePositives() {
+        val event = json.decodeFromString<Event>(
+            """{"id": 7, "false_positive": 0, "false_positive_by": "ai",
+               "metadata": {"ai_false_positive_check": {"status": "misidentified", "misidentified": {"dog": "cat"}}}}"""
+        )
+        assertNull(event.falsePositive)
+        assertEquals(mapOf("dog" to "cat"), event.misidentified())
+        // A user's false-positive mark wins over the AI's relabel.
+        val marked = json.decodeFromString<Event>(
+            """{"id": 8, "false_positive": 1, "false_positive_by": "user",
+               "metadata": {"ai_false_positive_check": {"misidentified": {"dog": "cat"}}}}"""
+        )
+        assertTrue(marked.misidentified().isEmpty())
+        assertTrue(json.decodeFromString<Event>("""{"id": 9}""").misidentified().isEmpty())
+        val recording = json.decodeFromString<Recording>(
+            """{"id": 3, "events": [{"id": 7, "false_positive": 0,
+               "metadata": {"ai_false_positive_check": {"misidentified": {"dog": "cat"}}}}, {"id": 10}]}"""
+        )
+        assertEquals(mapOf("dog" to "cat"), recording.misidentified())
+        assertEquals("Looks like a Cat", com.daygle.aicamera.ui.components.misidentifiedText("cat"))
+        assertEquals("Looks like an Owl", com.daygle.aicamera.ui.components.misidentifiedText("owl"))
+        assertEquals("Another Animal", com.daygle.aicamera.ui.components.misidentifiedText("another animal"))
     }
 }

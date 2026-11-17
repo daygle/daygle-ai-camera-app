@@ -1,5 +1,6 @@
 package com.daygle.aicamera.ui.recordings
 
+import com.daygle.aicamera.data.model.misidentified
 import com.daygle.aicamera.ui.library.FalsePositiveFilterChips
 import androidx.compose.material.icons.filled.DoNotDisturbOn
 import androidx.compose.foundation.background
@@ -586,7 +587,13 @@ private fun RecordingRow(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    InsightChips(aiTags = aiTags, faces = faces, maxTags = 4, falsePositive = recording.falsePositive)
+                    InsightChips(
+                        aiTags = aiTags,
+                        faces = faces,
+                        maxTags = 4,
+                        falsePositive = recording.falsePositive,
+                        misidentified = recording.misidentified(),
+                    )
                     AiDescriptionText(description?.text)
                 }
             },

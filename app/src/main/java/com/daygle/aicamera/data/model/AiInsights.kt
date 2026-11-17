@@ -192,6 +192,24 @@ fun Recording.faceIdentities(): FaceIdentities =
     linkedEvents().fold(FaceIdentities()) { acc, event -> acc + event.faceIdentities() }
 
 /**
+ * What the server's AI check found a misread object really is
+ * (`metadata.ai_false_positive_check.misidentified`), detected label to real
+ * name, e.g. `dog` to `cat`. Something real was there, so such an event is
+ * never a false positive; empty once it is marked one anyway.
+ */
+fun Event.misidentified(): Map<String, String> {
+    if (falsePositive != null) return emptyMap()
+    val record = metadata["ai_false_positive_check"].asObject()?.get("misidentified").asObject()
+        ?: return emptyMap()
+    return record.mapNotNull { (label, value) -> value.asString()?.let { label to it } }.toMap()
+}
+
+/** [Event.misidentified] across every event in the clip; empty for a false-positive clip. */
+fun Recording.misidentified(): Map<String, String> =
+    if (falsePositive != null) emptyMap()
+    else linkedEvents().fold(emptyMap()) { acc, event -> acc + event.misidentified() }
+
+/**
  * How the server understood a plain-English search (`GET /api/event-search`):
  * concept groups (each a list of synonyms), an optional camera and time
  * window, and whether the model or the keyword fallback interpreted it.

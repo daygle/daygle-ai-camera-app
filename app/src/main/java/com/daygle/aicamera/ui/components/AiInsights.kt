@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DoNotDisturbOn
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.outlined.Face
@@ -65,9 +66,10 @@ fun InsightChips(
     motionFraction: Double? = null,
     maxTags: Int = Int.MAX_VALUE,
     falsePositive: FalsePositive? = null,
+    misidentified: Map<String, String> = emptyMap(),
 ) {
     if (aiTags.isEmpty() && faces.isEmpty && verification == null && motionFraction == null &&
-        falsePositive == null
+        falsePositive == null && misidentified.isEmpty()
     ) return
     var showVerdict by rememberSaveable(verification) { mutableStateOf(false) }
     var showFalsePositive by rememberSaveable(falsePositive) { mutableStateOf(false) }
@@ -86,6 +88,18 @@ fun InsightChips(
                 description = "${falsePositiveSummary(mark)} Tap for details.",
                 dashed = true,
                 onClick = { showFalsePositive = true },
+            )
+        }
+        misidentified.forEach { (label, instead) ->
+            // Something real was there under the wrong label (a cat the
+            // detector called a dog): the server never purges it.
+            InsightChip(
+                text = misidentifiedText(instead),
+                icon = Icons.Filled.SwapHoriz,
+                color = MaterialTheme.colorScheme.tertiary,
+                description = "Detected as ${formatEventLabel(label)}, but the AI model saw " +
+                    "${withArticle(instead)}. Something real was there, so it is not a false positive.",
+                dashed = true,
             )
         }
         verification?.let { record ->
@@ -168,6 +182,14 @@ fun InsightChips(
         )
     }
 }
+
+/** "Looks like a Cat", or "Another Animal" for the server's catch-alls. */
+internal fun misidentifiedText(instead: String): String =
+    if (instead.startsWith("another ")) formatEventLabel(instead) else "Looks like ${withArticle(formatEventLabel(instead))}"
+
+private fun withArticle(name: String): String =
+    if (name.startsWith("another ", ignoreCase = true)) name
+    else "${if (name.take(1).lowercase() in setOf("a", "e", "i", "o", "u")) "an" else "a"} $name"
 
 /** One sentence saying who marked a false positive. */
 fun falsePositiveSummary(mark: FalsePositive): String = when (mark.by) {
