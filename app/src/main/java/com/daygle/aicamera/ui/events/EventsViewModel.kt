@@ -2,6 +2,7 @@ package com.daygle.aicamera.ui.events
 
 import com.daygle.aicamera.data.model.DetectionVerdictFilter
 import com.daygle.aicamera.data.model.FalsePositiveFilter
+import com.daygle.aicamera.ui.library.FalsePositiveActions
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.daygle.aicamera.data.CameraRepository
@@ -173,6 +174,9 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
 
     private val pager = LibraryPager<Event>(viewModelScope, idOf = { it.id }) { publish() }
 
+    /** Admins mark a row as a false positive (or not) with a long press. */
+    val falsePositives = FalsePositiveActions(viewModelScope, repository)
+
     private var pollJob: Job? = null
     private var queryJob: Job? = null
     private var facetsJob: Job? = null
@@ -305,6 +309,16 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
 
     /** Filtered on the server (`false_positive`) so it reaches past the loaded pages. */
     fun setFalsePositive(value: FalsePositiveFilter?) = updateFilter { it.copy(falsePositive = value) }
+
+    /** Mark one event; the row (in the list and in AI search results) shows the server's copy. */
+    fun markFalsePositive(eventId: Int, falsePositive: Boolean) =
+        falsePositives.markEvent(eventId, falsePositive) { updated ->
+            pager.replace(listOf(updated))
+            aiSearch = aiSearch?.let { search ->
+                search.copy(results = search.results.map { if (it.id == updated.id) updated else it })
+            }
+            publish()
+        }
 
     fun setSortOrder(order: EventsSortOrder) = updateFilter { it.copy(sortOrder = order) }
 

@@ -1,6 +1,16 @@
 package com.daygle.aicamera.ui.events
 
 import com.daygle.aicamera.data.model.reclassified
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DoNotDisturbOn
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -59,6 +69,8 @@ internal fun EventRow(
     event: Event,
     onPlayRecording: (Int) -> Unit = {},
     onOpenSnapshot: (Int) -> Unit = {},
+    canMarkFalsePositive: Boolean = false,
+    onSetFalsePositive: (Boolean) -> Unit = {},
 ) {
     // A clip the server is still writing cannot play yet: hold the Play
     // action (as the web Events page does) until a refresh reports it ready.
@@ -82,163 +94,196 @@ internal fun EventRow(
     val faces = remember(event) { event.faceIdentities() }
     val verdict = remember(event) { event.aiVerification() }
 
-    Card(
-        onClick = {
-            if (firstRecordingId != null) onPlayRecording(firstRecordingId)
-        },
-        enabled = firstRecordingId != null,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            disabledContentColor = MaterialTheme.colorScheme.onSurface,
-        )
-    ) {
-        ListItem(
-            headlineContent = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        formatEventLabel(event.topLabel ?: "Event"),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (event.alerted) AlertBadge()
-                }
-            },
-            supportingContent = {
-                Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)) {
+    // Admins long-press a row to mark it a false positive (or a real
+    // detection). Sound events have no detector box to judge.
+    val canMark = canMarkFalsePositive && !isSound
+    var menuOpen by remember { mutableStateOf(false) }
+    val haptics = LocalHapticFeedback.current
+    val shape = RoundedCornerShape(16.dp)
+
+    Box {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(shape)
+                .combinedClickable(
+                    enabled = firstRecordingId != null || canMark,
+                    onClick = { if (firstRecordingId != null) onPlayRecording(firstRecordingId) },
+                    onLongClick = if (canMark) {
+                        {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            menuOpen = true
+                        }
+                    } else {
+                        null
+                    },
+                    onLongClickLabel = if (canMark) "False positive options" else null,
+                ),
+            shape = shape,
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+            )
+        ) {
+            ListItem(
+                headlineContent = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            formatEventLabel(event.topLabel ?: "Event"),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (event.alerted) AlertBadge()
+                    }
+                },
+                supportingContent = {
+                    Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
+                        ) {
+                            Icon(
+                                imageVector = when {
+                                    isSound -> Icons.Filled.GraphicEq
+                                    isMotion -> Icons.AutoMirrored.Filled.DirectionsRun
+                                    isBehaviour -> Icons.AutoMirrored.Filled.FollowTheSigns
+                                    else -> Icons.Filled.Videocam
+                                },
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                            )
+                            Text(
+                                formatTimestamp(event.createdAt, LocalUse24Hour.current),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        if (detectionsToShow.isNotEmpty()) {
+                            Text(
+                                formatDetectionSummary(detectionsToShow),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        event.behaviourContext()?.let { context ->
+                            Text(
+                                context,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        InsightChips(
+                            aiTags = description?.tags.orEmpty(),
+                            faces = faces,
+                            verification = verdict,
+                            maxTags = 4,
+                            falsePositive = event.falsePositive,
+                            reclassified = event.reclassified(),
+                        )
+                        AiDescriptionText(description?.text)
+                    }
+                },
+                leadingContent = {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                when {
+                                    isSound -> MaterialTheme.colorScheme.tertiaryContainer
+                                    isMotion -> MaterialTheme.colorScheme.secondaryContainer
+                                    else -> MaterialTheme.colorScheme.primaryContainer
+                                }
+                            ),
+                        contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = when {
                                 isSound -> Icons.Filled.GraphicEq
                                 isMotion -> Icons.AutoMirrored.Filled.DirectionsRun
                                 isBehaviour -> Icons.AutoMirrored.Filled.FollowTheSigns
-                                else -> Icons.Filled.Videocam
+                                else -> Icons.Filled.NotificationsActive
                             },
                             contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                        )
-                        Text(
-                            formatTimestamp(event.createdAt, LocalUse24Hour.current),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    if (detectionsToShow.isNotEmpty()) {
-                        Text(
-                            formatDetectionSummary(detectionsToShow),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                            tint = when {
+                                isSound -> MaterialTheme.colorScheme.onTertiaryContainer
+                                isMotion -> MaterialTheme.colorScheme.onSecondaryContainer
+                                else -> MaterialTheme.colorScheme.onPrimaryContainer
+                            },
+                            modifier = Modifier.size(24.dp),
                         )
                     }
-                    event.behaviourContext()?.let { context ->
-                        Text(
-                            context,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    InsightChips(
-                        aiTags = description?.tags.orEmpty(),
-                        faces = faces,
-                        verification = verdict,
-                        maxTags = 4,
-                        falsePositive = event.falsePositive,
-                        reclassified = event.reclassified(),
-                    )
-                    AiDescriptionText(description?.text)
-                }
-            },
-            leadingContent = {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(
-                            when {
-                                isSound -> MaterialTheme.colorScheme.tertiaryContainer
-                                isMotion -> MaterialTheme.colorScheme.secondaryContainer
-                                else -> MaterialTheme.colorScheme.primaryContainer
+                },
+                trailingContent = {
+                    Row(
+                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        // Older servers omit `has_snapshot` but still store the
+                        // image (see CameraRepository.snapshotsPage).
+                        if (event.hasSnapshot || !event.snapshotPath.isNullOrBlank()) {
+                            IconButton(
+                                onClick = { onOpenSnapshot(event.id) },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                            ) {
+                                Icon(
+                                    Icons.Filled.Image,
+                                    contentDescription = "View Snapshot",
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(20.dp),
+                                )
                             }
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = when {
-                            isSound -> Icons.Filled.GraphicEq
-                            isMotion -> Icons.AutoMirrored.Filled.DirectionsRun
-                            isBehaviour -> Icons.AutoMirrored.Filled.FollowTheSigns
-                            else -> Icons.Filled.NotificationsActive
-                        },
-                        contentDescription = null,
-                        tint = when {
-                            isSound -> MaterialTheme.colorScheme.onTertiaryContainer
-                            isMotion -> MaterialTheme.colorScheme.onSecondaryContainer
-                            else -> MaterialTheme.colorScheme.onPrimaryContainer
-                        },
-                        modifier = Modifier.size(24.dp),
-                    )
-                }
-            },
-            trailingContent = {
-                Row(
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    // Older servers omit `has_snapshot` but still store the
-                    // image (see CameraRepository.snapshotsPage).
-                    if (event.hasSnapshot || !event.snapshotPath.isNullOrBlank()) {
-                        IconButton(
-                            onClick = { onOpenSnapshot(event.id) },
-                            modifier = Modifier
-                                .size(40.dp)
-                                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
-                        ) {
-                            Icon(
-                                Icons.Filled.Image,
-                                contentDescription = "View Snapshot",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(20.dp),
-                            )
+                        }
+                        if (preparing) {
+                            PreparingBadge()
+                        } else if (firstRecordingId != null) {
+                            IconButton(
+                                onClick = { onPlayRecording(firstRecordingId) },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
+                            ) {
+                                Icon(
+                                    Icons.Filled.PlayArrow,
+                                    contentDescription = "Play Recording",
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
                         }
                     }
-                    if (preparing) {
-                        PreparingBadge()
-                    } else if (firstRecordingId != null) {
-                        IconButton(
-                            onClick = { onPlayRecording(firstRecordingId) },
-                            modifier = Modifier
-                                .size(40.dp)
-                                .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
-                        ) {
-                            Icon(
-                                Icons.Filled.PlayArrow,
-                                contentDescription = "Play Recording",
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
-                    }
-                }
-            },
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        )
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            )
+        }
+        if (canMark) {
+            val marked = event.falsePositive != null
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text(if (marked) "Not a False Positive" else "Mark as False Positive") },
+                    leadingIcon = {
+                        Icon(if (marked) Icons.Filled.Check else Icons.Filled.DoNotDisturbOn, contentDescription = null)
+                    },
+                    onClick = {
+                        menuOpen = false
+                        onSetFalsePositive(!marked)
+                    },
+                )
+            }
+        }
     }
 }
 
