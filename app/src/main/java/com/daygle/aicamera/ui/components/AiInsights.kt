@@ -17,7 +17,6 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DoNotDisturbOn
-import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.outlined.Face
@@ -45,10 +44,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.daygle.aicamera.data.model.AiVerdict
 import com.daygle.aicamera.data.model.AiVerification
+import com.daygle.aicamera.data.model.Detection
 import com.daygle.aicamera.data.model.FaceIdentities
 import com.daygle.aicamera.data.model.FalsePositive
 import com.daygle.aicamera.ui.formatEventLabel
 import com.daygle.aicamera.ui.formatMotionFraction
+import com.daygle.aicamera.ui.isMotionLabel
 
 /**
  * Wrapping row of the server's newer per-event insights, shared by the Events,
@@ -66,10 +67,13 @@ fun InsightChips(
     motionFraction: Double? = null,
     maxTags: Int = Int.MAX_VALUE,
     falsePositive: FalsePositive? = null,
-    reclassified: Map<String, String> = emptyMap(),
+    shownDetections: List<Detection> = emptyList(),
 ) {
+    // A plain Verified chip that only repeats the ✓ marks already drawn in
+    // the summary line ([shownDetections]) is left out; see [verdictWorthShowing].
+    val verification = verdictWorthShowing(verification, shownDetections)
     if (aiTags.isEmpty() && faces.isEmpty && verification == null && motionFraction == null &&
-        falsePositive == null && reclassified.isEmpty()
+        falsePositive == null
     ) return
     var showVerdict by rememberSaveable(verification) { mutableStateOf(false) }
     var showFalsePositive by rememberSaveable(falsePositive) { mutableStateOf(false) }
@@ -88,19 +92,6 @@ fun InsightChips(
                 description = "${falsePositiveSummary(mark)} Tap for details.",
                 dashed = true,
                 onClick = { showFalsePositive = true },
-            )
-        }
-        reclassified.forEach { (label, name) ->
-            // A real object under the wrong label (a cat the detector called
-            // a dog): the server corrected the label and never purges it.
-            InsightChip(
-                text = reclassifiedText(label),
-                icon = Icons.Filled.SwapHoriz,
-                color = MaterialTheme.colorScheme.tertiary,
-                description = "The detector reported ${formatEventLabel(label)}; the AI model saw " +
-                    "${formatEventLabel(name)} and reclassified it. Something real was there, so it is " +
-                    "not a false positive.",
-                dashed = true,
             )
         }
         verification?.let { record ->
@@ -184,18 +175,27 @@ fun InsightChips(
     }
 }
 
-/** The chip for a reclassified label: "Reclassified from Dog". */
-internal fun reclassifiedText(originalLabel: String): String = "Reclassified from ${formatEventLabel(originalLabel)}"
+/**
+ * The alert verdict chip, unless it is a plain Verified that every object's
+ * ✓ (or 🔄) already says. Filtered and Unverified always show: they explain
+ * what happened to the notification.
+ */
+internal fun verdictWorthShowing(verification: AiVerification?, shown: List<Detection>): AiVerification? {
+    if (verification?.verdict != AiVerdict.CONFIRMED) return verification
+    val objects = shown.filter { it.label.isNotBlank() && !isMotionLabel(it.label) }
+    val repeated = objects.isNotEmpty() && objects.all { it.aiStatus == "confirmed" || it.aiStatus == "reclassified" }
+    return if (repeated) null else verification
+}
 
 /** One sentence saying who marked a false positive. */
 fun falsePositiveSummary(mark: FalsePositive): String = when (mark.by) {
     "ai" -> "The AI model judged that nothing it was asked about is really there."
-    "mixed" -> "The AI model and a user marked these detections as false positives."
-    else -> "Marked as a false positive by a user."
+    "mixed" -> "The AI model and ${mark.users.joinToString().ifBlank { "a user" }} marked these detections as false positives."
+    else -> "Marked as a false positive by ${mark.users.joinToString().ifBlank { "a user" }}."
 }
 
 /**
- * Admin-only toggle that marks an event, snapshot or recording a false
+ * Toggle (any signed-in user) that marks an event, snapshot or recording a false
  * positive, or (when [marked]) records it as a real detection so the
  * server's AI check leaves it alone. [busy] disables it while saving.
  */

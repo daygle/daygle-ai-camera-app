@@ -176,7 +176,11 @@ fun formatDetectionSummary(detections: List<Detection>): String =
             "${formatEventLabel(detection.label)} · ${formatMotionFraction(fraction)}"
         } else {
             "${formatEventLabel(detection.label)} (${(detection.confidence * 100).toInt()}%)" +
-                aiVerdictMark(detection.aiStatus)
+                aiVerdictMark(detection.aiStatus) +
+                // A phone has no hover to show what the detector said, so a
+                // reclassified object names it: "Cat (55%) 🔄 was Dog".
+                (detection.originalLabel?.takeIf { detection.aiStatus == "reclassified" && it.isNotBlank() }
+                    ?.let { " was ${formatEventLabel(it)}" } ?: "")
         }
     }
 

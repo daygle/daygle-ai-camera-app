@@ -3,7 +3,6 @@ package com.daygle.aicamera.data
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.data.model.FalsePositiveFilter
 import com.daygle.aicamera.data.model.Recording
-import com.daygle.aicamera.data.model.reclassified
 import com.daygle.aicamera.ui.events.EventsFilter
 import com.daygle.aicamera.ui.library.falsePositiveErrorMessage
 import com.daygle.aicamera.ui.recordings.RecordingsFilter
@@ -74,31 +73,39 @@ class FalsePositiveTest {
         fun http(code: Int) = HttpException(Response.error<Any>(code, "".toResponseBody()))
         assertTrue(falsePositiveErrorMessage(http(404)).contains("Update the Daygle server"))
         assertTrue(falsePositiveErrorMessage(http(405)).contains("Update the Daygle server"))
+        assertTrue(falsePositiveErrorMessage(http(403)).contains("Only admins"))
         assertEquals("This recording has no detections to mark.", falsePositiveErrorMessage(http(409)))
         assertTrue(falsePositiveErrorMessage(http(500)).startsWith("Couldn't update:"))
     }
 
     @Test
-    fun misreadObjectsAreReclassifiedNotFalsePositives() {
+    fun theChipNamesWhoMarkedIt() {
+        val byViewer = json.decodeFromString<Event>(
+            """{"id": 1, "false_positive": 1, "false_positive_by": "user", "false_positive_user": "sam"}"""
+        )
+        assertEquals("sam", byViewer.falsePositive?.source)
+        // Older servers store no name; the AI never has one.
+        assertEquals("User", json.decodeFromString<Event>("""{"id": 2, "false_positive": 1, "false_positive_by": "user"}""").falsePositive?.source)
+        assertEquals("AI", json.decodeFromString<Event>(
+            """{"id": 3, "false_positive": 1, "false_positive_by": "ai", "false_positive_user": "sam"}"""
+        ).falsePositive?.source)
+        val clip = json.decodeFromString<Recording>(
+            """{"id": 4, "false_positive": {"by": "mixed", "reason": "", "users": ["alex", "sam"]}}"""
+        )
+        assertEquals("AI + alex, sam", clip.falsePositive?.source)
+        assertEquals(
+            "Marked as a false positive by sam.",
+            com.daygle.aicamera.ui.components.falsePositiveSummary(byViewer.falsePositive!!),
+        )
+    }
+
+    @Test
+    fun misreadObjectsAreNotFalsePositives() {
         val event = json.decodeFromString<Event>(
             """{"id": 7, "false_positive": 0, "false_positive_by": "ai", "detections": [{"label": "cat"}],
                "metadata": {"ai_false_positive_check": {"status": "reclassified", "reclassified": {"dog": "cat"}}}}"""
         )
         assertNull(event.falsePositive)
-        assertEquals(mapOf("dog" to "cat"), event.reclassified())
-        // A user's false-positive mark wins over the AI's correction.
-        val marked = json.decodeFromString<Event>(
-            """{"id": 8, "false_positive": 1, "false_positive_by": "user",
-               "metadata": {"ai_false_positive_check": {"reclassified": {"dog": "cat"}}}}"""
-        )
-        assertTrue(marked.reclassified().isEmpty())
-        assertTrue(json.decodeFromString<Event>("""{"id": 9}""").reclassified().isEmpty())
-        val recording = json.decodeFromString<Recording>(
-            """{"id": 3, "events": [{"id": 7, "false_positive": 0,
-               "metadata": {"ai_false_positive_check": {"reclassified": {"dog": "cat"}}}}, {"id": 10}]}"""
-        )
-        assertEquals(mapOf("dog" to "cat"), recording.reclassified())
-        assertEquals("Reclassified from Dog", com.daygle.aicamera.ui.components.reclassifiedText("dog"))
     }
 
     @Test
@@ -112,7 +119,7 @@ class FalsePositiveTest {
         ).detections
         assertEquals("dog", detections[1].originalLabel)
         assertEquals(
-            "Person (71%) ✓, Cat (55%) 🔄, Car (66%) ✗, Truck (50%)",
+            "Person (71%) ✓, Cat (55%) 🔄 was Dog, Car (66%) ✗, Truck (50%)",
             com.daygle.aicamera.ui.formatDetectionSummary(detections),
         )
         val filter = EventsFilter(objectCheck = com.daygle.aicamera.data.model.DetectionVerdictFilter.CONFIRMED)

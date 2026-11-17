@@ -57,6 +57,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.daygle.aicamera.ui.library.FalsePositiveMessages
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -86,6 +87,8 @@ fun EventsScreen(
     viewModel: EventsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val canMark by viewModel.falsePositives.canMark.collectAsStateWithLifecycle()
+    FalsePositiveMessages(viewModel.falsePositives)
     var showFilterSheet by remember { mutableStateOf(value = false) }
     var snapshotEventId by remember { mutableStateOf<Int?>(null) }
     // "Ask AI" mode sends the question to the server's plain-English search
@@ -319,6 +322,8 @@ fun EventsScreen(
                         },
                         onPlayRecording = onPlayRecording,
                         onOpenSnapshot = { snapshotEventId = it },
+                        canMarkFalsePositive = canMark,
+                        onSetFalsePositive = viewModel::markFalsePositive,
                         modifier = Modifier.weight(1f),
                     )
                 } else PullToRefreshBox(
@@ -348,7 +353,10 @@ fun EventsScreen(
                                 EventRow(
                                     event,
                                     onPlayRecording = onPlayRecording,
-                                ) { snapshotEventId = it }
+                                    onOpenSnapshot = { snapshotEventId = it },
+                                    canMarkFalsePositive = canMark,
+                                    onSetFalsePositive = { viewModel.markFalsePositive(event.id, it) },
+                                )
                             }
                             item(key = "paging-footer") {
                                 PagingFooter(
@@ -373,6 +381,8 @@ private fun AiSearchResults(
     onClose: () -> Unit,
     onPlayRecording: (Int) -> Unit,
     onOpenSnapshot: (Int) -> Unit,
+    canMarkFalsePositive: Boolean,
+    onSetFalsePositive: (Int, Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -414,7 +424,13 @@ private fun AiSearchResults(
                 )
             }
             else -> items(search.results, key = { it.id }) { event ->
-                EventRow(event, onPlayRecording = onPlayRecording, onOpenSnapshot = onOpenSnapshot)
+                EventRow(
+                    event,
+                    onPlayRecording = onPlayRecording,
+                    onOpenSnapshot = onOpenSnapshot,
+                    canMarkFalsePositive = canMarkFalsePositive,
+                    onSetFalsePositive = { onSetFalsePositive(event.id, it) },
+                )
             }
         }
     }

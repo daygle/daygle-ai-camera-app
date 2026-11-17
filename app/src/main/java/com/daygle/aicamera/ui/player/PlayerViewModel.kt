@@ -114,7 +114,7 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    /** Admin-only: mark every event in this clip a false positive (or real). */
+    /** Mark every event in this clip a false positive (or real). */
     val falsePositives = FalsePositiveActions(viewModelScope, repository)
 
     fun setFalsePositive(falsePositive: Boolean) {

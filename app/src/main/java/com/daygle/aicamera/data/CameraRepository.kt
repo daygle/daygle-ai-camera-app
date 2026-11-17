@@ -2,17 +2,24 @@ package com.daygle.aicamera.data
 
 import android.util.Log
 import com.daygle.aicamera.data.model.ActivityStats
+import com.daygle.aicamera.data.model.AiInsightsResponse
+import com.daygle.aicamera.data.model.ApplyConfidenceRequest
 import com.daygle.aicamera.data.model.AuthUser
 import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.CameraHealthResponse
+import com.daygle.aicamera.data.model.ConfidenceSuggestion
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.data.model.EventSearchResponse
+import com.daygle.aicamera.data.model.IgnoreAreaRequest
+import com.daygle.aicamera.data.model.IgnoreAreaSuggestion
+import com.daygle.aicamera.data.model.IgnoredArea
 import com.daygle.aicamera.data.model.LibraryFacets
 import com.daygle.aicamera.data.model.LibraryQuery
 import com.daygle.aicamera.data.model.Page
 import com.daygle.aicamera.data.model.PushSettings
 import com.daygle.aicamera.data.model.PushTestRequest
 import com.daygle.aicamera.data.model.Recording
+import com.daygle.aicamera.data.model.RemoveIgnoreAreaRequest
 import com.daygle.aicamera.data.model.ServerResources
 import com.daygle.aicamera.data.model.StorageStatus
 import com.daygle.aicamera.data.model.SystemSettings
@@ -316,6 +323,31 @@ class CameraRepository(
         session.api.markEventFalsePositive(csrfToken, origin, eventId, falsePositiveBody(falsePositive))
         session.api.event(eventId)
     }
+
+    /** Admin only: the server's AI Insights (tuning and ignore-area suggestions). */
+    suspend fun aiInsights(): Result<AiInsightsResponse> = suspendRunCatching { session.api.aiInsights() }
+
+    /** Admin only: raise a minimum confidence as suggested. */
+    suspend fun applyConfidenceSuggestion(item: ConfidenceSuggestion): Result<Unit> = withCsrf { csrf, origin ->
+        session.api.applyConfidenceSuggestion(csrf, origin, ApplyConfidenceRequest(item.cameraId, item.label, item.minConfidence))
+    }
+
+    /** Admin only: ignore the suggested spot. */
+    suspend fun applyIgnoreArea(item: IgnoreAreaSuggestion): Result<Unit> = withCsrf { csrf, origin ->
+        session.api.applyIgnoreArea(csrf, origin, IgnoreAreaRequest(item.cameraId, item.label, item.area))
+    }
+
+    /** Admin only: stop ignoring a spot. */
+    suspend fun removeIgnoreArea(item: IgnoredArea): Result<Unit> = withCsrf { csrf, origin ->
+        session.api.removeIgnoreArea(csrf, origin, RemoveIgnoreAreaRequest(item.cameraId, item.zoneId, item.index))
+    }
+
+    /** Runs an admin write with the session's CSRF token and origin; the reply body is not needed. */
+    private suspend fun withCsrf(block: suspend (String, String) -> JsonObject): Result<Unit> = suspendRunCatching {
+        val csrfToken = session.api.me().csrfToken.orEmpty()
+        val origin = checkNotNull(session.currentBaseUrl) { "Not connected to a server." }
+        block(csrfToken, origin)
+    }.map { }
 
     /**
      * Admins only: apply one decision to every event in a recording, then

@@ -38,6 +38,7 @@ fun SettingsScreen(
     onOpenNavigation: () -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenAlerts: () -> Unit,
+    onOpenAiInsights: () -> Unit,
     onOpenServerDetails: () -> Unit,
     onOpenServerStats: () -> Unit,
     onOpenAbout: () -> Unit,
@@ -119,6 +120,13 @@ fun SettingsScreen(
                     title = "Alerts",
                     subtitle = "Who each alert emails and pushes",
                     onClick = onOpenAlerts
+                )
+                SettingsDivider()
+                SettingsCategoryRow(
+                    icon = Icons.Filled.Lightbulb,
+                    title = "AI Insights",
+                    subtitle = "Tuning and ignore-area suggestions from the AI",
+                    onClick = onOpenAiInsights
                 )
                 SettingsDivider()
                 SettingsCategoryRow(

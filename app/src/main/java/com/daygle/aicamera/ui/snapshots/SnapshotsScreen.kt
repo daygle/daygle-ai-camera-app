@@ -1,6 +1,5 @@
 package com.daygle.aicamera.ui.snapshots
 
-import com.daygle.aicamera.data.model.reclassified
 import com.daygle.aicamera.ui.library.FalsePositiveMessages
 import com.daygle.aicamera.ui.components.FalsePositiveButton
 import com.daygle.aicamera.ui.library.FalsePositiveFilterChips
@@ -130,7 +129,7 @@ fun SnapshotsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var openEventId by remember { mutableStateOf<Int?>(null) }
     var showFilterSheet by remember { mutableStateOf(false) }
-    val isAdmin by viewModel.falsePositives.isAdmin.collectAsStateWithLifecycle()
+    val canMark by viewModel.falsePositives.canMark.collectAsStateWithLifecycle()
     val marking by viewModel.falsePositives.busy.collectAsStateWithLifecycle()
     FalsePositiveMessages(viewModel.falsePositives)
 
@@ -146,7 +145,7 @@ fun SnapshotsScreen(
                     viewModel.download(it, fileName)
                 }
             },
-            canMarkFalsePositive = isAdmin,
+            canMarkFalsePositive = canMark,
             marking = marking,
             onSetFalsePositive = { viewModel.setFalsePositive(eventId, it) },
         )
@@ -664,7 +663,7 @@ private fun SnapshotRow(
                     faces = faces,
                     maxTags = 3,
                     falsePositive = event.falsePositive,
-                    reclassified = event.reclassified(),
+                    shownDetections = detectionsToShow,
                 )
                 AiDescriptionText(description?.text)
             }
@@ -844,10 +843,10 @@ internal fun SnapshotDetails(
                 faces = faces,
                 verification = verdict,
                 falsePositive = event.falsePositive,
-                reclassified = event.reclassified(),
+                shownDetections = event.detections,
             )
             AiDescriptionText(description?.text, expandable = false)
-            // Admins only: sound events have no object to judge.
+            // Sound events have no object to judge.
             if (canMarkFalsePositive && !isSoundEvent(event)) {
                 FalsePositiveButton(
                     marked = event.falsePositive != null,

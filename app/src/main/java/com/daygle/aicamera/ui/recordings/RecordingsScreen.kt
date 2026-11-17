@@ -1,6 +1,5 @@
 package com.daygle.aicamera.ui.recordings
 
-import com.daygle.aicamera.data.model.reclassified
 import com.daygle.aicamera.ui.library.FalsePositiveFilterChips
 import androidx.compose.material.icons.filled.DoNotDisturbOn
 import androidx.compose.foundation.background
@@ -592,7 +591,7 @@ private fun RecordingRow(
                         faces = faces,
                         maxTags = 4,
                         falsePositive = recording.falsePositive,
-                        reclassified = recording.reclassified(),
+                        shownDetections = detectionsToShow,
                     )
                     AiDescriptionText(description?.text)
                 }

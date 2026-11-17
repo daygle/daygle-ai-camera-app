@@ -1,6 +1,5 @@
 package com.daygle.aicamera.ui.player
 
-import com.daygle.aicamera.data.model.reclassified
 import com.daygle.aicamera.ui.library.FalsePositiveMessages
 import com.daygle.aicamera.ui.components.FalsePositiveButton
 import android.view.LayoutInflater
@@ -96,7 +95,7 @@ fun PlayerScreen(
 ) {
     val error by viewModel.error.collectAsStateWithLifecycle()
     val details by viewModel.details.collectAsStateWithLifecycle()
-    val isAdmin by viewModel.falsePositives.isAdmin.collectAsStateWithLifecycle()
+    val canMark by viewModel.falsePositives.canMark.collectAsStateWithLifecycle()
     val marking by viewModel.falsePositives.busy.collectAsStateWithLifecycle()
     FalsePositiveMessages(viewModel.falsePositives)
     val cameraNames by viewModel.cameraNames.collectAsStateWithLifecycle()
@@ -220,7 +219,7 @@ fun PlayerScreen(
                             player = player,
                             modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 16.dp),
                         )
-                        ClipDetails(it, cameraNames, isAdmin, marking, viewModel::setFalsePositive)
+                        ClipDetails(it, cameraNames, canMark, marking, viewModel::setFalsePositive)
                     }
                 }
             }
@@ -297,9 +296,9 @@ private fun ClipDetails(
             faces = faces,
             verification = verdict,
             falsePositive = recording.falsePositive,
-            reclassified = recording.reclassified(),
+            shownDetections = detections,
         )
-        // Admins only, and only a clip with events: marking applies to them.
+        // Signed-in users, and only a clip with events: marking applies to them.
         if (canMarkFalsePositive && linked.isNotEmpty()) {
             FalsePositiveButton(
                 marked = recording.falsePositive != null,

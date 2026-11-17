@@ -99,12 +99,19 @@ data class Event(
     @SerialName("false_positive") val falsePositiveFlag: Int? = null,
     @SerialName("false_positive_by") val falsePositiveBy: String? = null,
     @SerialName("false_positive_reason") val falsePositiveReason: String? = null,
+    // Who marked it by hand (servers that store it).
+    @SerialName("false_positive_user") val falsePositiveUser: String? = null,
 ) {
     val alerted: Boolean get() = alert != null
 
     /** Who marked this event a false positive and why; null when it is not one. */
     val falsePositive: FalsePositive?
-        get() = if (falsePositiveFlag == 1) FalsePositive(falsePositiveBy ?: "user", falsePositiveReason) else null
+        get() = if (falsePositiveFlag == 1) {
+            val by = falsePositiveBy ?: "user"
+            FalsePositive(by, falsePositiveReason, listOfNotNull(falsePositiveUser?.takeIf { by == "user" && it.isNotBlank() }))
+        } else {
+            null
+        }
 
     /** The clip this event plays: its own [recordingId], else the first linked recording. */
     val playableRecordingId: Int? get() = recordingId ?: recordings.firstOrNull()?.id
@@ -196,19 +203,24 @@ data class Recording(
 
 /**
  * A false-positive mark: [by] is `ai` (the server's AI check), `user`, or
- * `mixed` on a recording whose events were marked by both.
+ * `mixed` on a recording whose events were marked by both. [users] names who
+ * marked it by hand, on servers that store it.
  */
 @Serializable
 data class FalsePositive(
     val by: String = "user",
     val reason: String? = null,
+    val users: List<String> = emptyList(),
 ) {
-    /** Who marked it, for the chip: "AI", "User" or "AI + User". */
+    /** Who marked it, for the chip: "AI", a name ("sam"), "User" on older servers, or "AI + sam". */
     val source: String
-        get() = when (by) {
-            "ai" -> "AI"
-            "mixed" -> "AI + User"
-            else -> "User"
+        get() {
+            val people = users.filter { it.isNotBlank() }.joinToString().ifBlank { "User" }
+            return when (by) {
+                "ai" -> "AI"
+                "mixed" -> "AI + $people"
+                else -> people
+            }
         }
 }
 

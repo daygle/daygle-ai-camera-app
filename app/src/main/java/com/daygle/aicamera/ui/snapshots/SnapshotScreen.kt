@@ -37,7 +37,7 @@ fun SnapshotScreen(
 ) {
     val url = remember(eventId) { viewModel.snapshotUrl(eventId) }
     val event by viewModel.event.collectAsStateWithLifecycle()
-    val isAdmin by viewModel.falsePositives.isAdmin.collectAsStateWithLifecycle()
+    val canMark by viewModel.falsePositives.canMark.collectAsStateWithLifecycle()
     val marking by viewModel.falsePositives.busy.collectAsStateWithLifecycle()
     FalsePositiveMessages(viewModel.falsePositives)
 
@@ -73,7 +73,7 @@ fun SnapshotScreen(
         }
         event?.takeIf { it.id == eventId }?.let { loaded ->
             Box(Modifier.align(Alignment.BottomCenter)) {
-                SnapshotDetails(loaded, isAdmin, marking) { viewModel.setFalsePositive(eventId, it) }
+                SnapshotDetails(loaded, canMark, marking) { viewModel.setFalsePositive(eventId, it) }
             }
         }
     }

@@ -1,19 +1,23 @@
 package com.daygle.aicamera.data
 
 import com.daygle.aicamera.data.model.ActivityStats
+import com.daygle.aicamera.data.model.AiInsightsResponse
 import com.daygle.aicamera.data.model.AppUser
+import com.daygle.aicamera.data.model.ApplyConfidenceRequest
 import com.daygle.aicamera.data.model.AuthMe
 import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.data.model.CameraHealthResponse
 import com.daygle.aicamera.data.model.CamerasResponse
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.data.model.EventSearchResponse
+import com.daygle.aicamera.data.model.IgnoreAreaRequest
 import com.daygle.aicamera.data.model.LibraryFacets
 import com.daygle.aicamera.data.model.Page
 import com.daygle.aicamera.data.model.PushSettings
 import com.daygle.aicamera.data.model.PushTestRequest
 import com.daygle.aicamera.data.model.PushTestResponse
 import com.daygle.aicamera.data.model.Recording
+import com.daygle.aicamera.data.model.RemoveIgnoreAreaRequest
 import com.daygle.aicamera.data.model.ServerResources
 import com.daygle.aicamera.data.model.StorageStatus
 import com.daygle.aicamera.data.model.SystemSettings
@@ -193,7 +197,7 @@ interface DaygleApi {
     ): PushTestResponse
 
     /**
-     * Admins only. Marks an event (and its snapshot) a false positive
+     * Any signed-in user (admins only on older servers). Marks an event (and its snapshot) a false positive
      * (`{"false_positive": true}`), a real detection (`false`), or undecided (`null`).
      */
     @POST("api/events/{id}/false-positive")
@@ -204,13 +208,41 @@ interface DaygleApi {
         @Body body: JsonObject,
     ): JsonObject
 
-    /** Admins only. The same decision for every event in a recording. */
+    /** Any signed-in user (admins only on older servers). The same decision for every event in a recording. */
     @POST("api/recordings/{id}/false-positive")
     suspend fun markRecordingFalsePositive(
         @Header("X-CSRF-Token") csrfToken: String,
         @Header("Origin") origin: String,
         @Path("id") recordingId: Int,
         @Body body: JsonObject,
+    ): JsonObject
+
+    /** Admin only. What the AI model's verdicts suggest changing (404 on older servers). */
+    @GET("api/settings/ai-insights")
+    suspend fun aiInsights(): AiInsightsResponse
+
+    /** Admin only. Raise a label's minimum confidence on a camera to a suggested value. */
+    @POST("api/settings/ai-insights/apply")
+    suspend fun applyConfidenceSuggestion(
+        @Header("X-CSRF-Token") csrfToken: String,
+        @Header("Origin") origin: String,
+        @Body body: ApplyConfidenceRequest,
+    ): JsonObject
+
+    /** Admin only. Ignore a label in a spot of the zones that contain it. */
+    @POST("api/settings/ai-insights/ignore-area")
+    suspend fun applyIgnoreArea(
+        @Header("X-CSRF-Token") csrfToken: String,
+        @Header("Origin") origin: String,
+        @Body body: IgnoreAreaRequest,
+    ): JsonObject
+
+    /** Admin only. Stop ignoring a spot. */
+    @POST("api/settings/ai-insights/ignore-area/remove")
+    suspend fun removeIgnoreArea(
+        @Header("X-CSRF-Token") csrfToken: String,
+        @Header("Origin") origin: String,
+        @Body body: RemoveIgnoreAreaRequest,
     ): JsonObject
 
     /** Admin only: other roles get 403. */
