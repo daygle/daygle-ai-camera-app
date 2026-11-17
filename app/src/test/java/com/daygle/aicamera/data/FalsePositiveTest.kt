@@ -3,6 +3,7 @@ package com.daygle.aicamera.data
 import com.daygle.aicamera.data.model.Event
 import com.daygle.aicamera.data.model.FalsePositiveFilter
 import com.daygle.aicamera.data.model.Recording
+import com.daygle.aicamera.data.model.reclassified
 import com.daygle.aicamera.ui.events.EventsFilter
 import com.daygle.aicamera.ui.library.falsePositiveErrorMessage
 import com.daygle.aicamera.ui.recordings.RecordingsFilter
@@ -75,5 +76,28 @@ class FalsePositiveTest {
         assertTrue(falsePositiveErrorMessage(http(405)).contains("Update the Daygle server"))
         assertEquals("This recording has no detections to mark.", falsePositiveErrorMessage(http(409)))
         assertTrue(falsePositiveErrorMessage(http(500)).startsWith("Couldn't update:"))
+    }
+
+    @Test
+    fun misreadObjectsAreReclassifiedNotFalsePositives() {
+        val event = json.decodeFromString<Event>(
+            """{"id": 7, "false_positive": 0, "false_positive_by": "ai", "detections": [{"label": "cat"}],
+               "metadata": {"ai_false_positive_check": {"status": "reclassified", "reclassified": {"dog": "cat"}}}}"""
+        )
+        assertNull(event.falsePositive)
+        assertEquals(mapOf("dog" to "cat"), event.reclassified())
+        // A user's false-positive mark wins over the AI's correction.
+        val marked = json.decodeFromString<Event>(
+            """{"id": 8, "false_positive": 1, "false_positive_by": "user",
+               "metadata": {"ai_false_positive_check": {"reclassified": {"dog": "cat"}}}}"""
+        )
+        assertTrue(marked.reclassified().isEmpty())
+        assertTrue(json.decodeFromString<Event>("""{"id": 9}""").reclassified().isEmpty())
+        val recording = json.decodeFromString<Recording>(
+            """{"id": 3, "events": [{"id": 7, "false_positive": 0,
+               "metadata": {"ai_false_positive_check": {"reclassified": {"dog": "cat"}}}}, {"id": 10}]}"""
+        )
+        assertEquals(mapOf("dog" to "cat"), recording.reclassified())
+        assertEquals("Reclassified from Dog", com.daygle.aicamera.ui.components.reclassifiedText("dog"))
     }
 }

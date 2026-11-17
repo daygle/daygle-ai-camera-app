@@ -1,5 +1,6 @@
 package com.daygle.aicamera.ui.player
 
+import com.daygle.aicamera.data.model.reclassified
 import com.daygle.aicamera.ui.library.FalsePositiveMessages
 import com.daygle.aicamera.ui.components.FalsePositiveButton
 import android.view.LayoutInflater
@@ -291,7 +292,13 @@ private fun ClipDetails(
                 color = MaterialTheme.colorScheme.primary,
             )
         }
-        InsightChips(aiTags = aiTags, faces = faces, verification = verdict, falsePositive = recording.falsePositive)
+        InsightChips(
+            aiTags = aiTags,
+            faces = faces,
+            verification = verdict,
+            falsePositive = recording.falsePositive,
+            reclassified = recording.reclassified(),
+        )
         // Admins only, and only a clip with events: marking applies to them.
         if (canMarkFalsePositive && linked.isNotEmpty()) {
             FalsePositiveButton(

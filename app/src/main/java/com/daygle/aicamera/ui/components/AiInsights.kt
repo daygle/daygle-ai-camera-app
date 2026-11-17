@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DoNotDisturbOn
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.outlined.Face
@@ -65,9 +66,10 @@ fun InsightChips(
     motionFraction: Double? = null,
     maxTags: Int = Int.MAX_VALUE,
     falsePositive: FalsePositive? = null,
+    reclassified: Map<String, String> = emptyMap(),
 ) {
     if (aiTags.isEmpty() && faces.isEmpty && verification == null && motionFraction == null &&
-        falsePositive == null
+        falsePositive == null && reclassified.isEmpty()
     ) return
     var showVerdict by rememberSaveable(verification) { mutableStateOf(false) }
     var showFalsePositive by rememberSaveable(falsePositive) { mutableStateOf(false) }
@@ -86,6 +88,19 @@ fun InsightChips(
                 description = "${falsePositiveSummary(mark)} Tap for details.",
                 dashed = true,
                 onClick = { showFalsePositive = true },
+            )
+        }
+        reclassified.forEach { (label, name) ->
+            // A real object under the wrong label (a cat the detector called
+            // a dog): the server corrected the label and never purges it.
+            InsightChip(
+                text = reclassifiedText(label),
+                icon = Icons.Filled.SwapHoriz,
+                color = MaterialTheme.colorScheme.tertiary,
+                description = "The detector reported ${formatEventLabel(label)}; the AI model saw " +
+                    "${formatEventLabel(name)} and reclassified it. Something real was there, so it is " +
+                    "not a false positive.",
+                dashed = true,
             )
         }
         verification?.let { record ->
@@ -168,6 +183,9 @@ fun InsightChips(
         )
     }
 }
+
+/** The chip for a reclassified label: "Reclassified from Dog". */
+internal fun reclassifiedText(originalLabel: String): String = "Reclassified from ${formatEventLabel(originalLabel)}"
 
 /** One sentence saying who marked a false positive. */
 fun falsePositiveSummary(mark: FalsePositive): String = when (mark.by) {
