@@ -100,4 +100,23 @@ class FalsePositiveTest {
         assertEquals(mapOf("dog" to "cat"), recording.reclassified())
         assertEquals("Reclassified from Dog", com.daygle.aicamera.ui.components.reclassifiedText("dog"))
     }
+
+    @Test
+    fun detectionsShowTheAisVerdictAndTheObjectFilterIsSentAsAiCheck() {
+        val detections = json.decodeFromString<Event>(
+            """{"id": 1, "detections": [
+                {"label": "person", "confidence": 0.71, "ai_status": "confirmed", "ai_reason": "a person"},
+                {"label": "cat", "confidence": 0.55, "ai_status": "reclassified", "original_label": "dog"},
+                {"label": "car", "confidence": 0.66, "ai_status": "rejected"},
+                {"label": "truck", "confidence": 0.5}]}"""
+        ).detections
+        assertEquals("dog", detections[1].originalLabel)
+        assertEquals(
+            "Person (71%) ✓, Cat (55%) 🔄, Car (66%) ✗, Truck (50%)",
+            com.daygle.aicamera.ui.formatDetectionSummary(detections),
+        )
+        val filter = EventsFilter(objectCheck = com.daygle.aicamera.data.model.DetectionVerdictFilter.CONFIRMED)
+        assertEquals("object_confirmed", filter.toQuery().objectCheck?.queryValue)
+        assertEquals(1, filter.activeCount())
+    }
 }

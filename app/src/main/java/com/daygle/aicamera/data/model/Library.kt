@@ -21,9 +21,20 @@ data class LibraryQuery(
     val aiCheck: AiVerdict? = null,
     /** Hide false positives, or list only them (`false_positive`); null = all. */
     val falsePositive: FalsePositiveFilter? = null,
+    /**
+     * Events only: the AI's per-detection verdict to match. Sent as the same
+     * `ai_check` parameter as [aiCheck], so only one of the two is set.
+     */
+    val objectCheck: DetectionVerdictFilter? = null,
 ) {
     val sort: String get() = if (oldestFirst) "oldest" else "newest"
     val q: String? get() = query?.trim()?.takeIf { it.isNotEmpty() }
+}
+
+/** The Events AI Check filter's per-detection options (the server's `ai_check`). */
+enum class DetectionVerdictFilter(val queryValue: String, val label: String) {
+    CONFIRMED("object_confirmed", "AI Confirmed Object"),
+    REJECTED("object_rejected", "AI Rejected Object"),
 }
 
 /** The library lists' False Positives filter (the server's `false_positive` parameter). */

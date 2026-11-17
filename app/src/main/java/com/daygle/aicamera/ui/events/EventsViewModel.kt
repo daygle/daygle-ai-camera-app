@@ -1,5 +1,6 @@
 package com.daygle.aicamera.ui.events
 
+import com.daygle.aicamera.data.model.DetectionVerdictFilter
 import com.daygle.aicamera.data.model.FalsePositiveFilter
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -57,6 +58,8 @@ data class EventsFilter(
     val aiCheck: AiVerdict? = null,
     /** Hide false positives, or show only them; null = all. */
     val falsePositive: FalsePositiveFilter? = null,
+    /** The AI's verdict on a detected object; null = any. Exclusive with [aiCheck]. */
+    val objectCheck: DetectionVerdictFilter? = null,
     val sortOrder: EventsSortOrder = EventsSortOrder.NEWEST
 ) {
     fun activeCount(): Int {
@@ -71,6 +74,7 @@ data class EventsFilter(
         if (alertedOnly) count++
         if (aiCheck != null) count++
         if (falsePositive != null) count++
+        if (objectCheck != null) count++
         return count
     }
 
@@ -85,6 +89,7 @@ data class EventsFilter(
         oldestFirst = sortOrder == EventsSortOrder.OLDEST,
         aiCheck = aiCheck,
         falsePositive = falsePositive,
+        objectCheck = objectCheck,
     )
 }
 
@@ -289,7 +294,14 @@ class EventsViewModel @Inject constructor(private val repository: CameraReposito
     fun setAlertedOnly(value: Boolean) = updateFilter { it.copy(alertedOnly = value) }
 
     /** Filtered on the server (`ai_check`) so it reaches past the loaded pages. */
-    fun setAiCheck(value: AiVerdict?) = updateFilter { it.copy(aiCheck = value) }
+    fun setAiCheck(value: AiVerdict?) = updateFilter {
+        it.copy(aiCheck = value, objectCheck = if (value != null) null else it.objectCheck)
+    }
+
+    /** The per-detection verdict; the server takes one AI Check value, so it replaces [setAiCheck]'s. */
+    fun setObjectCheck(value: DetectionVerdictFilter?) = updateFilter {
+        it.copy(objectCheck = value, aiCheck = if (value != null) null else it.aiCheck)
+    }
 
     /** Filtered on the server (`false_positive`) so it reaches past the loaded pages. */
     fun setFalsePositive(value: FalsePositiveFilter?) = updateFilter { it.copy(falsePositive = value) }

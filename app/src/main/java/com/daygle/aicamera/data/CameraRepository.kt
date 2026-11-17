@@ -147,7 +147,7 @@ class CameraRepository(
                 query = query.q,
                 face = query.face,
                 sort = query.sort,
-                aiCheck = query.aiCheck?.queryValue,
+                aiCheck = query.objectCheck?.queryValue ?: query.aiCheck?.queryValue,
                 falsePositive = query.falsePositive?.queryValue,
             )
         }

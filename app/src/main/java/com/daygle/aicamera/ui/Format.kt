@@ -175,6 +175,20 @@ fun formatDetectionSummary(detections: List<Detection>): String =
         if (fraction != null && isMotionLabel(detection.label)) {
             "${formatEventLabel(detection.label)} · ${formatMotionFraction(fraction)}"
         } else {
-            "${formatEventLabel(detection.label)} (${(detection.confidence * 100).toInt()}%)"
+            "${formatEventLabel(detection.label)} (${(detection.confidence * 100).toInt()}%)" +
+                aiVerdictMark(detection.aiStatus)
         }
     }
+
+/**
+ * The AI's verdict on a detection as a short mark after it, as on the web
+ * pages: ✓ confirmed, 🔄 reclassified, ✗ not there, ? could not tell; empty
+ * when the AI has not judged it (or on servers without verdicts).
+ */
+fun aiVerdictMark(status: String?): String = when (status) {
+    "confirmed" -> " ✓"
+    "reclassified" -> " 🔄"
+    "rejected" -> " ✗"
+    "unsure" -> " ?"
+    else -> ""
+}

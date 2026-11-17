@@ -52,6 +52,12 @@ data class Detection(
     val y: Double? = null,
     val width: Double? = null,
     val height: Double? = null,
+    // The AI's verdict on this detection (servers with per-detection
+    // verdicts): confirmed, rejected, reclassified or unsure, why, and for a
+    // reclassified one what the detector originally said.
+    @SerialName("ai_status") val aiStatus: String? = null,
+    @SerialName("ai_reason") val aiReason: String? = null,
+    @SerialName("original_label") val originalLabel: String? = null,
 )
 
 /**

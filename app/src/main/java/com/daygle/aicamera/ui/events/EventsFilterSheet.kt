@@ -1,5 +1,6 @@
 package com.daygle.aicamera.ui.events
 
+import com.daygle.aicamera.data.model.DetectionVerdictFilter
 import com.daygle.aicamera.ui.library.FalsePositiveFilterChips
 import androidx.compose.material.icons.filled.DoNotDisturbOn
 import androidx.compose.foundation.horizontalScroll
@@ -153,6 +154,16 @@ internal fun EventsFilterSheet(
                             onClick = { viewModel.setAiCheck(if (selected) null else verdict) },
                             label = { Text(verdict.label) },
                             leadingIcon = { Icon(aiVerdictIcon(verdict), null, Modifier.size(18.dp)) },
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                    // The AI's verdict on a detected object, from any AI check.
+                    DetectionVerdictFilter.entries.forEach { option ->
+                        val selected = state.objectCheck == option
+                        FilterChip(
+                            selected = selected,
+                            onClick = { viewModel.setObjectCheck(if (selected) null else option) },
+                            label = { Text(option.label) },
                             shape = RoundedCornerShape(12.dp)
                         )
                     }
