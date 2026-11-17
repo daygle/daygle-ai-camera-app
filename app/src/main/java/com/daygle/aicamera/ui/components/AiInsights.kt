@@ -17,7 +17,6 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DoNotDisturbOn
-import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.outlined.Face
@@ -68,16 +67,13 @@ fun InsightChips(
     motionFraction: Double? = null,
     maxTags: Int = Int.MAX_VALUE,
     falsePositive: FalsePositive? = null,
-    reclassified: Map<String, String> = emptyMap(),
     shownDetections: List<Detection> = emptyList(),
 ) {
-    // A chip that only repeats a mark already drawn after a detection in the
-    // summary line ([shownDetections]) is left out; see [unmarkedReclassified]
-    // and [verdictWorthShowing].
-    val reclassified = unmarkedReclassified(reclassified, shownDetections)
+    // A plain Verified chip that only repeats the ✓ marks already drawn in
+    // the summary line ([shownDetections]) is left out; see [verdictWorthShowing].
     val verification = verdictWorthShowing(verification, shownDetections)
     if (aiTags.isEmpty() && faces.isEmpty && verification == null && motionFraction == null &&
-        falsePositive == null && reclassified.isEmpty()
+        falsePositive == null
     ) return
     var showVerdict by rememberSaveable(verification) { mutableStateOf(false) }
     var showFalsePositive by rememberSaveable(falsePositive) { mutableStateOf(false) }
@@ -96,19 +92,6 @@ fun InsightChips(
                 description = "${falsePositiveSummary(mark)} Tap for details.",
                 dashed = true,
                 onClick = { showFalsePositive = true },
-            )
-        }
-        reclassified.forEach { (label, name) ->
-            // A real object under the wrong label (a cat the detector called
-            // a dog): the server corrected the label and never purges it.
-            InsightChip(
-                text = reclassifiedText(label),
-                icon = Icons.Filled.SwapHoriz,
-                color = MaterialTheme.colorScheme.tertiary,
-                description = "The detector reported ${formatEventLabel(label)}; the AI model saw " +
-                    "${formatEventLabel(name)} and reclassified it. Something real was there, so it is " +
-                    "not a false positive.",
-                dashed = true,
             )
         }
         verification?.let { record ->
@@ -193,16 +176,6 @@ fun InsightChips(
 }
 
 /**
- * Reclassifications not already shown by a detection's 🔄 mark: the
- * corrected label with `ai_status` "reclassified". Events from before
- * per-detection verdicts have no such mark and keep the chip.
- */
-internal fun unmarkedReclassified(found: Map<String, String>, shown: List<Detection>): Map<String, String> {
-    val marked = shown.filter { it.aiStatus == "reclassified" }.map { it.label.trim().lowercase() }.toSet()
-    return found.filterValues { it.trim().lowercase() !in marked }
-}
-
-/**
  * The alert verdict chip, unless it is a plain Verified that every object's
  * ✓ (or 🔄) already says. Filtered and Unverified always show: they explain
  * what happened to the notification.
@@ -213,9 +186,6 @@ internal fun verdictWorthShowing(verification: AiVerification?, shown: List<Dete
     val repeated = objects.isNotEmpty() && objects.all { it.aiStatus == "confirmed" || it.aiStatus == "reclassified" }
     return if (repeated) null else verification
 }
-
-/** The chip for a reclassified label: "Reclassified from Dog". */
-internal fun reclassifiedText(originalLabel: String): String = "Reclassified from ${formatEventLabel(originalLabel)}"
 
 /** One sentence saying who marked a false positive. */
 fun falsePositiveSummary(mark: FalsePositive): String = when (mark.by) {

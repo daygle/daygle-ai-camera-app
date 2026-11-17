@@ -1,6 +1,5 @@
 package com.daygle.aicamera.ui.events
 
-import com.daygle.aicamera.data.model.reclassified
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DoNotDisturbOn
@@ -189,7 +188,6 @@ internal fun EventRow(
                             verification = verdict,
                             maxTags = 4,
                             falsePositive = event.falsePositive,
-                            reclassified = event.reclassified(),
                             shownDetections = detectionsToShow,
                         )
                         AiDescriptionText(description?.text)

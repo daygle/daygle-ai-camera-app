@@ -1,6 +1,5 @@
 package com.daygle.aicamera.ui.snapshots
 
-import com.daygle.aicamera.data.model.reclassified
 import com.daygle.aicamera.ui.library.FalsePositiveMessages
 import com.daygle.aicamera.ui.components.FalsePositiveButton
 import com.daygle.aicamera.ui.library.FalsePositiveFilterChips
@@ -664,7 +663,6 @@ private fun SnapshotRow(
                     faces = faces,
                     maxTags = 3,
                     falsePositive = event.falsePositive,
-                    reclassified = event.reclassified(),
                     shownDetections = detectionsToShow,
                 )
                 AiDescriptionText(description?.text)
@@ -845,7 +843,6 @@ internal fun SnapshotDetails(
                 faces = faces,
                 verification = verdict,
                 falsePositive = event.falsePositive,
-                reclassified = event.reclassified(),
                 shownDetections = event.detections,
             )
             AiDescriptionText(description?.text, expandable = false)

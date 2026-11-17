@@ -7,20 +7,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** Chips that only repeat a detection's AI mark are left out. */
+/** A Verified chip that only repeats the detections' ✓ marks is left out. */
 class RepeatedChipsTest {
 
     private val verified = AiVerification(AiVerdict.CONFIRMED, "The AI model confirmed this alert.", emptyList())
-
-    @Test
-    fun reclassifiedChipIsDroppedWhenTheDetectionShowsTheMark() {
-        val found = mapOf("dog" to "cat")
-        assertEquals(emptyMap<String, String>(),
-            unmarkedReclassified(found, listOf(Detection("cat", 0.8, aiStatus = "reclassified"))))
-        // Older events have no per-detection verdict: the chip stays.
-        assertEquals(found, unmarkedReclassified(found, listOf(Detection("cat", 0.8))))
-        assertEquals(found, unmarkedReclassified(found, emptyList()))
-    }
 
     @Test
     fun plainVerifiedIsDroppedOnlyWhenEveryObjectIsTicked() {
