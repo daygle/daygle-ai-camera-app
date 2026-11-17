@@ -22,7 +22,7 @@ The app is a **dedicated viewer** - while camera management and AI rules stay in
 
 ## ✨ Features
 
-- **Seamless Connection** - Connect via local IP or public HTTPS. Verified on sign-in and remembered between sessions.
+- **Seamless Connection** - Connect to your server over HTTPS, on your network or the internet (debug builds also accept plain `http://` LAN addresses). Verified on sign-in and remembered between sessions.
 - **Cameras Dashboard** - Clean grid view of all configured cameras with live snapshot thumbnails and real-time status.
 - **Immersive Live View** - Tap any camera for a full-screen, landscape feed with pinch-to-zoom (up to 5x) and fluid panning.
 - **Deep Event Log** - Search and filter your full history by keyword, date, camera, label, AI tag or face on the server, with more results loading as you scroll. Jump from an event directly to its annotated snapshot or triggered recording.

@@ -34,7 +34,6 @@ data class MemoryUsage(
 data class GpuStatus(
     val count: Int = 0,
     val primary: GpuDevice? = null,
-    @SerialName("warn_temp_c") val warnTempC: Int? = null,
     @SerialName("critical_temp_c") val criticalTempC: Int? = null,
 )
 
@@ -45,7 +44,6 @@ data class GpuDevice(
     @SerialName("temperature_c") val temperatureC: Double? = null,
     @SerialName("utilization_percent") val utilizationPercent: Double? = null,
     @SerialName("graphics_clock_mhz") val graphicsClockMhz: Double? = null,
-    @SerialName("memory_clock_mhz") val memoryClockMhz: Double? = null,
     @SerialName("power_draw_watts") val powerDrawWatts: Double? = null,
     @SerialName("power_limit_watts") val powerLimitWatts: Double? = null,
     @SerialName("memory_used_mb") val memoryUsedMb: Double? = null,
@@ -60,7 +58,6 @@ data class VideoDecodeStatus(
     /** `auto`, `gpu` or `cpu`, as set on the server. */
     val setting: String? = null,
     @SerialName("ffmpeg_cuda") val ffmpegCuda: Boolean = false,
-    @SerialName("nvidia_gpu") val nvidiaGpu: Boolean = false,
     val cameras: List<DecodeCamera> = emptyList(),
 )
 
@@ -82,18 +79,14 @@ data class ActivityStats(
     @SerialName("matched_object_events") val objectEvents: Int = 0,
     @SerialName("sound_detection_events") val soundEvents: Int = 0,
     @SerialName("motion_detection_events") val motionEvents: Int = 0,
-    @SerialName("object_alerts") val objectAlerts: Int = 0,
-    @SerialName("sound_alerts") val soundAlerts: Int = 0,
     /** Detections per label, most frequent first. */
     val objects: List<LabelCount> = emptyList(),
-    @SerialName("total_cameras") val totalCameras: Int = 0,
 )
 
 @Serializable
 data class LabelCount(
     val label: String = "",
     val count: Int = 0,
-    @SerialName("max_confidence") val maxConfidence: Double? = null,
 )
 
 /**

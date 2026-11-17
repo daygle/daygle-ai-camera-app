@@ -69,16 +69,16 @@ fun Recording.isMotion(): Boolean = isMotionDetection(source, triggerType, trigg
 fun TimelineSegmentDto.isSound(): Boolean = isSoundDetection(source, triggerType, triggerLabel, labels)
 fun TimelineSegmentDto.isMotion(): Boolean = isMotionDetection(source, triggerType, triggerLabel, labels)
 
-/**
- * Localized date + time formatter that honors the app's 24-hour preference.
- * Builds the pattern from a skeleton so the hour cycle (H vs h) is forced while
- * the rest stays locale-appropriate.
- */
 // DateTimeFormatter.ofPattern is expensive, and list rows call these on every
 // item during scrolling/recomposition, so instances are cached per (24h, locale).
 private val displayFormatters = ConcurrentHashMap<Pair<Boolean, Locale>, DateTimeFormatter>()
 private val timeFormatters = ConcurrentHashMap<Pair<Boolean, Locale>, DateTimeFormatter>()
 
+/**
+ * Localized date + time formatter that honors the app's 24-hour preference.
+ * Builds the pattern from a skeleton so the hour cycle (H vs h) is forced while
+ * the rest stays locale-appropriate.
+ */
 private fun displayFormatter(use24Hour: Boolean): DateTimeFormatter =
     displayFormatters.getOrPut(use24Hour to Locale.getDefault()) {
         val locale = Locale.getDefault()

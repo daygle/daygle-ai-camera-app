@@ -105,6 +105,15 @@ class DashboardViewModel @Inject constructor(
     private fun startPolling() {
         pollJob?.cancel()
         pollJob = viewModelScope.launch {
+            // Online status was only read on load, so a camera that dropped
+            // kept being polled (showing errors) and one that came back stayed
+            // greyed out. Re-check it while the grid is on screen.
+            launch {
+                while (true) {
+                    delay(HEALTH_REFRESH_MS)
+                    refreshHealth()
+                }
+            }
             prefs.refreshIntervalMs.collectLatest { interval ->
                 val safeInterval = interval.coerceAtLeast(500)
                 while (true) {
@@ -119,10 +128,27 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    /** Apply the server's current camera health; failures keep the last known state. */
+    private suspend fun refreshHealth() {
+        val health = repository.cameraHealth().getOrNull() ?: return
+        _state.update { current ->
+            if (current !is DashboardUiState.Ready) return@update current
+            val cards = current.cameras.map { card ->
+                card.copy(online = health.cameras[card.camera.id]?.online ?: true)
+            }
+            if (cards == current.cameras) current else current.copy(cameras = cards)
+        }
+    }
+
     private fun freshSnapshotUrls(cards: List<CameraCard>): Map<String, String> {
         val now = System.currentTimeMillis()
         return cards.associate { card ->
             card.camera.id to (repository.snapshotUrl(card.camera.id, now) ?: "")
         }.filterValues { it.isNotEmpty() }
+    }
+
+    private companion object {
+        /** How often camera online status is re-checked while the grid is shown. */
+        const val HEALTH_REFRESH_MS = 30_000L
     }
 }

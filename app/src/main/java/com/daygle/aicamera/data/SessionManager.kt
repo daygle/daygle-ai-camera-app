@@ -11,6 +11,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.FormBody
 import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.JavaNetCookieJar
 import okhttp3.MediaType.Companion.toMediaType
@@ -147,22 +148,18 @@ class SessionManager {
         }
     }
 
-    private fun buildApi(url: HttpUrl?): DaygleApi {
-        val effective = url ?: "http://localhost/".toHttpUrlOrNull()!!
-        return try {
-            Retrofit.Builder()
-                .baseUrl(effective)
-                .client(httpClient)
-                .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
-                .build()
-                .create(DaygleApi::class.java)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to build API for $effective", e)
-            // If even the fallback fails, we must avoid recursion.
-            if (url == null) throw e
-            buildApi(null)
-        }
-    }
+    /**
+     * Retrofit needs a base URL even before a server is configured; requests
+     * then go to a placeholder that never answers. A parsed [HttpUrl] always
+     * ends in a valid base (see [normalizeBaseUrl]), so building cannot fail.
+     */
+    private fun buildApi(url: HttpUrl?): DaygleApi =
+        Retrofit.Builder()
+            .baseUrl(url ?: UNCONFIGURED_BASE_URL)
+            .client(httpClient)
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .build()
+            .create(DaygleApi::class.java)
 
     // The live snapshot is the camera's latest frame, full size unless a
     // `width` is asked for (see withFrameWidth); a recording is served as-is
@@ -337,6 +334,7 @@ class SessionManager {
     companion object {
         private const val TAG = "SessionManager"
         private const val CSRF_HEADER = "X-CSRF-Token"
+        private val UNCONFIGURED_BASE_URL = "http://localhost/".toHttpUrl()
         const val CLOUDFLARE_ACCESS_MESSAGE =
             "This server is protected by Cloudflare Access. Add your service token in settings to sign in."
 

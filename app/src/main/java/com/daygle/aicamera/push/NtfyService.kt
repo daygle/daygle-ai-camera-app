@@ -28,6 +28,7 @@ import com.daygle.aicamera.data.SettingsStore
 import com.daygle.aicamera.data.asHeaderValue
 import com.daygle.aicamera.data.suspendRunCatching
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -221,6 +222,9 @@ class NtfyService : Service() {
                 // uncaught exception here would crash the whole process.
                 val config = try {
                     notificationSettings.current()
+                } catch (e: CancellationException) {
+                    // The service is stopping: end the loop, don't retry.
+                    throw e
                 } catch (e: Exception) {
                     if (!resyncRequested.get()) Log.w(TAG, "Could not read the alert settings", e)
                     delay(backoffMs)
