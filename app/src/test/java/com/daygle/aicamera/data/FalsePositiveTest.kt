@@ -79,6 +79,27 @@ class FalsePositiveTest {
     }
 
     @Test
+    fun theChipNamesWhoMarkedIt() {
+        val byViewer = json.decodeFromString<Event>(
+            """{"id": 1, "false_positive": 1, "false_positive_by": "user", "false_positive_user": "sam"}"""
+        )
+        assertEquals("sam", byViewer.falsePositive?.source)
+        // Older servers store no name; the AI never has one.
+        assertEquals("User", json.decodeFromString<Event>("""{"id": 2, "false_positive": 1, "false_positive_by": "user"}""").falsePositive?.source)
+        assertEquals("AI", json.decodeFromString<Event>(
+            """{"id": 3, "false_positive": 1, "false_positive_by": "ai", "false_positive_user": "sam"}"""
+        ).falsePositive?.source)
+        val clip = json.decodeFromString<Recording>(
+            """{"id": 4, "false_positive": {"by": "mixed", "reason": "", "users": ["alex", "sam"]}}"""
+        )
+        assertEquals("AI + alex, sam", clip.falsePositive?.source)
+        assertEquals(
+            "Marked as a false positive by sam.",
+            com.daygle.aicamera.ui.components.falsePositiveSummary(byViewer.falsePositive!!),
+        )
+    }
+
+    @Test
     fun misreadObjectsAreNotFalsePositives() {
         val event = json.decodeFromString<Event>(
             """{"id": 7, "false_positive": 0, "false_positive_by": "ai", "detections": [{"label": "cat"}],

@@ -190,8 +190,8 @@ internal fun verdictWorthShowing(verification: AiVerification?, shown: List<Dete
 /** One sentence saying who marked a false positive. */
 fun falsePositiveSummary(mark: FalsePositive): String = when (mark.by) {
     "ai" -> "The AI model judged that nothing it was asked about is really there."
-    "mixed" -> "The AI model and a user marked these detections as false positives."
-    else -> "Marked as a false positive by a user."
+    "mixed" -> "The AI model and ${mark.users.joinToString().ifBlank { "a user" }} marked these detections as false positives."
+    else -> "Marked as a false positive by ${mark.users.joinToString().ifBlank { "a user" }}."
 }
 
 /**
