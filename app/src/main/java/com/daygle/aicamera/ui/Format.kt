@@ -5,6 +5,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import com.daygle.aicamera.data.model.Detection
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.data.model.TimelineSegmentDto
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -129,6 +130,24 @@ fun parseTimestamp(iso: String?): OffsetDateTime? {
         null
     }
 }
+
+/** Milliseconds in a day: the unit Material 3's date pickers count in. */
+private const val MILLIS_PER_DAY = 86_400_000L
+
+/**
+ * A [LocalDate] as the UTC-midnight epoch milliseconds Material 3's date
+ * pickers take (`rememberDatePickerState`, `rememberDateRangePickerState`).
+ *
+ * The picker's calendar is UTC-based, so converting through the device's zone
+ * moved the preselected or picked day by one wherever the local date differs
+ * from the UTC one (any negative offset for a picked date, any positive offset
+ * for a preselected one).
+ */
+fun datePickerMillis(date: LocalDate?): Long? = date?.toEpochDay()?.let { it * MILLIS_PER_DAY }
+
+/** The [LocalDate] a Material 3 date picker's UTC-midnight [millis] stands for. */
+fun datePickerDate(millis: Long?): LocalDate? =
+    millis?.let { runCatching { LocalDate.ofEpochDay(Math.floorDiv(it, MILLIS_PER_DAY)) }.getOrNull() }
 
 /** 
  * Map technical terms to user-friendly ones (e.g. 'rtsp' -> 'Object') 

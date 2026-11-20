@@ -71,10 +71,11 @@ import com.daygle.aicamera.ui.LocalUse24Hour
 import com.daygle.aicamera.ui.components.EmptyState
 import com.daygle.aicamera.ui.components.ErrorState
 import com.daygle.aicamera.ui.components.LoadingState
+import com.daygle.aicamera.ui.datePickerDate
+import com.daygle.aicamera.ui.datePickerMillis
 import com.daygle.aicamera.ui.timeFormatter
-import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalTime
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
@@ -101,17 +102,15 @@ fun TimelineScreen(
 
     if (showDatePicker) {
         val dateState = rememberDatePickerState(
-            initialSelectedDateMillis = (state as? TimelineUiState.Ready)?.data?.date
-                ?.atStartOfDay(ZoneId.systemDefault())?.toInstant()?.toEpochMilli() ?: System.currentTimeMillis()
+            initialSelectedDateMillis = datePickerMillis((state as? TimelineUiState.Ready)?.data?.date)
+                ?: datePickerMillis(LocalDate.now())
+                ?: System.currentTimeMillis()
         )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
                 TextButton(onClick = {
-                    dateState.selectedDateMillis?.let {
-                        val date = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
-                        viewModel.setDate(date)
-                    }
+                    datePickerDate(dateState.selectedDateMillis)?.let(viewModel::setDate)
                     showDatePicker = false
                 }) { Text("Apply") }
             },

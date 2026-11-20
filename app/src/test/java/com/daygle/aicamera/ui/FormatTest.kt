@@ -5,6 +5,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Instant
+import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
@@ -28,6 +30,19 @@ class FormatTest {
         assertNull(parseTimestamp(null))
         assertNull(parseTimestamp(""))
         assertNull(parseTimestamp("yesterday"))
+    }
+
+    @Test
+    fun datePickerHelpersUseUtcMidnightInEveryDeviceZone() {
+        val date = LocalDate.of(2026, 1, 15)
+        val millis = datePickerMillis(date)
+        // Material 3's pickers read and write the selected day as UTC midnight.
+        assertEquals(Instant.parse("2026-01-15T00:00:00Z").toEpochMilli(), millis)
+        assertEquals(date, datePickerDate(millis))
+        // Neighbouring days stay neighbouring, so a round trip cannot shift.
+        assertEquals(LocalDate.of(2026, 1, 16), datePickerDate(datePickerMillis(LocalDate.of(2026, 1, 16))))
+        assertNull(datePickerMillis(null))
+        assertNull(datePickerDate(null))
     }
 
     @Test
