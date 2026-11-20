@@ -69,33 +69,34 @@ class SettingsViewModel @Inject constructor(
             val connection = suspendRunCatching { settingsStore.current() }
                 .onFailure { Log.w(TAG, "Could not read the saved connection", it) }
                 .getOrNull()
-            val savedNav = HomeTab.parse(prefs.currentNavItems())
-
-            _state.update {
-                it.copy(
-                    themeMode = prefs.currentThemeMode().key,
-                    use24Hour = prefs.currentUse24Hour(),
-                    refreshIntervalMs = prefs.currentRefreshIntervalMs(),
-                    serverLabel = connection?.baseUrl?.toServerLabel().orEmpty(),
-                    navItems = savedNav,
-                )
-            }
+            suspendRunCatching {
+                val savedNav = HomeTab.parse(prefs.currentNavItems())
+                _state.update {
+                    it.copy(
+                        themeMode = prefs.currentThemeMode().key,
+                        use24Hour = prefs.currentUse24Hour(),
+                        refreshIntervalMs = prefs.currentRefreshIntervalMs(),
+                        serverLabel = connection?.baseUrl?.toServerLabel().orEmpty(),
+                        navItems = savedNav,
+                    )
+                }
+            }.onFailure { Log.w(TAG, "Could not read the saved preferences", it) }
         }
     }
 
     fun setTheme(mode: String) {
         _state.update { it.copy(themeMode = mode) }
-        viewModelScope.launch { prefs.setThemeMode(ThemeMode.fromKey(mode)) }
+        savePreference { prefs.setThemeMode(ThemeMode.fromKey(mode)) }
     }
 
     fun setUse24Hour(value: Boolean) {
         _state.update { it.copy(use24Hour = value) }
-        viewModelScope.launch { prefs.setUse24Hour(value) }
+        savePreference { prefs.setUse24Hour(value) }
     }
 
     fun setRefreshInterval(ms: Long) {
         _state.update { it.copy(refreshIntervalMs = ms) }
-        viewModelScope.launch { prefs.setRefreshIntervalMs(ms) }
+        savePreference { prefs.setRefreshIntervalMs(ms) }
     }
 
     fun moveNavItem(index: Int, up: Boolean) {
@@ -117,8 +118,18 @@ class SettingsViewModel @Inject constructor(
 
     private fun updateNavItems(items: List<HomeTab>) {
         _state.update { it.copy(navItems = items) }
+        savePreference { prefs.setNavItems(items.joinToString(",") { it.name }) }
+    }
+
+    /**
+     * Persist a preference on the view model's scope. A failed write (disk
+     * full, I/O error) must not crash Settings: the in-memory state already
+     * shows the new value for this session.
+     */
+    private fun savePreference(block: suspend () -> Unit) {
         viewModelScope.launch {
-            prefs.setNavItems(items.joinToString(",") { it.name })
+            suspendRunCatching { block() }
+                .onFailure { Log.w(TAG, "Could not save an app preference", it) }
         }
     }
 

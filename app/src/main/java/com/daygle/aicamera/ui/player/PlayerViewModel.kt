@@ -2,6 +2,7 @@ package com.daygle.aicamera.ui.player
 
 import com.daygle.aicamera.ui.library.FalsePositiveActions
 import android.content.Context
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -18,6 +19,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.daygle.aicamera.data.AppPreferencesStore
 import com.daygle.aicamera.data.CameraRepository
+import com.daygle.aicamera.data.suspendRunCatching
 import com.daygle.aicamera.data.model.Recording
 import com.daygle.aicamera.data.model.Camera
 import com.daygle.aicamera.util.FileDownloader
@@ -123,7 +125,12 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun setOverlayEnabled(enabled: Boolean) {
-        viewModelScope.launch { prefs.setPlaybackOverlay(enabled) }
+        viewModelScope.launch {
+            // A failed preference write must not crash playback; the chip
+            // already reflects the choice for this clip.
+            suspendRunCatching { prefs.setPlaybackOverlay(enabled) }
+                .onFailure { Log.w(TAG, "Could not save the overlay preference", it) }
+        }
     }
 
     /** Save the current recording's MP4 to the device's downloads. */
@@ -204,6 +211,8 @@ class PlayerViewModel @Inject constructor(
     }
 
     private companion object {
+        const val TAG = "PlayerViewModel"
+
         /** Long enough for the server to finish a first-play H.265 conversion. */
         const val STREAM_READ_TIMEOUT_SECONDS = 180L
     }
