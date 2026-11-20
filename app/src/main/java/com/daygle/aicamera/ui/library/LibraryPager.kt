@@ -100,9 +100,14 @@ class LibraryPager<T>(
 
     /** Append the next page, if there is one and none is loading. */
     fun loadMore() {
-        val cursor = snapshot.nextCursor ?: return
-        val fetch = fetch ?: return
-        if (snapshot.loadingMore || reloadJob?.isActive == true) return
+        startLoadMore()
+    }
+
+    /** Start the next page; false when there was nothing to start (no cursor, or busy). */
+    private fun startLoadMore(): Boolean {
+        val cursor = snapshot.nextCursor ?: return false
+        val fetch = fetch ?: return false
+        if (snapshot.loadingMore || reloadJob?.isActive == true) return false
         publish(snapshot.copy(loadingMore = true, loadMoreError = null))
         moreJob = scope.launch {
             fetch(cursor).fold(
@@ -121,19 +126,20 @@ class LibraryPager<T>(
                 },
             )
         }
+        return true
     }
 
     /**
      * Keep a list that client-side filters thin out from looking empty: while
      * fewer than [minVisible] rows pass those filters, fetch further pages, up
      * to [MAX_AUTO_PAGES] per query so a filter matching nothing cannot walk
-     * the whole history.
+     * the whole history. Only a page that actually started counts against the
+     * limit, so a reload in flight cannot use one up.
      */
     fun fillTo(visibleCount: Int, minVisible: Int = MIN_VISIBLE) {
         if (visibleCount >= minVisible || !snapshot.hasMore || snapshot.loadingMore) return
         if (snapshot.loadMoreError != null || autoPages >= MAX_AUTO_PAGES) return
-        autoPages++
-        loadMore()
+        if (startLoadMore()) autoPages++
     }
 
     /**
