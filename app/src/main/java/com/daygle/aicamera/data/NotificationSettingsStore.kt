@@ -57,6 +57,11 @@ data class NotificationConfig(
     /** Enough to open a subscription. */
     val isSubscribable: Boolean
         get() = enabled && serverUrl.isNotBlank() && topic.isNotBlank()
+
+    /** Keep the ntfy password out of log lines and crash reports. */
+    override fun toString(): String =
+        "NotificationConfig(enabled=$enabled, serverUrl=$serverUrl, topic=$topic, " +
+            "username=$username, password=***, followServer=$followServer, userTopic=$userTopic)"
 }
 
 class NotificationSettingsStore(private val context: Context) {

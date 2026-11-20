@@ -42,6 +42,16 @@ data class Connection(
     val customHeaderValue: String = "",
 ) {
     val isConfigured: Boolean get() = baseUrl.isNotBlank() && username.isNotBlank()
+
+    /**
+     * Keep the secrets out of log lines, crash reports and stack traces: the
+     * generated `toString()` would otherwise carry the password, the
+     * Cloudflare Access client secret and the custom header's value.
+     */
+    override fun toString(): String =
+        "Connection(baseUrl=$baseUrl, username=$username, password=***, " +
+            "cfAccessClientId=$cfAccessClientId, cfAccessClientSecret=***, " +
+            "customHeaderName=$customHeaderName, customHeaderValue=***)"
 }
 
 /**
