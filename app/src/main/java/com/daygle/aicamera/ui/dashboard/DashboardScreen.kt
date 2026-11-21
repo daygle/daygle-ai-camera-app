@@ -192,7 +192,7 @@ private fun CameraTile(card: CameraCard, snapshotUrl: String?, onClick: () -> Un
                 }
             }
             ListItem(
-                headlineContent = {
+                content = {
                     Text(
                         card.camera.displayName,
                         style = MaterialTheme.typography.titleMedium,

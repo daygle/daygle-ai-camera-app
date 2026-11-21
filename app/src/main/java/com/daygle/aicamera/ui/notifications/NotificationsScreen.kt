@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -26,8 +27,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -36,6 +35,7 @@ import com.daygle.aicamera.data.model.AppUser
 import com.daygle.aicamera.ui.components.RecipientPicker
 import com.daygle.aicamera.ui.components.SettingsSection
 import com.daygle.aicamera.ui.components.SettingsSwitchRow
+import com.daygle.aicamera.ui.components.rememberSyncedTextFieldState
 import com.daygle.aicamera.ui.permissions.AppPermissions
 import com.daygle.aicamera.ui.permissions.PermissionsChecklist
 
@@ -187,12 +187,10 @@ fun NotificationsScreen(
                             focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                         )
                     )
-                    OutlinedTextField(
-                        value = state.password,
-                        onValueChange = viewModel::onPassword,
+                    OutlinedSecureTextField(
+                        state = rememberSyncedTextFieldState(state.password, viewModel::onPassword),
                         label = { Text("Password (Optional)") },
-                        singleLine = true,
-                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        textObfuscationMode = if (passwordVisible) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
                         trailingIcon = {
                             IconButton(onClick = { passwordVisible = !passwordVisible }) {
                                 Icon(

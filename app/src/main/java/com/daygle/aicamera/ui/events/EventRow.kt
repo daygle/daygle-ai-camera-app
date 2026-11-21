@@ -125,7 +125,7 @@ internal fun EventRow(
             )
         ) {
             ListItem(
-                headlineContent = {
+                content = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
