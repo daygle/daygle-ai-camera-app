@@ -7,8 +7,9 @@
     <!-- Compose BOM 2026.11.01 deprecates PasswordVisualTransformation and
          rememberModalBottomSheetState, which this app still uses, and Kotlin
          warnings fail the build, so that bump needs a Compose migration of its
-         own. Ignore just that notice: any other outdated dependency still fails. -->
+         own. Match this one upgrade so that a later Compose BOM is reported
+         again, and every other outdated dependency keeps failing the build. -->
     <issue id="GradleDependency">
-        <ignore regexp="compose-bom" />
+        <ignore regexp="compose-bom than 2026\.09\.00 is available: 2026\.11\.01" />
     </issue>
 </lint>
