@@ -40,11 +40,22 @@ class CloudflareAccessRequiredException : IOException("Cloudflare Access rejecte
  */
 class SessionManager {
 
-    @Volatile
-    private var connection: Connection = Connection()
+    /**
+     * The configured server and its credentials, published together so a
+     * request can never pair one server's address with another server's login:
+     * readers see either the whole previous or the whole new connection.
+     */
+    private data class SessionState(
+        val baseUrl: HttpUrl? = null,
+        val connection: Connection = Connection(),
+    )
 
     @Volatile
-    private var baseUrl: HttpUrl? = null
+    private var sessionState = SessionState()
+
+    private val baseUrl: HttpUrl? get() = sessionState.baseUrl
+
+    private val connection: Connection get() = sessionState.connection
 
     @Volatile
     private var cfAccessClientId: String = ""
@@ -128,10 +139,11 @@ class SessionManager {
 
     fun update(connection: Connection) {
         val normalized = normalizeBaseUrl(connection.baseUrl)
-        val changed = normalized?.toString() != baseUrl?.toString() || connection != this.connection
+        val previous = sessionState
+        val changed = normalized != previous.baseUrl || connection != previous.connection
         
-        this.connection = connection
-        this.baseUrl = normalized
+        // The address and its credentials are published together (see [SessionState]).
+        sessionState = SessionState(normalized, connection)
         this.cfAccessClientId = connection.cfAccessClientId.trim()
         this.cfAccessClientSecret = connection.cfAccessClientSecret
         this.customHeaderName = connection.customHeaderName.trim()
@@ -251,8 +263,10 @@ class SessionManager {
     }
 
     private fun performLogin(): LoginResult {
-        val base = baseUrl ?: return LoginResult.NotConfigured
-        val conn = connection
+        // One snapshot, so the credentials always belong to the address used.
+        val state = sessionState
+        val base = state.baseUrl ?: return LoginResult.NotConfigured
+        val conn = state.connection
         if (!conn.isConfigured) return LoginResult.NotConfigured
         val loginUrl = base.newBuilder().addPathSegment("login").build()
         

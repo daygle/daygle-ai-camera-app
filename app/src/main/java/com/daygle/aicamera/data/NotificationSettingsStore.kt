@@ -57,11 +57,20 @@ data class NotificationConfig(
     /** Enough to open a subscription. */
     val isSubscribable: Boolean
         get() = enabled && serverUrl.isNotBlank() && topic.isNotBlank()
+
+    /** Keep the ntfy password out of log lines and crash reports. */
+    override fun toString(): String =
+        "NotificationConfig(enabled=$enabled, serverUrl=$serverUrl, topic=$topic, " +
+            "username=$username, password=***, followServer=$followServer, userTopic=$userTopic)"
 }
 
 class NotificationSettingsStore(private val context: Context) {
 
     private val secrets = SecretStore(context)
+
+    /** Whether the legacy plaintext credentials were already migrated. */
+    @Volatile
+    private var legacyCredentialsMigrated = false
 
     private object Keys {
         val ENABLED = booleanPreferencesKey("push_enabled")
@@ -92,8 +101,17 @@ class NotificationSettingsStore(private val context: Context) {
         return config.first()
     }
 
+    /**
+     * Legacy plaintext credentials are migrated once per process: the listener
+     * re-reads these settings on every reconnect, so repeating the extra
+     * DataStore read and Keystore writes each time would be wasted work.
+     */
     private suspend fun migrateLegacyCredentials(): Unit = withContext(Dispatchers.IO) {
+        if (legacyCredentialsMigrated) return@withContext
         val legacy = context.notificationDataStore.data.first()
+        // `config` still falls back to the legacy values if a write below
+        // fails, so there is nothing to retry within this process.
+        legacyCredentialsMigrated = true
         val username = legacy[Keys.USERNAME]
         val password = legacy[Keys.PASSWORD]
         if (username == null && password == null) return@withContext

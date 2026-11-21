@@ -35,9 +35,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.daygle.aicamera.data.model.FaceFacets
 import com.daygle.aicamera.data.model.FalsePositiveFilter
-import java.time.Instant
+import com.daygle.aicamera.ui.datePickerDate
+import com.daygle.aicamera.ui.datePickerMillis
 import java.time.LocalDate
-import java.time.ZoneId
 
 /**
  * Asks for the next page when the list is scrolled within [threshold] rows of
@@ -187,18 +187,17 @@ fun DateRangeFilterDialog(
     onApply: (LocalDate?, LocalDate?) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val zone = ZoneId.systemDefault()
     val pickerState = rememberDateRangePickerState(
-        initialSelectedStartDateMillis = start?.atStartOfDay(zone)?.toInstant()?.toEpochMilli(),
-        initialSelectedEndDateMillis = end?.atStartOfDay(zone)?.toInstant()?.toEpochMilli(),
+        initialSelectedStartDateMillis = datePickerMillis(start),
+        initialSelectedEndDateMillis = datePickerMillis(end),
     )
     DatePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(onClick = {
                 onApply(
-                    pickerState.selectedStartDateMillis?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDate() },
-                    pickerState.selectedEndDateMillis?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDate() },
+                    datePickerDate(pickerState.selectedStartDateMillis),
+                    datePickerDate(pickerState.selectedEndDateMillis),
                 )
                 onDismiss()
             }) {
