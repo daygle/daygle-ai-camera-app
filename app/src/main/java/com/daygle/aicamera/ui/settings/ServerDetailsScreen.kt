@@ -11,7 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.input.KeyboardActionHandler
+import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -29,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedSecureTextField
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -46,13 +48,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.daygle.aicamera.ui.components.SettingsSection
+import com.daygle.aicamera.ui.components.rememberSyncedTextFieldState
 import com.daygle.aicamera.ui.connect.ConnectViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -140,14 +141,12 @@ fun ServerDetailsScreen(
                         )
                     )
 
-                    OutlinedTextField(
-                        value = state.password,
-                        onValueChange = viewModel::onPassword,
+                    OutlinedSecureTextField(
+                        state = rememberSyncedTextFieldState(state.password, viewModel::onPassword),
                         label = { Text("Password") },
-                        singleLine = true,
-                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        textObfuscationMode = if (passwordVisible) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { viewModel.connect { onBack() } }),
+                        onKeyboardAction = KeyboardActionHandler { viewModel.connect { onBack() } },
                         trailingIcon = {
                             IconButton(onClick = { passwordVisible = !passwordVisible }) {
                                 Icon(
@@ -194,14 +193,12 @@ fun ServerDetailsScreen(
                                 focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                             )
                         )
-                        OutlinedTextField(
-                            value = state.cfAccessClientSecret,
-                            onValueChange = viewModel::onCfAccessClientSecret,
+                        OutlinedSecureTextField(
+                            state = rememberSyncedTextFieldState(state.cfAccessClientSecret, viewModel::onCfAccessClientSecret),
                             label = { Text("Client Secret") },
-                            singleLine = true,
-                            visualTransformation = if (cfSecretVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            textObfuscationMode = if (cfSecretVisible) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(onDone = { viewModel.connect { onBack() } }),
+                            onKeyboardAction = KeyboardActionHandler { viewModel.connect { onBack() } },
                             trailingIcon = {
                                 IconButton(onClick = { cfSecretVisible = !cfSecretVisible }) {
                                     Icon(
@@ -250,14 +247,12 @@ fun ServerDetailsScreen(
                                 focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                             )
                         )
-                        OutlinedTextField(
-                            value = state.customHeaderValue,
-                            onValueChange = viewModel::onCustomHeaderValue,
+                        OutlinedSecureTextField(
+                            state = rememberSyncedTextFieldState(state.customHeaderValue, viewModel::onCustomHeaderValue),
                             label = { Text("Header value") },
-                            singleLine = true,
-                            visualTransformation = if (customHeaderValueVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            textObfuscationMode = if (customHeaderValueVisible) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(onDone = { viewModel.connect { onBack() } }),
+                            onKeyboardAction = KeyboardActionHandler { viewModel.connect { onBack() } },
                             trailingIcon = {
                                 IconButton(onClick = { customHeaderValueVisible = !customHeaderValueVisible }) {
                                     Icon(
