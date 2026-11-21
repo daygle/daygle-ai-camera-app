@@ -1,11 +1,19 @@
 name: Dependency Submission
 
-# Replaces GitHub's automatic dependency submission (disabled in repo settings).
-# The buildscript/plugin classpath is excluded from the graph: packages resolved
-# there (Android Gradle Plugin tooling such as bouncycastle, jose4j, jdom2,
-# commons-lang3, httpclient) are build-only transitive dependencies that are not
-# declared in any manifest, so Dependabot can never update them and its
-# security-update jobs fail daily with `dependency_not_found`.
+# GitHub's automatic dependency submission is enabled for this repository, so
+# its generated "Automatic Dependency Submission (Gradle)" job (submit-gradle)
+# also submits a graph on every push to main. That job runs on a dynamic event,
+# which only gets a read-only Actions cache token, so its attempt to save the
+# Gradle cache fails with "cache write denied: token has no writable scopes".
+# The warning is harmless and the snapshot is still submitted.
+#
+# This workflow remains the authoritative submission: GitHub prefers a user
+# submission over an automatic one for the same manifest. It also excludes the
+# buildscript/plugin classpath, because packages resolved there (Android Gradle
+# Plugin tooling such as bouncycastle, jose4j, jdom2, commons-lang3, httpclient)
+# are build-only transitive dependencies that are not declared in any manifest,
+# so Dependabot can never update them and its security-update jobs fail daily
+# with `dependency_not_found`.
 on:
   push:
     branches:
