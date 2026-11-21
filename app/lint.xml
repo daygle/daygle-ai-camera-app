@@ -4,12 +4,18 @@
         <ignore path="src/main/res/mipmap-anydpi-v26" />
     </issue>
 
-    <!-- These two only report that a newer release of Gradle, AGP or a library exists.
-         They react to upstream releases rather than to this repository, so with
-         warningsAsErrors a single patch release upstream would turn every build red
-         without a line of code changing. Dependabot (.github/dependabot.yml) opens the
-         upgrade pull requests weekly, so the notices stay in the lint report as
-         informational, and real code warnings still fail the build. -->
+    <!-- AndroidGradlePluginVersion only reports that a newer AGP exists upstream.
+         Dependabot (.github/dependabot.yml) opens the upgrade pull requests weekly,
+         so the notice stays in the lint report as informational and real code
+         warnings still fail the build. -->
     <issue id="AndroidGradlePluginVersion" severity="informational" />
-    <issue id="GradleDependency" severity="informational" />
+
+    <!-- Compose BOM 2026.11.01 deprecates PasswordVisualTransformation and
+         rememberModalBottomSheetState, which this app still uses, and Kotlin
+         warnings fail the build, so that bump needs a Compose migration of its
+         own. Match this one upgrade so that a later Compose BOM is reported
+         again, and every other outdated dependency keeps failing the build. -->
+    <issue id="GradleDependency">
+        <ignore regexp="compose-bom than 2026\.09\.00 is available: 2026\.11\.01" />
+    </issue>
 </lint>
